@@ -1,0 +1,43 @@
+const STORAGE_KEYS = {
+  ROBOTS: 'inspection_robots',
+  INSPECTION_POINTS: 'inspection_points',
+  MONITOR_POINTS: 'monitor_points',
+  METRICS: 'metrics',
+  TASKS: 'inspection_tasks',
+  PATHS: 'inspection_paths',
+  EXCEPTION_LOGS: 'exception_logs',
+  STRATEGIES: 'exception_strategies',
+  PLANS: 'inspection_plans',
+  SCHEMA_VERSION: 'schema_version',
+  INSPECTION_MAPS: 'inspection_maps',
+  WAYPOINTS: 'waypoints',
+  WAYPOINT_EDGES: 'waypoint_edges',
+  INSPECTION_ROUTES: 'inspection_routes',
+  INSPECTION_DEVICES: 'inspection_devices',
+  INSPECTION_DEVICE_CHECK_ITEMS: 'inspection_device_check_items',
+  INSPECTION_TASK_SNAPSHOTS: 'inspection_task_snapshots',
+  INSPECTION_TASK_RESULTS: 'inspection_task_results'
+}
+
+export const storage = {
+  get<T>(key: string): T | null {
+    const data = localStorage.getItem(key)
+    return data ? JSON.parse(data) : null
+  },
+  
+  set<T>(key: string, value: T): void {
+    localStorage.setItem(key, JSON.stringify(value))
+  },
+  
+  remove(key: string): void {
+    localStorage.removeItem(key)
+  },
+  
+  clear(): void {
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key)
+    })
+  }
+}
+
+export { STORAGE_KEYS }
