@@ -92,6 +92,9 @@
                 <template v-if="column.key === 'location'">
                   {{ record.locationText }}
                 </template>
+                <template v-if="column.key === 'updatedBy'">
+                  {{ record.updatedBy || '-' }}
+                </template>
               </template>
             </a-table>
           </div>
@@ -173,7 +176,8 @@ const columns = [
   { title: '序号', dataIndex: 'index', key: 'index', width: 70 },
   { title: '点位名称', dataIndex: 'name', key: 'name', width: 140 },
   { title: '点位类型', key: 'pointType', width: 100 },
-  { title: '点位经纬度', key: 'location' }
+  { title: '点位经纬度', key: 'location' },
+  { title: '更新人', key: 'updatedBy', width: 100 }
 ]
 
 const rowSelection = computed(() => ({
@@ -184,7 +188,7 @@ const rowSelection = computed(() => ({
 }))
 
 function goBack() {
-  router.push('/map/map-list')
+  router.push('/implementation/map/list')
 }
 
 function toggleAddMode() {
@@ -284,7 +288,8 @@ function handleConfirmCreatePoint() {
     positionSource: PositionSource.MAP_PICK,
     lastMapPickAt: now,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    updatedBy: '系统管理员'
   })
   createPointVisible.value = false
   message.success('点位新增成功')

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "build:pages": "rm -rf dist && mkdir -p dist && cp index.html app.js main.css 地图.png dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

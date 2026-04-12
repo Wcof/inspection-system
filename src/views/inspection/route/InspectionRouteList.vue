@@ -65,9 +65,9 @@ function fetchRoutes() {
 
 function goToForm(id?: string) {
   if (id) {
-    router.push(`/smart-inspection/route/form/${id}`)
+    router.push(`/management/inspection/route/form/${id}`)
   } else {
-    router.push('/smart-inspection/route/form')
+    router.push('/management/inspection/route/form')
   }
 }
 

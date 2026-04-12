@@ -232,14 +232,14 @@ const filteredPlans = computed(() => {
 })
 function goToForm(id?: string) {
   if (id) {
-    router.push(`/smart-inspection/plan/form/${id}`)
+    router.push(`/management/plan/form/${id}`)
   } else {
-    router.push('/smart-inspection/plan/form')
+    router.push('/management/plan/form')
   }
 }
 
 function viewTasks(_id: string) {
-  router.push(`/smart-inspection/task?planId=${_id}`)
+  router.push(`/management/task/list?planId=${_id}`)
 }
 
 function handleDelete(id: string) {

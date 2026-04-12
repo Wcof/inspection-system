@@ -126,6 +126,62 @@
               </a-row>
             </a-card>
 
+            <a-card size="small" title="检查周期配置" style="margin-top: 12px">
+              <a-form layout="vertical">
+                <a-form-item label="检测频率">
+                  <a-row :gutter="8">
+                    <a-col :span="12">
+                      <a-input-number
+                        :value="form.inspectionFrequency?.value"
+                        placeholder="数值"
+                        style="width: 100%"
+                        :min="1"
+                        @change="handleFrequencyValueChange"
+                      />
+                    </a-col>
+                    <a-col :span="12">
+                      <a-select 
+                        :value="form.inspectionFrequency?.unit" 
+                        placeholder="单位" 
+                        style="width: 100%"
+                        @change="handleFrequencyUnitChange"
+                      >
+                        <a-select-option value="hour">小时</a-select-option>
+                        <a-select-option value="day">天</a-select-option>
+                        <a-select-option value="week">周</a-select-option>
+                      </a-select>
+                    </a-col>
+                  </a-row>
+                </a-form-item>
+
+                <a-form-item label="执行周期">
+                  <a-range-picker
+                    v-model:value="executionCycleRange"
+                    style="width: 100%"
+                    @change="handleExecutionCycleChange"
+                  />
+                </a-form-item>
+
+                <a-form-item label="可执行时间范围">
+                  <a-time-picker
+                    v-model:value="startTimeValue"
+                    format="HH:mm"
+                    placeholder="开始时间"
+                    style="width: 45%"
+                    @change="handleStartTimeChange"
+                  />
+                  <span style="margin: 0 8px">~</span>
+                  <a-time-picker
+                    v-model:value="endTimeValue"
+                    format="HH:mm"
+                    placeholder="结束时间"
+                    style="width: 45%"
+                    @change="handleEndTimeChange"
+                  />
+                </a-form-item>
+              </a-form>
+            </a-card>
+
             <div class="wizard-check-items">
               <div class="wizard-check-head">
                 <span>检测项配置</span>
@@ -528,6 +584,7 @@ import { useRobotStore } from '@/stores/robot'
 import type { InspectionDevice, InspectionPoint } from '@/types/inspection'
 import { DeviceStatus } from '@/types/inspection'
 import { message, Modal } from 'ant-design-vue'
+import dayjs from 'dayjs'
 
 const router = useRouter()
 const route = useRoute()
@@ -603,8 +660,70 @@ const form = reactive<Partial<InspectionDevice>>({
   type: '',
   ptzPreset: { x: 0, y: 0, z: 0 },
   status: DeviceStatus.ACTIVE,
-  checkItems: []
+  checkItems: [],
+  inspectionFrequency: undefined,
+  executionCycle: undefined,
+  executionWindow: undefined
 })
+
+const executionCycleRange = ref<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null])
+const startTimeValue = ref<dayjs.Dayjs | null>(null)
+const endTimeValue = ref<dayjs.Dayjs | null>(null)
+
+function handleExecutionCycleChange(dates: [dayjs.Dayjs | null, dayjs.Dayjs | null]) {
+  if (dates[0] && dates[1]) {
+    form.executionCycle = {
+      startDate: dates[0].format('YYYY-MM-DD'),
+      endDate: dates[1].format('YYYY-MM-DD')
+    }
+  } else {
+    form.executionCycle = undefined
+  }
+}
+
+function handleStartTimeChange(time: dayjs.Dayjs | null) {
+  if (time) {
+    if (!form.executionWindow) {
+      form.executionWindow = { startTime: '', endTime: '' }
+    }
+    form.executionWindow.startTime = time.format('HH:mm')
+  } else if (form.executionWindow) {
+    form.executionWindow.startTime = ''
+  }
+}
+
+function handleEndTimeChange(time: dayjs.Dayjs | null) {
+  if (time) {
+    if (!form.executionWindow) {
+      form.executionWindow = { startTime: '', endTime: '' }
+    }
+    form.executionWindow.endTime = time.format('HH:mm')
+  } else if (form.executionWindow) {
+    form.executionWindow.endTime = ''
+  }
+}
+
+function handleFrequencyValueChange(value: number | null) {
+  if (!form.inspectionFrequency) {
+    if (value !== null) {
+      form.inspectionFrequency = { value, unit: 'hour' }
+    }
+  } else {
+    if (value !== null) {
+      form.inspectionFrequency.value = value
+    } else {
+      form.inspectionFrequency = undefined
+    }
+  }
+}
+
+function handleFrequencyUnitChange(unit: 'hour' | 'day' | 'week') {
+  if (!form.inspectionFrequency) {
+    form.inspectionFrequency = { value: 1, unit }
+  } else {
+    form.inspectionFrequency.unit = unit
+  }
+}
 
 const checkItems = ref<any[]>([])
 const deletedCheckItemIds = ref<string[]>([])
@@ -637,7 +756,7 @@ const checkItemColumns = [
 ]
 
 function goBack() {
-  router.push('/facility/device')
+  router.push('/implementation/device/list')
 }
 
 function normalizeVisionMapping(mapping: any) {
@@ -984,6 +1103,9 @@ async function handleSave() {
       referenceImageVersion: existingDevice.value?.referenceImageVersion,
       status: form.status || DeviceStatus.ACTIVE,
       checkItems: [],
+      inspectionFrequency: form.inspectionFrequency,
+      executionCycle: form.executionCycle,
+      executionWindow: form.executionWindow,
       createdAt: existingDevice.value?.createdAt || now,
       updatedAt: now
     }
@@ -1038,8 +1160,30 @@ onMounted(() => {
         inspectionPointId: device.inspectionPointId,
         type: device.type,
         ptzPreset: device.ptzPreset,
-        status: device.status
+        status: device.status,
+        inspectionFrequency: device.inspectionFrequency,
+        executionCycle: device.executionCycle,
+        executionWindow: device.executionWindow
       })
+      
+      if (device.executionCycle) {
+        executionCycleRange.value = [
+          device.executionCycle.startDate ? dayjs(device.executionCycle.startDate) : null,
+          device.executionCycle.endDate ? dayjs(device.executionCycle.endDate) : null
+        ]
+      }
+      
+      if (device.executionWindow) {
+        if (device.executionWindow.startTime) {
+          const [startHour, startMinute] = device.executionWindow.startTime.split(':').map(Number)
+          startTimeValue.value = dayjs().hour(startHour).minute(startMinute)
+        }
+        if (device.executionWindow.endTime) {
+          const [endHour, endMinute] = device.executionWindow.endTime.split(':').map(Number)
+          endTimeValue.value = dayjs().hour(endHour).minute(endMinute)
+        }
+      }
+      
       checkItems.value = inspectionStore.getInspectionDeviceCheckItemsByDeviceId(device.id).map(item => buildEditableCheckItem(item))
     }
   }

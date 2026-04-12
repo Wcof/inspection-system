@@ -191,14 +191,14 @@ function fetchPoints() {
 
 function goToForm(id?: string) {
   if (id) {
-    router.push(`/facility/inspection-point/form/${id}`)
+    router.push(`/implementation/point/form/${id}`)
   } else {
-    router.push('/facility/inspection-point/form')
+    router.push('/implementation/point/form')
   }
 }
 
 function viewDevices(id: string) {
-  router.push(`/facility/device?pointId=${id}`)
+  router.push(`/implementation/device/list?pointId=${id}`)
 }
 
 function handleDelete(id: string) {

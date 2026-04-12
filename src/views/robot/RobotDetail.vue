@@ -152,11 +152,11 @@ const formatDate = (date?: Date): string => {
 }
 
 const handleBack = () => {
-  router.push('/facility/robot')
+  router.push('/implementation/robot/list')
 }
 
 const handleEdit = () => {
-  router.push(`/facility/robot/form/${robotId}`)
+  router.push(`/implementation/robot/form/${robotId}`)
 }
 </script>
 

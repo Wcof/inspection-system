@@ -121,7 +121,7 @@ const form = reactive({
 })
 
 function goBack() {
-  router.push('/map/map-list')
+  router.push('/implementation/map/list')
 }
 
 function handleBeforeUpload(file: File) {

@@ -1,19 +1,40 @@
 const MAP_STYLE_URL = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+const SITE_IMAGE_COORDS = [
+    [121.4688, 31.2356], // top-left
+    [121.4794, 31.2356], // top-right
+    [121.4794, 31.2264], // bottom-right
+    [121.4688, 31.2264]  // bottom-left
+];
+const SITE_VIEW_BOUNDS = [
+    [SITE_IMAGE_COORDS[0][0], SITE_IMAGE_COORDS[2][1]], // west, south
+    [SITE_IMAGE_COORDS[1][0], SITE_IMAGE_COORDS[0][1]]  // east, north
+];
+const siteCoord = (x, y) => {
+    const left = SITE_IMAGE_COORDS[0][0];
+    const right = SITE_IMAGE_COORDS[1][0];
+    const top = SITE_IMAGE_COORDS[0][1];
+    const bottom = SITE_IMAGE_COORDS[2][1];
+    return [
+        +(left + (right - left) * x).toFixed(6),
+        +(top - (top - bottom) * y).toFixed(6)
+    ];
+};
+const SITE_CENTER = siteCoord(0.5, 0.5);
 
 const map = new maplibregl.Map({
     container: 'map',
     style: MAP_STYLE_URL,
-    center: [121.4740, 31.2310],
-    zoom: 16.8,
-    pitch: 60,
-    bearing: 42,
+    center: SITE_CENTER,
+    zoom: 17.15,
+    pitch: 0,
+    bearing: 0,
     antialias: true,
     interactive: true,
-    dragRotate: true,
+    dragRotate: false,
     dragPan: true
 });
 
-const DEFAULT_VIEW = { center: [121.4740, 31.2310], zoom: 16.8, pitch: 60, bearing: 42 };
+const DEFAULT_VIEW = { center: SITE_CENTER, zoom: 17.15, pitch: 0, bearing: 0 };
 
 // ==== 1. State Model ====
 let robotFilter = 'all';
@@ -27,6 +48,7 @@ const state = {
     currentAlertId: null,
     currentDockId: null,
     currentEvidenceMode: 'normal',
+    pointAlertDecision: {},
     autoplayEnabled: true,
     autoplayIndex: 0,
     lastClick: { type: null, id: null },
@@ -38,7 +60,15 @@ const state = {
     alertPanelVisible: false,
     envMetricPopupKey: 'O2',
     envHistoryRange: 7,
-    currentControlRobotId: null
+    currentControlRobotId: null,
+    mapUi: {
+        labels: true,
+        robots: true,
+        points: true,
+        docks: true,
+        pointStatus: true,
+        route: true
+    }
 };
 
 const ROBOT_MILEAGE_KM = {
@@ -51,14 +81,31 @@ const ROBOT_MILEAGE_KM = {
 
 const ENV_METRIC_DEFS = {
     O2: { label: '氧气 O2', unit: '次' },
-    CH4: { label: '甲烷 CH4', unit: '次' },
+    CH4: { label: '可燃气体 CH4', unit: '次' },
     CO: { label: '一氧化碳 CO', unit: '次' },
-    H2S: { label: '硫化氢 H2S', unit: '次' },
-    TVOC: { label: 'TVOC', unit: '次' },
-    Noise: { label: '噪声 Noise', unit: '次' }
+    H2S: { label: '硫化氢 H2S', unit: '次' }
 };
+const WEATHER_SNAPSHOT = { condition: '晴', temp: 26, wind: '东南风2级', humidity: 58 };
+const ROBOT_BIZ_STATUS_LABEL = {
+    executing: '执行中',
+    returning: '返航中',
+    charging: '充电中',
+    standby: '待机',
+    warning: '异常'
+};
+const POINT_STATUS_LABEL = { running: '已巡', pending: '未巡', warn: '异常', danger: '异常', completed: '已巡' };
+let broadcastTickerTimer = null;
+let broadcastTickerIndex = 0;
 
 let mapPopup = null;
+const getRobotBizStatus = (robot) => {
+    if (!robot) return 'standby';
+    if (robot.status === 'charging') return 'charging';
+    if ((robot.label || '').includes('返航')) return 'returning';
+    if (robot.status === 'danger' || robot.status === 'warn') return 'returning';
+    if (robot.taskId) return 'executing';
+    return 'executing';
+};
 const setAlertPanelVisible = (visible) => {
     state.alertPanelVisible = visible;
     const panel = document.getElementById('alert-center');
@@ -108,8 +155,12 @@ const showRobotPopup = (robotId) => {
         const r = DATA.robots.find(x => x.id === robotId);
         if (!r) { console.warn('[Popup] Robot not found:', robotId); return; }
         const t = DATA.tasks[r.taskId] || {};
+        const activeNode = t.timeline?.nodes?.find((n) => n.status === 'active') || t.timeline?.nodes?.[0];
+        const totalMileage = ROBOT_MILEAGE_KM[r.id] || 0;
+        const todayMileage = Math.max(18, Math.round((r.battery / 100) * 42));
+        const remainMileage = Math.round((r.battery / 100) * 120);
         const bc = r.battery > 50 ? 'high' : r.battery > 20 ? 'mid' : 'low';
-        const sm = { safe:'正常运行', warn:'告警', danger:'故障停机', charging:'充电中' };
+        const sm = { safe:'执行中', warn:'注意', danger:'异常', charging:'充电中' };
         const sc = { safe:'#22C55E', warn:'#F59E0B', danger:'#EF4444', charging:'#3B82F6' };
         const bgImg = t.bgImg || makeMockImg('Live', '#152338', '#2f4866');
         const now = new Date();
@@ -133,19 +184,27 @@ const showRobotPopup = (robotId) => {
                         <span class="popup-stat-value">${t.taskName||r.task||'无任务'}</span>
                     </div>
                     <div class="popup-stat" style="grid-column:span 2">
-                        <span class="popup-stat-label">剩余电量</span>
+                        <span class="popup-stat-label">剩余电量 / 剩余里程</span>
                         <div class="popup-battery">
-                            <span class="popup-stat-value" style="min-width:36px">${r.battery}%</span>
+                            <span class="popup-stat-value" style="min-width:86px">${r.battery}% / ${remainMileage}km</span>
                             <div class="battery-bar"><div class="battery-fill ${bc}" style="width:${r.battery}%"></div></div>
                         </div>
                     </div>
                     <div class="popup-stat">
-                        <span class="popup-stat-label">执行阶段</span>
-                        <span class="popup-stat-value highlight">${t.stage||'待命'}</span>
+                        <span class="popup-stat-label">当前巡检点</span>
+                        <span class="popup-stat-value highlight">${activeNode?.name || '待命'}</span>
                     </div>
                     <div class="popup-stat">
-                        <span class="popup-stat-label">任务覆盖率</span>
-                        <span class="popup-stat-value">${t.cov||'--'}</span>
+                        <span class="popup-stat-label">剩余里程</span>
+                        <span class="popup-stat-value">${remainMileage}km</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">今日里程</span>
+                        <span class="popup-stat-value">${todayMileage}km</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">总里程</span>
+                        <span class="popup-stat-value">${totalMileage}km</span>
                     </div>
                 </div>
                 <div class="popup-ptz">
@@ -158,7 +217,7 @@ const showRobotPopup = (robotId) => {
                         <div class="ptz-overlay-text">${r.id} | CAM-01 | ${ts}</div>
                     </div>
                     <div class="ptz-action">
-                        <button class="ptz-control-entry" onclick="openControlModal('${r.id}')">进入控制</button>
+                        <button class="ptz-control-entry" onclick="goDispatchCenter('${r.id}')">前往调度台</button>
                     </div>
                 </div>
             </div>
@@ -204,6 +263,15 @@ const openControlModal = (robotId) => {
     if (modal) modal.style.display = 'flex';
 };
 window.openControlModal = openControlModal;
+const goDispatchCenter = (robotId = '') => {
+    const ctx = robotId ? `调度入口: ${robotId}` : '调度入口';
+    document.getElementById('top-context').innerText = `${ctx}（首页仅跳转，不执行）`;
+};
+const goCockpit = () => {
+    document.getElementById('top-context').innerText = '驾驶舱入口（首页仅跳转）';
+};
+window.goDispatchCenter = goDispatchCenter;
+window.goCockpit = goCockpit;
 
 const showInspectionPointPopup = (pointId) => {
     try {
@@ -237,6 +305,10 @@ const showInspectionPointPopup = (pointId) => {
             optical: taskData?.bgImg || makeMockImg(`${point.name} 光学视角`, '#1f3047', '#3d5e7f'),
             thermal: makeMockImg(`${point.name} 热成像`, '#3a1f1f', '#5f382a')
         };
+        const pointAlert = DATA.alerts.find((a) => {
+            if (!Array.isArray(a.coords)) return false;
+            return Math.abs(a.coords[0] - coords[0]) < 0.0002 && Math.abs(a.coords[1] - coords[1]) < 0.0002;
+        });
 
         const envOverviewHtml = Object.keys(metrics).slice(0, 6).map((k) => {
             const m = metrics[k];
@@ -245,6 +317,38 @@ const showInspectionPointPopup = (pointId) => {
                 <span class="pev-val">${m.value}</span>
             </div>`;
         }).join('');
+        const alertTab = pointAlert
+            ? `<button class="point-photo-tab active" data-view="alert">巡检告警</button>`
+            : `<button class="point-photo-tab disabled" data-view="alert" disabled>巡检告警</button>`;
+        const alertImgs = {
+            optical: pointAlert?.bgImg || pointImgs.optical,
+            thermal: makeMockImg(`${point.name} 告警热成像`, '#431c1c', '#6e3b2b')
+        };
+        const decision = pointAlert ? (state.pointAlertDecision[pointAlert.id] || 'none') : 'none';
+        const decisionText = decision === 'confirm' ? '已确认处置' : (decision === 'shield' ? '已屏蔽告警' : '待处置');
+        const alertPanelHtml = pointAlert
+            ? `<div class="point-alert-card">
+                <div class="point-photo-tabs" style="margin-bottom:8px;">
+                    <button class="point-photo-tab active" data-alert-mode="optical">光学视角</button>
+                    <button class="point-photo-tab" data-alert-mode="thermal">热成像视角</button>
+                </div>
+                <div class="point-photo-frame" id="point-alert-frame">
+                    <div id="point-alert-image" class="point-photo-image" style="background-image:url('${alertImgs.optical}')"></div>
+                </div>
+                <div style="margin-top:8px; color:var(--text-main);">${pointAlert.time} ${pointAlert.state}</div>
+                <div style="margin-top:4px">${pointAlert.defect}</div>
+                <div style="margin-top:6px;color:var(--text-sub)">设备：${pointAlert.device}</div>
+                <div class="point-alert-actions">
+                    <button class="point-alert-btn ${decision === 'confirm' ? 'active' : ''}" data-alert-action="confirm">确认</button>
+                    <button class="point-alert-btn ${decision === 'shield' ? 'active' : ''}" data-alert-action="shield">屏蔽</button>
+                    <button class="point-alert-btn" data-alert-action="undo">撤回</button>
+                </div>
+                <div class="point-alert-decision" id="point-alert-decision">${decisionText}</div>
+            </div>`
+            : `<div class="point-alert-card dim">当前点位暂无告警</div>`;
+        const defaultMediaActive = pointAlert ? '' : ' active';
+        const defaultMediaDisplay = pointAlert ? 'none' : 'block';
+        const defaultAlertDisplay = pointAlert ? 'block' : 'none';
 
         const html = `
         <div class="map-popup">
@@ -273,13 +377,22 @@ const showInspectionPointPopup = (pointId) => {
                     </div>
                 </div>
                 <div class="point-photo-section">
-                    <div class="popup-metrics-title">最近影像</div>
+                    <div class="popup-metrics-title">巡检信息</div>
                     <div class="point-photo-tabs">
-                        <button class="point-photo-tab active" data-mode="optical">光学视角</button>
-                        <button class="point-photo-tab" data-mode="thermal">热成像视角</button>
+                        <button class="point-photo-tab${defaultMediaActive}" data-view="media">最近影像</button>
+                        ${alertTab}
                     </div>
-                    <div class="point-photo-frame">
-                        <div id="point-photo-image" class="point-photo-image" style="background-image:url('${pointImgs.optical}')"></div>
+                    <div id="point-media-panel" style="display:${defaultMediaDisplay};">
+                        <div class="point-photo-tabs" style="margin-top:8px">
+                            <button class="point-photo-tab active" data-mode="optical">光学视角</button>
+                            <button class="point-photo-tab" data-mode="thermal">热成像视角</button>
+                        </div>
+                        <div class="point-photo-frame" id="point-media-frame">
+                            <div id="point-photo-image" class="point-photo-image" style="background-image:url('${pointImgs.optical}')"></div>
+                        </div>
+                    </div>
+                    <div id="point-alert-panel" style="display:${defaultAlertDisplay}; margin-top:8px;">
+                        ${alertPanelHtml}
                     </div>
                 </div>
                 <div class="popup-metrics-section">
@@ -295,21 +408,99 @@ const showInspectionPointPopup = (pointId) => {
             el.style.display = 'block';
             el.style.transform = '';
             const imgEl = el.querySelector('#point-photo-image');
-            const tabs = el.querySelectorAll('.point-photo-tab');
+            const modeTabs = el.querySelectorAll('.point-photo-tab[data-mode]');
+            const alertModeTabs = el.querySelectorAll('.point-photo-tab[data-alert-mode]');
+            const viewTabs = el.querySelectorAll('.point-photo-tab[data-view]');
+            const mediaPanel = el.querySelector('#point-media-panel');
+            const alertPanel = el.querySelector('#point-alert-panel');
+            const mediaFrame = el.querySelector('#point-media-frame');
+            const alertFrame = el.querySelector('#point-alert-frame');
+            const alertImgEl = el.querySelector('#point-alert-image');
             const modeFilter = {
                 optical: 'grayscale(10%) contrast(1.05)',
                 thermal: 'saturate(4) hue-rotate(120deg) contrast(1.7)'
             };
-            tabs.forEach((tab) => {
+            let currentMediaMode = 'optical';
+            let currentAlertMode = 'optical';
+            viewTabs.forEach((tab) => {
                 tab.onclick = (e) => {
                     e.stopPropagation();
-                    tabs.forEach((t) => t.classList.remove('active'));
+                    if (tab.disabled) return;
+                    viewTabs.forEach((t) => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    const isMedia = tab.dataset.view === 'media';
+                    if (mediaPanel) mediaPanel.style.display = isMedia ? 'block' : 'none';
+                    if (alertPanel) alertPanel.style.display = isMedia ? 'none' : 'block';
+                };
+            });
+            modeTabs.forEach((tab) => {
+                tab.onclick = (e) => {
+                    e.stopPropagation();
+                    modeTabs.forEach((t) => t.classList.remove('active'));
                     tab.classList.add('active');
                     const mode = tab.dataset.mode;
+                    currentMediaMode = mode;
                     if (imgEl) {
                         imgEl.style.backgroundImage = `url('${pointImgs[mode] || pointImgs.optical}')`;
                         imgEl.style.filter = modeFilter[mode] || 'none';
                     }
+                };
+            });
+            alertModeTabs.forEach((tab) => {
+                tab.onclick = (e) => {
+                    e.stopPropagation();
+                    alertModeTabs.forEach((t) => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    const mode = tab.dataset.alertMode;
+                    currentAlertMode = mode;
+                    if (alertImgEl) {
+                        alertImgEl.style.backgroundImage = `url('${alertImgs[mode] || alertImgs.optical}')`;
+                        alertImgEl.style.filter = modeFilter[mode] || 'none';
+                    }
+                };
+            });
+            const openPointEvidence = (img, filter, device, meta) => {
+                const modal = document.getElementById('evi-modal');
+                const modalContent = document.getElementById('evi-modal-content');
+                if (!modal || !modalContent) return;
+                modal.style.display = 'flex';
+                modalContent.style.backgroundImage = `url('${img}')`;
+                modalContent.style.filter = filter || 'none';
+                document.getElementById('modal-device').innerText = device || '巡检影像';
+                document.getElementById('modal-meta').innerText = meta || `${taskData?.bot || '--'} | ${inspectTimeText}`;
+            };
+            if (mediaFrame) {
+                mediaFrame.onclick = (e) => {
+                    e.stopPropagation();
+                    openPointEvidence(pointImgs[currentMediaMode] || pointImgs.optical, modeFilter[currentMediaMode], point.name, `${taskData?.bot || '--'} | ${inspectTimeText}`);
+                };
+            }
+            if (alertFrame && pointAlert) {
+                alertFrame.onclick = (e) => {
+                    e.stopPropagation();
+                    openPointEvidence(alertImgs[currentAlertMode] || alertImgs.optical, modeFilter[currentAlertMode], pointAlert.device, `${taskData?.bot || '--'} | ${pointAlert.time}`);
+                };
+            }
+            const decisionEl = el.querySelector('#point-alert-decision');
+            const actionBtns = el.querySelectorAll('[data-alert-action]');
+            const applyDecisionView = (decisionValue) => {
+                actionBtns.forEach((btn) => {
+                    if (btn.dataset.alertAction === 'confirm') btn.classList.toggle('active', decisionValue === 'confirm');
+                    if (btn.dataset.alertAction === 'shield') btn.classList.toggle('active', decisionValue === 'shield');
+                });
+                if (decisionEl) {
+                    decisionEl.innerText = decisionValue === 'confirm' ? '已确认处置' : (decisionValue === 'shield' ? '已屏蔽告警' : '待处置');
+                }
+            };
+            actionBtns.forEach((btn) => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (!pointAlert) return;
+                    const action = btn.dataset.alertAction;
+                    if (action === 'confirm') state.pointAlertDecision[pointAlert.id] = 'confirm';
+                    if (action === 'shield') state.pointAlertDecision[pointAlert.id] = 'shield';
+                    if (action === 'undo') state.pointAlertDecision[pointAlert.id] = 'none';
+                    applyDecisionView(state.pointAlertDecision[pointAlert.id] || 'none');
                 };
             });
         }
@@ -322,6 +513,65 @@ const showInspectionPointPopup = (pointId) => {
 };
 window.showInspectionPointPopup = showInspectionPointPopup;
 window.closeMapPopup = closeMapPopup;
+
+const showDockPopup = (dockId) => {
+    try {
+        closeMapPopup();
+        const dock = DATA.docks.find(d => d.id === dockId);
+        if (!dock) return;
+        const statusText = dock.status === 'charging' ? '服务中' : '闲置';
+        const statusClass = dock.status === 'charging' ? 'highlight' : 'safe-txt';
+        const currentRobot = dock.status === 'charging' ? dock.bot : '暂无';
+        const html = `
+        <div class="map-popup">
+            <div class="popup-header">
+                <span class="popup-title">${dock.name}</span>
+                <span class="tag ${dock.status === 'charging' ? 'gold' : 'smog'}">${statusText}</span>
+                <span class="popup-close-btn" onclick="closeMapPopup()">✕</span>
+            </div>
+            <div class="popup-body">
+                <div class="popup-stats">
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">当前状态</span>
+                        <span class="popup-stat-value ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">当前服务机器人</span>
+                        <span class="popup-stat-value">${currentRobot}</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">上一次充电机器人</span>
+                        <span class="popup-stat-value">${dock.lastRobot || '--'}</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">当前节点电压</span>
+                        <span class="popup-stat-value">${dock.voltage || '--'}</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">累计充电次数</span>
+                        <span class="popup-stat-value">${dock.totalCharges || 0}次</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">站点编号</span>
+                        <span class="popup-stat-value">${dock.id}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        const el = document.getElementById('map-popup-body');
+        if (el) {
+            el.innerHTML = html;
+            el.style.display = 'block';
+            el.style.transform = '';
+        }
+        positionPopupAtFeature(dock.coords);
+        mapPopup = dockId;
+    } catch (err) {
+        console.error('[Popup] Error showing dock popup:', err);
+    }
+};
+window.showDockPopup = showDockPopup;
 
 // ==== 2. Mock Data ====
 const makeMockImg = (title, c1, c2) => {
@@ -494,17 +744,106 @@ const DATA = {
         { id: 'A-03', bgImg: makeMockImg('Alert A-03', '#172033', '#334f7c'), time: '11:45', level: 'danger', state: '待复核', device: 'B区冷媒管线', loc: '侧边管囊', defect: '气体压力突降', taskId: 'T-01', coords: [121.4729, 31.2331], aimSafe: false, targetLabel: '压力表视窗 [未对准]', eviResult: '分析: 镜头失焦，无法读数', eviClass: 'danger-txt', lastTime: '2天前', lastResult: '正常', comp: '未见异常' }
     ],
     docks: [
-        { id: 'D-01', name: 'A区-主干道充换站', status: 'charging', bot: 'R-11(占)', coords: [121.4725, 31.2280] },
-        { id: 'D-02', name: 'C区-仓库备用坞', status: 'safe', bot: '空闲', coords: [121.4760, 31.2345] }
+        { id: 'D-01', name: 'A区-主干道充电站', status: 'charging', bot: 'R-11', lastRobot: 'R-07', voltage: '398V', totalCharges: 18, coords: [121.4725, 31.2280] },
+        { id: 'D-02', name: 'C区-仓库备用站', status: 'safe', bot: '空闲', lastRobot: 'R-02', voltage: '401V', totalCharges: 12, coords: [121.4760, 31.2345] },
+        { id: 'D-03', name: 'B区-巡检入口充电站', status: 'charging', bot: 'R-02', lastRobot: 'R-12', voltage: '396V', totalCharges: 16, coords: [121.4708, 31.2282] },
+        { id: 'D-04', name: 'E区-动力站房充电站', status: 'safe', bot: '空闲', lastRobot: 'R-11', voltage: '400V', totalCharges: 21, coords: [121.4775, 31.2318] },
+        { id: 'D-05', name: '北侧-临停补能站', status: 'safe', bot: '空闲', lastRobot: 'R-05', voltage: '399V', totalCharges: 9, coords: [121.4732, 31.2342] },
+        { id: 'D-06', name: '南侧-备用充电站', status: 'charging', bot: 'R-05', lastRobot: 'R-03', voltage: '397V', totalCharges: 14, coords: [121.4768, 31.2274] }
     ]
 };
 
 const INSPECTION_POINT_COORDS = {
-    'IP-E3': [121.4725, 31.2325],
-    'IP-E5': [121.4760, 31.2260],
-    'IP-B1': [121.4700, 31.2290],
-    'IP-B3': [121.4715, 31.2335]
+    'IP-E3': siteCoord(0.72, 0.57),
+    'IP-E5': siteCoord(0.84, 0.68),
+    'IP-B1': siteCoord(0.21, 0.63),
+    'IP-B3': siteCoord(0.57, 0.56)
 };
+
+const applySiteLayout = () => {
+    const pt = {
+        E3: INSPECTION_POINT_COORDS['IP-E3'],
+        E5: INSPECTION_POINT_COORDS['IP-E5'],
+        B1: INSPECTION_POINT_COORDS['IP-B1'],
+        B3: INSPECTION_POINT_COORDS['IP-B3'],
+        R07: siteCoord(0.67, 0.58),
+        R12: siteCoord(0.43, 0.56),
+        R02: siteCoord(0.58, 0.71),
+        R11: siteCoord(0.16, 0.36),
+        R05: siteCoord(0.46, 0.74),
+        A03: siteCoord(0.63, 0.67),
+        D1: siteCoord(0.16, 0.36),
+        D2: siteCoord(0.89, 0.39),
+        D3: siteCoord(0.33, 0.34),
+        D4: siteCoord(0.63, 0.36),
+        D5: siteCoord(0.78, 0.74),
+        D6: siteCoord(0.46, 0.74),
+        T1N1: siteCoord(0.35, 0.48),
+        T1N2: siteCoord(0.53, 0.48),
+        T1N4: siteCoord(0.84, 0.63),
+        T2N3: siteCoord(0.33, 0.45)
+    };
+
+    const setRobotCoord = (id, coord) => {
+        const robot = DATA.robots.find((r) => r.id === id);
+        if (robot) robot.coords = coord;
+    };
+    setRobotCoord('R-07', pt.R07);
+    setRobotCoord('R-12', pt.R12);
+    setRobotCoord('R-02', pt.R02);
+    setRobotCoord('R-11', pt.R11);
+    setRobotCoord('R-05', pt.R05);
+
+    const setDockCoord = (id, coord) => {
+        const dock = DATA.docks.find((d) => d.id === id);
+        if (dock) dock.coords = coord;
+    };
+    setDockCoord('D-01', pt.D1);
+    setDockCoord('D-02', pt.D2);
+    setDockCoord('D-03', pt.D3);
+    setDockCoord('D-04', pt.D4);
+    setDockCoord('D-05', pt.D5);
+    setDockCoord('D-06', pt.D6);
+
+    const setAlertCoord = (id, coord) => {
+        const alert = DATA.alerts.find((a) => a.id === id);
+        if (alert) alert.coords = coord;
+    };
+    setAlertCoord('A-01', pt.E3);
+    setAlertCoord('A-02', pt.B3);
+    setAlertCoord('A-03', pt.A03);
+
+    const t1 = DATA.tasks['T-01'];
+    if (t1) {
+        t1.robotCoords = pt.R07;
+        t1.targetCoords = pt.T1N4;
+        t1.path = [pt.T1N1, pt.T1N2, pt.R07];
+        t1.futurePath = [pt.R07, pt.T1N4, pt.E5];
+        t1.targetLine = [pt.R07, pt.T1N4];
+        if (Array.isArray(t1.timeline?.nodes)) {
+            t1.timeline.nodes[0].coords = pt.T1N1;
+            t1.timeline.nodes[1].coords = pt.T1N2;
+            t1.timeline.nodes[2].coords = pt.E3;
+            t1.timeline.nodes[3].coords = pt.T1N4;
+            t1.timeline.nodes[4].coords = pt.E5;
+        }
+    }
+
+    const t2 = DATA.tasks['T-02'];
+    if (t2) {
+        t2.robotCoords = pt.R12;
+        t2.targetCoords = pt.B3;
+        t2.path = [pt.B1, pt.R12];
+        t2.futurePath = [pt.R12, pt.B3, pt.T2N3];
+        t2.targetLine = [pt.R12, pt.B3];
+        if (Array.isArray(t2.timeline?.nodes)) {
+            t2.timeline.nodes[0].coords = pt.B1;
+            t2.timeline.nodes[1].coords = pt.B3;
+            t2.timeline.nodes[2].coords = pt.T2N3;
+        }
+    }
+};
+applySiteLayout();
 
 const getInspectionPointIdByCoords = (coords) => {
     if (!Array.isArray(coords) || coords.length < 2) return null;
@@ -531,6 +870,16 @@ const getNearestInspectionPointId = (coords, maxDistance = 0.00055) => {
         }
     }
     return nearestDist <= maxDistance ? nearestId : null;
+};
+
+const focusAlertPoint = (alertId) => {
+    const alert = DATA.alerts.find(a => a.id === alertId);
+    if (!alert?.coords) return false;
+    const pointId = getNearestInspectionPointId(alert.coords, 0.00035) || getInspectionPointIdByCoords(alert.coords);
+    if (!pointId) return false;
+    state.currentAlertId = alertId;
+    setFocus('inspectionPoint', pointId, { instantPopup: true });
+    return true;
 };
 
 const getTaskPool = () => ([
@@ -622,7 +971,7 @@ const setFocus = (type, id, opts = {}) => {
         const bot = DATA.robots.find(r => r.id === id);
         if (bot && bot.taskId) withTaskSelection(bot.taskId, bot.id);
         if (bot) {
-            map.easeTo({ center: bot.coords, zoom: 18, pitch: 45 });
+            map.easeTo({ center: bot.coords, zoom: 18, pitch: 0, bearing: 0 });
             if (opts.instantPopup) {
                 showRobotPopup(id);
             } else {
@@ -642,7 +991,7 @@ const setFocus = (type, id, opts = {}) => {
         setTimelineVisible(true);
         const coords = INSPECTION_POINT_COORDS[id];
         if (coords) {
-            map.easeTo({ center: coords, zoom: 19, pitch: 50 });
+            map.easeTo({ center: coords, zoom: 19, pitch: 0, bearing: 0 });
             let opened = false;
             const openPopup = () => {
                 if (opened) return;
@@ -675,7 +1024,7 @@ const setFocus = (type, id, opts = {}) => {
         const alt = DATA.alerts.find(a => a.id === id);
         if (alt && alt.taskId) {
             withTaskSelection(alt.taskId, DATA.tasks[alt.taskId].bot);
-            map.easeTo({ center: alt.coords, zoom: 19, pitch: 60, bearing: map.getBearing() + 10 });
+            map.easeTo({ center: alt.coords, zoom: 19, pitch: 0, bearing: 0 });
         }
     } else if (type === 'dock') {
         if (state.lastClick.type === 'dock' && state.lastClick.id === id && state.viewMode === 'focus') {
@@ -698,7 +1047,17 @@ const setFocus = (type, id, opts = {}) => {
         setAlertPanelVisible(false);
         setTimelineVisible(false);
         const dock = DATA.docks.find(d => d.id === id);
-        if (dock) map.flyTo({ center: dock.coords, zoom: 19.5, pitch: 60 });
+        if (dock) {
+            map.flyTo({ center: dock.coords, zoom: 19.5, pitch: 0, bearing: 0 });
+            let opened = false;
+            const openPopup = () => {
+                if (opened) return;
+                opened = true;
+                showDockPopup(id);
+            };
+            map.once('moveend', openPopup);
+            setTimeout(openPopup, 450);
+        }
     } else if (type === 'node') {
         const coords = id.split(',').map(Number);
         const pointId = getInspectionPointIdByCoords(coords);
@@ -708,7 +1067,7 @@ const setFocus = (type, id, opts = {}) => {
         }
         setAlertPanelVisible(false);
         setTimelineVisible(false);
-        map.easeTo({ center: coords, zoom: 19, pitch: 50 });
+        map.easeTo({ center: coords, zoom: 19, pitch: 0, bearing: 0 });
     } else if (type === 'all' && id === 'global') {
         state.lastClick = { type: null, id: null };
         state.currentAlertId = null;
@@ -747,7 +1106,8 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 });
 
 // Alert Actions
-document.getElementById('btn-confirm-alert').onclick = () => {
+const confirmAlertBtn = document.getElementById('btn-confirm-alert');
+if (confirmAlertBtn) confirmAlertBtn.onclick = () => {
     if (!state.currentAlertId) return;
     const alt = DATA.alerts.find(a => a.id === state.currentAlertId);
     if (alt) {
@@ -761,7 +1121,8 @@ document.getElementById('btn-confirm-alert').onclick = () => {
         renderAll();
     }
 };
-document.getElementById('btn-clear-alert').onclick = () => {
+const clearAlertBtn = document.getElementById('btn-clear-alert');
+if (clearAlertBtn) clearAlertBtn.onclick = () => {
     if (!state.currentAlertId) return;
     const alt = DATA.alerts.find(a => a.id === state.currentAlertId);
     if (alt) {
@@ -775,7 +1136,8 @@ document.getElementById('btn-clear-alert').onclick = () => {
         renderAll();
     }
 };
-document.getElementById('btn-undo-alert').onclick = () => {
+const undoAlertBtn = document.getElementById('btn-undo-alert');
+if (undoAlertBtn) undoAlertBtn.onclick = () => {
     if (!state.lastAlertAction) return;
     const alt = DATA.alerts.find(a => a.id === state.lastAlertAction.alertId);
     if (!alt) return;
@@ -804,18 +1166,21 @@ const renderRobots = () => {
     if (robotTotalMileageEl) robotTotalMileageEl.innerText = `${robotTotalMileage} km`;
 
     const tbody = document.getElementById('robot-table-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
     const filtered = window.robotFilter === 'all' ? DATA.robots : DATA.robots.filter(r => r.status === window.robotFilter);
     filtered.forEach(r => {
+        const bizStatus = getRobotBizStatus(r);
         const tr = document.createElement('tr');
         tr.style.cursor = 'pointer';
         if (r.id === state.currentRobotId) tr.style.background = 'rgba(197, 168, 123, 0.1)';
         tr.onclick = () => setFocus('robot', r.id);
         const battClass = r.battery <= 20 ? 'warn-txt' : '';
-        const tClass = r.status === 'danger' ? 'danger-txt' : '';
+        const tClass = bizStatus === 'warning' ? 'danger-txt' : '';
+        const statusTagClass = bizStatus === 'warning' ? 'danger' : (bizStatus === 'charging' ? 'charging' : (bizStatus === 'returning' ? 'warn' : 'safe'));
         tr.innerHTML = `
             <td class="r-name">${r.id}</td>
-            <td><span class="r-tag ${r.status}">${r.label}</span></td>
+            <td><span class="r-tag ${statusTagClass}">${ROBOT_BIZ_STATUS_LABEL[bizStatus]}</span></td>
             <td class="${battClass}">${r.battery}%</td>
             <td>${ROBOT_MILEAGE_KM[r.id] || 0}km</td>
             <td class="r-task ${tClass}">${r.task}</td>
@@ -827,6 +1192,7 @@ const renderRobots = () => {
 const renderAlerts = () => {
     if (!state.alertPanelVisible) return;
     const ul = document.getElementById('alert-list-container');
+    if (!ul) return;
     ul.innerHTML = '';
 
     if (!state.currentAlertId) {
@@ -950,17 +1316,17 @@ const getFilterStyle = (mode) => {
 };
 
 const renderDocks = () => {
-    const totalStations = DATA.docks.length + 10; // POC: 全站服务点规模
-    const occupiedStations = DATA.docks.filter(d => d.status === 'charging').length + 3;
-    const idleStations = Math.max(0, totalStations - occupiedStations);
-    const todayChargedEnergy = occupiedStations * 460 + 1480; // POC: 今日充电量(kWh)
-    const totalChargedEnergy = 26850; // POC: 总充电量(kWh)
+    const totalStations = DATA.docks.length;
+    const chargingStations = DATA.docks.filter(d => d.status === 'charging').length;
+    const idleStations = DATA.docks.filter(d => d.status === 'safe').length;
+    const totalCharges = DATA.docks.reduce((sum, d) => sum + (d.totalCharges || 0), 0);
 
     document.getElementById('dock-total-num').innerText = totalStations;
     const grid = document.getElementById('dock-grid-container');
     grid.innerHTML = `
-        <div class="dock-item"><div class="di-val safe-txt">${todayChargedEnergy}/${totalChargedEnergy}</div><div class="di-lbl">今日充电/总充电量(kWh)</div></div>
-        <div class="dock-item"><div class="di-val highlight">${idleStations}/${occupiedStations}</div><div class="di-lbl">充电桩状态(空闲/使用中)</div></div>
+        <div class="dock-item"><div class="di-val">${totalCharges}</div><div class="di-lbl">充电总次数</div></div>
+        <div class="dock-item"><div class="di-val highlight">${idleStations}</div><div class="di-lbl">闲置数量</div></div>
+        <div class="dock-item"><div class="di-val safe-txt">${chargingStations}</div><div class="di-lbl">当前服务中</div></div>
     `;
     const list = document.getElementById('dock-list-container');
     list.innerHTML = '';
@@ -970,7 +1336,8 @@ const renderDocks = () => {
         div.style.cursor = 'pointer';
         if (d.id === state.currentDockId) div.style.background = 'rgba(255,255,255,0.1)';
         div.onclick = () => setFocus('dock', d.id);
-        div.innerHTML = `<span class="dr-lbl">${d.name}</span><span class="dr-state"><b class="dot ${d.status}"></b> ${d.bot}</span>`;
+        const stateText = d.status === 'charging' ? `服务 ${d.bot}` : '闲置';
+        div.innerHTML = `<span class="dr-lbl">${d.name}</span><span class="dr-state"><b class="dot ${d.status}"></b> ${stateText} / ${d.totalCharges || 0}次</span>`;
         list.appendChild(div);
     });
 };
@@ -1220,16 +1587,37 @@ const renderTimeline = () => {
     }
 
     let html = '<div class="f-line"></div>';
-    
-    t.timeline.nodes.forEach(node => {
+    const rawNodes = [...(t.timeline.nodes || [])];
+    while (rawNodes.length < 5) {
+        const nextCoord = t.futurePath?.[rawNodes.length] || t.targetLine?.[1] || rawNodes[rawNodes.length - 1]?.coords || t.robotCoords;
+        rawNodes.push({
+            time: '待定',
+            name: rawNodes.length === 4 ? '终点' : `巡检点${rawNodes.length + 1}`,
+            res: '',
+            status: 'future',
+            coords: nextCoord
+        });
+    }
+    const nodes = rawNodes.map((n, idx, arr) => ({
+        ...n,
+        _idx: idx,
+        _posValue: n.pos ? Number(String(n.pos).replace('%', '')) : (arr.length <= 1 ? 50 : (idx / (arr.length - 1)) * 100)
+    }));
+    const activeIdx = Math.max(0, nodes.findIndex((n) => n.status === 'active'));
+    const keyIdxSet = new Set([0, nodes.length - 1, Math.max(0, activeIdx - 1), activeIdx, Math.min(nodes.length - 1, activeIdx + 1)]);
+
+    nodes.forEach(node => {
         let pExtra = node.pop ? 'pop-pulse' : '';
         let resClass = (node.status === 'safe') ? 'safe-txt' : ((node.status === 'danger' || node.status === 'warn') ? 'danger-txt' : 'dim');
         let timeClass = (node.status === 'active') ? 'highlight' : (node.status === 'future' ? 'dim' : '');
         let nameClass = (node.status === 'active') ? 'highlight' : (node.status === 'future' ? 'dim' : '');
         let hasRobot = bot && node.status === 'active';
+        const isKeyNode = keyIdxSet.has(node._idx);
+        const isAlertMini = !isKeyNode && (node.status === 'warn' || node.status === 'danger' || !!node.alertId);
+        const extraClass = `${hasRobot ? 'has-robot' : ''} ${isKeyNode ? 'key-node' : 'mini-node'} ${isAlertMini ? 'mini-alert' : ''}`;
 
         html += `
-            <div class="f-node ${node.status} ${hasRobot ? 'has-robot' : ''}" style="left: ${node.pos}; cursor: pointer;" data-coords="${node.coords.join(',')}">
+            <div class="f-node ${node.status} ${extraClass}" style="left: ${node._posValue}%; cursor: pointer;" data-coords="${node.coords.join(',')}">
                 <div class="f-point ${pExtra}"></div>
                 <div class="f-info">
                     <span class="time ${timeClass}">${node.time}</span>
@@ -1265,6 +1653,49 @@ const renderTimeline = () => {
             setFocus('node', coordsStr);
         };
     });
+};
+
+const shortenPointName = (name = '') => {
+    const core = String(name).replace(/区|点|#|高压柜|冷凝塔|主门|入闸|换热阀/g, '');
+    const simple = core.trim() || name;
+    return simple.length > 4 ? simple.slice(0, 4) : simple;
+};
+
+const applyMapUiVisibility = () => {
+    if (!map || !map.isStyleLoaded()) return;
+    const vis = (on) => on ? 'visible' : 'none';
+    const showRobots = !!state.mapUi.robots;
+    const showPoints = !!state.mapUi.points;
+    const showDocks = !!state.mapUi.docks;
+    const showRobotLabels = showRobots && !!state.mapUi.labels;
+    const showPointLabels = showPoints && !!state.mapUi.labels;
+    const showRoutes = !!state.mapUi.route && showRobots && showPoints;
+    const statusMode = !!state.mapUi.pointStatus;
+    const targetColorExpr = statusMode
+        ? ['match', ['get', 'status'], 'warn', '#EF4444', 'danger', '#EF4444', 'pending', '#3B82F6', 'running', '#10B981', 'completed', '#10B981', '#C5A87B']
+        : '#C5A87B';
+
+    const maybeSet = (layer, prop, value, paint = false) => {
+        if (!map.getLayer(layer)) return;
+        if (paint) map.setPaintProperty(layer, prop, value);
+        else map.setLayoutProperty(layer, prop, value);
+    };
+    maybeSet('route-backbone', 'visibility', vis(showRoutes));
+    maybeSet('route-plan-all', 'visibility', vis(showRoutes));
+    maybeSet('route-active', 'visibility', vis(showRoutes));
+    maybeSet('route-future', 'visibility', vis(showRoutes));
+    maybeSet('route-target', 'visibility', vis(showRoutes));
+
+    maybeSet('pts-target', 'visibility', vis(showPoints));
+    maybeSet('pts-target-hit', 'visibility', vis(showPoints));
+    maybeSet('pts-dock', 'visibility', vis(showDocks));
+    maybeSet('pts-robot', 'visibility', vis(showRobots));
+    maybeSet('pts-robot-hit', 'visibility', vis(showRobots));
+    maybeSet('layer-with-pulsing-dot', 'visibility', vis(showPoints));
+    maybeSet('pts-target-label', 'visibility', vis(showPointLabels));
+    maybeSet('pts-robot-label', 'visibility', vis(showRobotLabels));
+    maybeSet('pts-target', 'circle-color', targetColorExpr, true);
+    maybeSet('pts-target', 'circle-stroke-color', statusMode ? '#ffffff' : '#C5A87B', true);
 };
 
 const updateMapLayers = () => {
@@ -1340,7 +1771,15 @@ const updateMapLayers = () => {
     // Heatmap Update (Removed)
 
     const rFeats = DATA.robots.map(r => ({
-        type: 'Feature', properties: { type: 'robot', id: r.id, status: r.status }, geometry: { type: 'Point', coordinates: r.coords }
+        type: 'Feature',
+        properties: {
+            type: 'robot',
+            id: r.id,
+            status: r.status,
+            bizStatus: getRobotBizStatus(r),
+            labelText: `${r.id} ${ROBOT_BIZ_STATUS_LABEL[getRobotBizStatus(r)]}`
+        },
+        geometry: { type: 'Point', coordinates: r.coords }
     }));
 
     const dFeats = DATA.docks.map(d => ({
@@ -1354,16 +1793,24 @@ const updateMapLayers = () => {
             if (coords) {
                 tFeats.push({
                     type: 'Feature',
-                    properties: { type: 'target', id: p.id, name: p.name, status: p.status, taskId: tk },
+                    properties: {
+                        type: 'target',
+                        id: p.id,
+                        name: p.name,
+                        status: p.status,
+                        taskId: tk,
+                        labelText: `${shortenPointName(p.name)} ${POINT_STATUS_LABEL[p.status] || ''}`.trim()
+                    },
                     geometry: { type: 'Point', coordinates: coords }
                 });
             }
         });
     });
 
-    let pathFeats = [
-        { type: 'Feature', properties: { type: 'backbone' }, geometry: { type: 'LineString', coordinates: [[121.4700, 31.2290], [121.4780, 31.2290]] } }
-    ];
+    const canShowRoute = state.mapUi.route && state.mapUi.robots && state.mapUi.points;
+    let pathFeats = canShowRoute ? [
+        { type: 'Feature', properties: { type: 'backbone' }, geometry: { type: 'LineString', coordinates: [siteCoord(0.12, 0.52), siteCoord(0.9, 0.52)] } }
+    ] : [];
 
     if (state.viewMode === 'global') {
         // Show paths for all running robots
@@ -1403,8 +1850,18 @@ const updateMapLayers = () => {
     }
 
     const mapLayerData = map.getSource('business-layers');
-    if (mapLayerData) mapLayerData.setData({ type: 'FeatureCollection', features: [...rFeats, ...dFeats, ...tFeats] });
+    if (mapLayerData) {
+        mapLayerData.setData({
+            type: 'FeatureCollection',
+            features: [
+                ...(state.mapUi.robots ? rFeats : []),
+                ...(state.mapUi.docks ? dFeats : []),
+                ...(state.mapUi.points ? tFeats : [])
+            ]
+        });
+    }
 
+    if (!canShowRoute) pathFeats = [];
     const pathData = map.getSource('patrol-paths');
     if (pathData) pathData.setData({ type: 'FeatureCollection', features: pathFeats });
 
@@ -1413,81 +1870,121 @@ const updateMapLayers = () => {
          type: 'Feature', properties: { id: a.id }, geometry: { type: 'Point', coordinates: a.coords }
     }));
     const alertData = map.getSource('alerts');
-    if (alertData) alertData.setData({ type: 'FeatureCollection', features: alertFeats });
+    if (alertData) alertData.setData({ type: 'FeatureCollection', features: state.mapUi.points ? alertFeats : [] });
+    applyMapUiVisibility();
 
     if (state.viewMode === 'focus' && state.autoplayEnabled && !state.lastClick.type) {
         const t = DATA.tasks[state.currentTaskId];
-        if (t) map.easeTo({ center: t.robotCoords, zoom: 17, pitch: 50 });
+        if (t) map.easeTo({ center: t.robotCoords, zoom: 17, pitch: 0, bearing: 0 });
     }
 };
 
-const renderStats = () => {
-    // 机器人总数
-    const totalRobots = DATA.robots.length;
-    document.getElementById('total-robots').innerText = totalRobots;
-    
-    // 当前充电数
-    const chargingRobots = DATA.robots.filter(r => r.status === 'charging').length;
-    
-    // 任务总量
-    const taskPool = getTaskPool();
-    document.getElementById('today-tasks').innerText = taskPool.length;
-    
-    // 执行任务总数（POC: 演示口径）
-    const executedTaskTotal = taskPool.length * 3 + 6;
-    document.getElementById('executed-task-total').innerText = executedTaskTotal;
-    
-    // 当日告警
-    const totalAlerts = DATA.alerts.length;
-    document.getElementById('total-alerts').innerText = totalAlerts;
-    
-    // 告警分级
-    const dangerAlerts = DATA.alerts.filter(a => a.level === 'danger').length;
-    const warnAlerts = DATA.alerts.filter(a => a.level === 'warn').length;
-    const infoAlerts = Math.max(0, totalAlerts - dangerAlerts - warnAlerts);
-    document.getElementById('danger-alerts').innerText = dangerAlerts;
-    document.getElementById('warn-alerts').innerText = warnAlerts;
-    document.getElementById('info-alerts').innerText = infoAlerts;
-    
-    // 领导视角指标（POC：效果优先，可控口径）
-    const dangerRobots = DATA.robots.filter(r => r.status === 'danger').length;
-    const completedTasks = taskPool.filter(t => t.state === 'completed').length;
-    const failedTasks = 1; // POC: 演示失败数
-    const execTotal = taskPool.length * 3 + 6; // POC: 执行总数
-    const ackAlerts = DATA.alerts.filter(a => a.state !== '未确认' && a.state !== '待复核').length;
-    const alertResponseRate = totalAlerts ? Math.round(ackAlerts / totalAlerts * 100) : 0;
-    const robotUtilization = Math.round((totalRobots - chargingRobots - dangerRobots) / totalRobots * 100);
-    
-    const points = getAllInspectionPoints();
-    const pointTotal = points.length;
-    const inspectedPoints = points.filter(p => p.status !== 'pending').length;
-    const pointCoverage = pointTotal ? Math.round(inspectedPoints / pointTotal * 100) : 0;
-    
-    // 计算新指标
-    const taskCompletionRate = taskPool.length ? Math.round(completedTasks / taskPool.length * 100) : 0;
-    const equipmentHealthRate = Math.round((totalRobots - dangerRobots) / totalRobots * 100);
-    const safetyIndex = Math.max(0, 100 - (totalAlerts * 10 + dangerRobots * 20));
-    
-    // 机器总运行时长 (POC: 演示数据)
-    const totalRuntime = 1258;
-    document.getElementById('total-runtime').innerText = totalRuntime;
-    
+const classifyRiskCategory = (alert) => {
+    const text = `${alert?.defect || ''}${alert?.loc || ''}${alert?.device || ''}`;
+    if (/红外|热|温|测温/.test(text)) return 'infrared';
+    if (/气|甲烷|硫化氢|co|voc|压力/.test(text.toLowerCase())) return 'gas';
+    if (/行为|闯入|门禁/.test(text)) return 'safeBehavior';
+    return 'device';
+};
 
-    
-    // 更新顶部KPI栏
-    const operationStatusEl = document.getElementById('operation-status');
-    const operationStatusText = safetyIndex > 80 ? '正常' : safetyIndex > 50 ? '注意' : '异常';
-    const operationStatusClass = safetyIndex > 80 ? 'status-normal' : safetyIndex > 50 ? 'status-warn' : 'status-danger';
-    operationStatusEl.innerText = operationStatusText;
-    operationStatusEl.classList.remove('status-normal', 'status-warn', 'status-danger');
-    operationStatusEl.classList.add(operationStatusClass);
-    // 顶部领导看板口径（安全生产导向）
-    const majorAccidentCount = 0; // POC: 重大风险事故数
-    const consecutiveSafeDays = 128; // POC: 连续安全运行天数
-    const hiddenRiskClosureRate = Math.max(92, alertResponseRate); // POC: 隐患闭环率
-    document.getElementById('task-completion-rate').innerText = `${majorAccidentCount}起`;
-    document.getElementById('equipment-health-rate').innerText = `${consecutiveSafeDays}天`;
-    document.getElementById('risk-closure-rate').innerText = `${hiddenRiskClosureRate}%`;
+const buildBroadcastMessages = () => {
+    const msgs = [];
+    Object.values(DATA.tasks).forEach((t) => {
+        const done = t.timeline?.nodes?.filter((n) => n.status !== 'future').length || 0;
+        const total = t.timeline?.nodes?.length || 0;
+        msgs.push({ type: 'normal', text: `${t.bot} 正在执行 ${t.taskName}，已完成 ${done}/${total} 点` });
+    });
+    DATA.alerts.slice(0, 2).forEach((a) => {
+        msgs.push({ type: 'alert', alertId: a.id, text: `${a.loc} 发现异常：${a.defect.split('(')[0]}，已置顶风险` });
+    });
+    return msgs.length ? msgs : [{ type: 'normal', text: '系统运行中，等待巡检任务更新' }];
+};
+
+const renderBroadcastPanel = (items) => {
+    const pinEl = document.getElementById('broadcast-pin');
+    const listEl = document.getElementById('broadcast-list');
+    if (!pinEl || !listEl) return;
+    const alerts = items.filter((i) => i.type === 'alert');
+    const normals = items.filter((i) => i.type !== 'alert');
+    pinEl.innerText = alerts[0]?.text || '暂无置顶告警';
+    pinEl.style.cursor = alerts[0]?.alertId ? 'pointer' : 'default';
+    pinEl.onclick = () => {
+        const alertId = alerts[0]?.alertId;
+        if (!alertId) return;
+        focusAlertPoint(alertId);
+    };
+
+    const rolling = normals.length ? normals : [{ type: 'normal', text: '暂无普通播报消息' }];
+    const draw = () => {
+        const rows = [];
+        for (let i = 0; i < 3; i += 1) {
+            const cur = rolling[(broadcastTickerIndex + i) % rolling.length];
+            rows.push(`<div class="broadcast-row ${cur.type === 'alert' ? 'alert' : ''}">${cur.text}</div>`);
+        }
+        listEl.innerHTML = rows.join('');
+        listEl.classList.remove('slide-up');
+        void listEl.offsetWidth;
+        listEl.classList.add('slide-up');
+    };
+
+    if (broadcastTickerTimer) clearInterval(broadcastTickerTimer);
+    broadcastTickerIndex = 0;
+    draw();
+    broadcastTickerTimer = setInterval(() => {
+        broadcastTickerIndex = (broadcastTickerIndex + 1) % rolling.length;
+        draw();
+    }, 2600);
+};
+
+const renderStats = () => {
+    const setText = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = val;
+    };
+    const totalRobots = DATA.robots.length;
+    const taskPool = getTaskPool();
+    const totalAlerts = DATA.alerts.length;
+    const robotBiz = DATA.robots.reduce((acc, r) => {
+        const k = getRobotBizStatus(r);
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+    }, { executing: 0, returning: 0, charging: 0, standby: 0, warning: 0 });
+
+    const todayTaskTotal = 4;
+    const executedTaskTotal = 14;
+    const totalRuntimeHours = 1258;
+    setText('total-robots', totalRobots);
+    setText('executing-robots', robotBiz.executing);
+    setText('charging-robots', robotBiz.charging);
+    setText('today-tasks', todayTaskTotal);
+    setText('executed-task-total', executedTaskTotal);
+    setText('total-alerts', totalAlerts);
+    setText('total-runtime', totalRuntimeHours);
+    setText('robot-runtime', `${totalRuntimeHours}h`);
+
+    const riskCats = DATA.alerts.reduce((acc, a) => {
+        const cat = classifyRiskCategory(a);
+        acc[cat] = (acc[cat] || 0) + 1;
+        return acc;
+    }, { safeBehavior: 0, infrared: 0, gas: 0, device: 0 });
+    setText('risk-safe-behavior', riskCats.safeBehavior);
+    setText('risk-infrared', riskCats.infrared);
+    setText('risk-gas', riskCats.gas);
+    setText('risk-device', riskCats.device);
+    setText('equipment-health-rate', '128天');
+    setText('weather-summary', `${WEATHER_SNAPSHOT.condition} ${WEATHER_SNAPSHOT.temp}°C ${WEATHER_SNAPSHOT.wind} 湿度${WEATHER_SNAPSHOT.humidity}%`);
+
+    const msgs = buildBroadcastMessages();
+    const topMsgs = [
+        msgs.find((m) => m.type === 'normal') || msgs[0],
+        msgs.find((m) => m.type === 'alert') || msgs[1] || msgs[0]
+    ];
+    const topTrack = document.getElementById('message-marquee-track');
+    if (topTrack) {
+        const htmlMsgs = topMsgs.map((m) => m.type === 'alert' ? `<span class="msg-alert">${m.text}</span>` : `<span>${m.text}</span>`).join('   ｜   ');
+        topTrack.innerHTML = `${htmlMsgs}   ｜   ${htmlMsgs}`;
+    }
+    renderBroadcastPanel(msgs);
 };
 
 const getAllInspectionPoints = () => {
@@ -1504,12 +2001,10 @@ const computeEnvMetrics = () => {
         O2: { min: 19.5, max: 23.5 },
         CH4: { max: 2.0 },
         CO: { max: 10 },
-        H2S: { max: 5 },
-        TVOC: { max: 0.6 },
-        Noise: { max: 80 }
+        H2S: { max: 5 }
     };
     const points = getAllInspectionPoints();
-    const agg = { O2: 0, CH4: 0, CO: 0, H2S: 0, TVOC: 0, Noise: 0 };
+    const agg = { O2: 0, CH4: 0, CO: 0, H2S: 0 };
     points.forEach(p => {
         const monitor = p.monitorPoints?.[0];
         const metrics = monitor?.metrics || {};
@@ -1540,50 +2035,58 @@ const renderLeadershipPanels = () => {
     const pointCoverage = pointTotal ? Math.round(inspectedPoints / pointTotal * 100) : 0;
     
     const totalRobots = DATA.robots.length;
-    const charging = DATA.robots.filter(r => r.status === 'charging').length;
-    const danger = DATA.robots.filter(r => r.status === 'danger').length;
-    const onlineCount = totalRobots - danger;
-    const offlineCount = danger;
-    const returningCount = DATA.robots.filter(r => (r.label || '').includes('返航')).length;
-    const onTaskCount = Math.max(0, totalRobots - charging - danger - returningCount);
+    const robotBiz = DATA.robots.reduce((acc, r) => {
+        const k = getRobotBizStatus(r);
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+    }, { executing: 0, returning: 0, charging: 0, standby: 0, warning: 0 });
+    const returningCount = robotBiz.returning;
+    const onTaskCount = robotBiz.executing;
     const totalMileage = 18650; // POC: 累计行驶里程（km）
     const todayMileage = 286;   // POC: 今日行驶里程（km）
-    const inspectionTotalMileage = 326; // POC: 巡检总里程（km）
+    const inspectionTotalMileage = 326; // POC: 今日已巡检里程（km）
     
     const env = computeEnvMetrics();
 
     const planSummary = document.getElementById('plan-summary-cards');
     if (planSummary) {
-        const planCount = taskPool.length;
         const taskCount = taskPool.length * 3 + 6;
-        const completedCount = taskPool.filter(t => t.state === 'completed').length;
-        const pendingCount = Math.max(0, planCount - completedCount);
-        const completionRate = planCount ? Math.round(completedCount / planCount * 100) : 0;
+        const facilities = DATA.docks.length + points.length + 8;
+        const anomalies = DATA.alerts.length;
         planSummary.innerHTML = `
-          <div class="summary-item"><span class="s-label">计划 / 任务数</span><span class="s-val">${planCount}/${taskCount}</span><span class="s-meta">计划数 / 任务数</span></div>
-          <div class="summary-item"><span class="s-label">已完成 / 待完成</span><span class="s-val">${completedCount}/${pendingCount}</span><span class="s-meta">任务状态</span></div>
-          <div class="summary-item"><span class="s-label">完成率</span><span class="s-val">${completionRate}%</span><span class="s-meta">总体达成</span></div>
+          <div class="summary-item"><span class="s-label">任务数</span><span class="s-val">${taskCount}</span><span class="s-meta">巡检任务</span></div>
+          <div class="summary-item"><span class="s-label">巡检点数</span><span class="s-val">${points.length}</span><span class="s-meta">巡检点总量</span></div>
+          <div class="summary-item"><span class="s-label">设施设备数</span><span class="s-val">${facilities}</span><span class="s-meta">纳管设备</span></div>
+          <div class="summary-item"><span class="s-label">异常数</span><span class="s-val">${anomalies}</span><span class="s-meta">待跟踪项</span></div>
         `;
         const planTaskTotalEl = document.getElementById('plan-task-total');
-        if (planTaskTotalEl) planTaskTotalEl.innerText = completedCount;
+        if (planTaskTotalEl) planTaskTotalEl.innerText = taskCount;
     }
     
     const robotSummary = document.getElementById('robot-summary-cards');
     if (robotSummary) {
+        const avgBattery = totalRobots ? Math.round(DATA.robots.reduce((s, r) => s + r.battery, 0) / totalRobots) : 0;
+        const avgRange = Math.round(avgBattery * 0.85);
+        const avgSpeed = Math.max(6, robotBiz.executing * 2 + robotBiz.returning);
+        const currentMileage = Math.round(todayMileage * 0.62);
         robotSummary.innerHTML = `
-          <div class="summary-item"><span class="s-label">在线 / 离线</span><span class="s-val">${onlineCount}/${offlineCount}</span><span class="s-meta">机器人数</span></div>
-          <div class="summary-item"><span class="s-label">任务中 / 返航中</span><span class="s-val">${onTaskCount}/${returningCount}</span><span class="s-meta">执行状态</span></div>
-          <div class="summary-item"><span class="s-label">今日里程</span><span class="s-val">${todayMileage}km</span><span class="s-meta">当日行驶</span></div>
+          <div class="summary-item"><span class="s-label">执行中 / 返航中</span><span class="s-val">${onTaskCount}/${returningCount}</span><span class="s-meta">当前状态</span></div>
+          <div class="summary-item"><span class="s-label">充电中</span><span class="s-val">${robotBiz.charging}</span><span class="s-meta">充电状态</span></div>
+          <div class="summary-item"><span class="s-label">平均续航</span><span class="s-val">${avgRange}km</span><span class="s-meta">估算值</span></div>
+          <div class="summary-item"><span class="s-label">平均时速</span><span class="s-val">${avgSpeed}km/h</span><span class="s-meta">当日均值</span></div>
+          <div class="summary-item"><span class="s-label">当前里程 / 今日里程</span><span class="s-val">${currentMileage}/${todayMileage}km</span><span class="s-meta">总里程 ${totalMileage}km</span></div>
         `;
     }
     
     const pointSummary = document.getElementById('point-summary-cards');
     if (pointSummary) {
-        const missedPoints = pointTotal - inspectedPoints;
+        const missedPoints = Math.max(0, pointTotal - inspectedPoints);
+        const abnormalPoints = warnPoints + dangerPoints;
         pointSummary.innerHTML = `
-          <div class="summary-item"><span class="s-label">巡检点总数</span><span class="s-val">${pointTotal}</span><span class="s-meta">全量点位</span></div>
-          <div class="summary-item"><span class="s-label">当前进度</span><span class="s-val">${inspectedPoints}/${missedPoints}</span><span class="s-meta">今日已巡检 / 待巡检</span></div>
-          <div class="summary-item clickable" data-alert-level="combined"><span class="s-label">警告/严重</span><span class="s-val">${warnPoints}/${dangerPoints}</span><span class="s-meta">需处理</span></div>
+          <div class="summary-item"><span class="s-label">今日已巡检点</span><span class="s-val">${inspectedPoints}</span><span class="s-meta">已完成</span></div>
+          <div class="summary-item"><span class="s-label">待巡检点</span><span class="s-val">${missedPoints}</span><span class="s-meta">待执行</span></div>
+          <div class="summary-item clickable" data-alert-level="combined"><span class="s-label">异常点数</span><span class="s-val">${abnormalPoints}</span><span class="s-meta">点位告警</span></div>
+          <div class="summary-item"><span class="s-label">巡检覆盖率</span><span class="s-val">${pointCoverage}%</span><span class="s-meta">今日覆盖</span></div>
         `;
         const totalMileageEl = document.getElementById('point-total-mileage');
         if (totalMileageEl) totalMileageEl.innerText = `${inspectionTotalMileage} km`;
@@ -1636,8 +2139,8 @@ const renderLeadershipPanels = () => {
         envSummary.innerHTML = metricKeys.map((key) => `
           <div class="summary-item clickable" data-env-metric="${key}">
             <span class="s-label">${ENV_METRIC_DEFS[key].label}</span>
-            <span class="s-val">${env.agg[key] || 0}</span>
-            <span class="s-meta">超阈点位</span>
+            <span class="s-val">${Math.max(0, (env.agg[key] || 0) + (key === 'CO' ? 1 : 0))}/${Math.max(0, (env.agg[key] || 0) + 2)}</span>
+            <span class="s-meta">机器 / 远端</span>
           </div>
         `).join('');
         envSummary.querySelectorAll('[data-env-metric]').forEach((item) => {
@@ -1705,8 +2208,8 @@ const showAlertModal = (alert) => {
             </div>
             
             <div class="alert-actions" style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button class="btn-action primary" onclick="confirmAlert('${alert.id}')" style="padding: 8px 24px; background: var(--status-danger); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">确 认 异 常</button>
-                <button class="btn-action secondary" onclick="clearAlert('${alert.id}')" style="padding: 8px 24px; background: rgba(255,255,255,0.1); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 4px; cursor: pointer; font-size: 14px;">解 除 误 报</button>
+                <button class="btn-action secondary" onclick="showAlertDetailOnly('${alert.id}')" style="padding: 8px 24px; background: rgba(255,255,255,0.1); color: var(--text-main); border: 1px solid var(--border-subtle); border-radius: 4px; cursor: pointer; font-size: 14px;">查看详情</button>
+                <button class="btn-action primary" onclick="goDispatchCenter('${botId}')" style="padding: 8px 24px; background: var(--status-danger); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">前往调度台</button>
             </div>
         </div>
     `;
@@ -1752,6 +2255,13 @@ const confirmAlert = (alertId) => {
         document.getElementById('alert-modal').style.display = 'none';
     }
 };
+const showAlertDetailOnly = (alertId) => {
+    const alt = DATA.alerts.find(a => a.id === alertId);
+    if (!alt) return;
+    state.currentAlertId = alertId;
+    document.getElementById('top-context').innerText = `告警详情查看: ${alertId}`;
+};
+window.showAlertDetailOnly = showAlertDetailOnly;
 
 const clearAlert = (alertId) => {
     const alt = DATA.alerts.find(a => a.id === alertId);
@@ -1932,8 +2442,54 @@ document.querySelectorAll('.env-range-btn').forEach((btn) => {
     };
 });
 
+const cockpitEntryBtn = document.getElementById('btn-entry-cockpit');
+if (cockpitEntryBtn) cockpitEntryBtn.onclick = () => goCockpit();
+const tempDispatchBtn = document.getElementById('btn-temp-dispatch');
+if (tempDispatchBtn) tempDispatchBtn.onclick = () => goDispatchCenter(state.currentRobotId || '');
+const resetViewBtn = document.getElementById('btn-reset-view');
+if (resetViewBtn) {
+    resetViewBtn.onclick = () => {
+        state.lastClick = { type: null, id: null };
+        state.viewMode = 'global';
+        map.easeTo(DEFAULT_VIEW);
+        document.getElementById('top-context').innerText = '当前视角: 全局场站总览';
+        setAlertPanelVisible(false);
+        setTimelineVisible(false);
+        renderAll();
+    };
+}
+const syncMapToolbarState = () => {
+    document.querySelectorAll('[data-map-toggle]').forEach((btn) => {
+        const key = btn.dataset.mapToggle;
+        const keyMap = { labels: 'labels', robots: 'robots', points: 'points', docks: 'docks', route: 'route' };
+        const stateKey = keyMap[key];
+        if (!stateKey) return;
+        const isAvailable =
+            key === 'labels' ? (state.mapUi.robots || state.mapUi.points)
+            : key === 'route' ? (state.mapUi.robots && state.mapUi.points)
+            : true;
+        btn.classList.toggle('active', !!state.mapUi[stateKey] && isAvailable);
+        btn.classList.toggle('limited', !isAvailable);
+    });
+};
+document.querySelectorAll('[data-map-toggle]').forEach((btn) => {
+    btn.onclick = () => {
+        const key = btn.dataset.mapToggle;
+        const keyMap = { labels: 'labels', robots: 'robots', points: 'points', docks: 'docks', route: 'route' };
+        const stateKey = keyMap[key];
+        if (!stateKey) return;
+        state.mapUi[stateKey] = !state.mapUi[stateKey];
+        syncMapToolbarState();
+        updateMapLayers();
+    };
+});
+syncMapToolbarState();
+
 // ==== 4. Map Init ====
 map.on('load', () => {
+    map.setMaxBounds(SITE_VIEW_BOUNDS);
+    map.fitBounds(SITE_VIEW_BOUNDS, { padding: 48, duration: 0 });
+
     const buildFactoryGeojson = () => {
         const features = [];
         const createCylinder = (cx, cy, r, h, color) => {
@@ -1962,6 +2518,11 @@ map.on('load', () => {
     };
 
     map.addSource('factory-buildings', { type: 'geojson', data: buildFactoryGeojson() });
+    map.addSource('site-background', {
+        type: 'image',
+        url: './地图.png',
+        coordinates: SITE_IMAGE_COORDS
+    });
     map.addSource('business-layers', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     map.addSource('patrol-paths', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     
@@ -1995,8 +2556,9 @@ map.on('load', () => {
     map.addSource('alerts', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
     // Layers Extrusion n Paths
-    map.addLayer({ 'id': 'factory-ground', 'type': 'fill', 'source': 'factory-buildings', 'paint': { 'fill-color': '#000000', 'fill-opacity': 0.4 } });
-    map.addLayer({ 'id': 'factory-3d-buildings', 'source': 'factory-buildings', 'type': 'fill-extrusion', 'paint': { 'fill-extrusion-color': ['get', 'color'], 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-opacity': 0.95 } });
+    map.addLayer({ 'id': 'site-background-layer', 'type': 'raster', 'source': 'site-background', 'paint': { 'raster-opacity': 1 } });
+    map.addLayer({ 'id': 'factory-ground', 'type': 'fill', 'source': 'factory-buildings', 'paint': { 'fill-color': '#000000', 'fill-opacity': 0 } });
+    map.addLayer({ 'id': 'factory-3d-buildings', 'source': 'factory-buildings', 'type': 'fill-extrusion', 'paint': { 'fill-extrusion-color': ['get', 'color'], 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-opacity': 0 } });
     map.addLayer({ 'id': 'route-backbone', 'type': 'line', 'source': 'patrol-paths', 'filter': ['==', 'type', 'backbone'], 'paint': { 'line-color': '#3b4b5e', 'line-width': 1, 'line-opacity': 0.5 } });
     map.addLayer({ 'id': 'route-plan-all', 'type': 'line', 'source': 'patrol-paths', 'filter': ['==', 'type', 'plan-all'], 'paint': { 'line-color': '#8CA0B9', 'line-width': 1.6, 'line-dasharray': [1, 2.2], 'line-opacity': 0.45 } });
     map.addLayer({ 'id': 'route-active', 'type': 'line', 'source': 'patrol-paths', 'filter': ['==', 'type', 'active'], 'paint': { 'line-color': '#C5A87B', 'line-width': 3.2, 'line-opacity': 0.9 } });
@@ -2004,7 +2566,19 @@ map.on('load', () => {
     map.addLayer({ 'id': 'route-target', 'type': 'line', 'source': 'patrol-paths', 'filter': ['==', 'type', 'target-line'], 'paint': { 'line-color': '#C5A87B', 'line-width': 2, 'line-dasharray': [2, 4], 'line-opacity': 0.6 } });
     
     // Nodes - larger click targets
-    map.addLayer({ 'id': 'pts-target', 'type': 'circle', 'source': 'business-layers', 'filter': ['==', 'type', 'target'], 'paint': { 'circle-color': '#ffffff', 'circle-radius': 8, 'circle-stroke-width': 3, 'circle-stroke-color': '#C5A87B', 'circle-opacity': 0.9 } });
+    map.addLayer({
+        'id': 'pts-target',
+        'type': 'circle',
+        'source': 'business-layers',
+        'filter': ['==', 'type', 'target'],
+        'paint': {
+            'circle-color': ['match', ['get', 'status'], 'warn', '#EF4444', 'danger', '#EF4444', 'pending', '#3B82F6', 'running', '#10B981', 'completed', '#10B981', '#C5A87B'],
+            'circle-radius': 8,
+            'circle-stroke-width': 3,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.95
+        }
+    });
     map.addLayer({
         'id': 'pts-target-hit',
         'type': 'circle',
@@ -2016,7 +2590,7 @@ map.on('load', () => {
             'circle-opacity': 0.001
         }
     });
-    map.addLayer({ 'id': 'pts-dock', 'type': 'circle', 'source': 'business-layers', 'filter': ['==', 'type', 'dock'], 'paint': { 'circle-color': ['match', ['get', 'status'], 'charging', '#3B82F6', '#6B8EAD'], 'circle-radius': 10, 'circle-opacity': 0.9, 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' } });
+    map.addLayer({ 'id': 'pts-dock', 'type': 'circle', 'source': 'business-layers', 'filter': ['==', 'type', 'dock'], 'paint': { 'circle-color': ['match', ['get', 'status'], 'charging', '#C5A87B', '#6B8EAD'], 'circle-radius': 9, 'circle-opacity': 0.92, 'circle-stroke-width': 3, 'circle-stroke-color': '#05080E' } });
     map.addLayer({
         'id': 'pts-robot-hit',
         'type': 'circle',
@@ -2029,6 +2603,42 @@ map.on('load', () => {
         }
     });
     map.addLayer({ 'id': 'pts-robot', 'type': 'symbol', 'source': 'business-layers', 'filter': ['==', 'type', 'robot'], 'layout': { 'icon-image': 'car-icon', 'icon-size': ['case', ['==', ['get', 'id'], state.currentRobotId], 1.5, 1.0], 'icon-allow-overlap': true } });
+    map.addLayer({
+        'id': 'pts-target-label',
+        'type': 'symbol',
+        'source': 'business-layers',
+        'filter': ['==', 'type', 'target'],
+        'layout': {
+            'text-field': ['get', 'labelText'],
+            'text-size': 11,
+            'text-offset': [0, 1.25],
+            'text-anchor': 'top',
+            'text-allow-overlap': false
+        },
+        'paint': {
+            'text-color': '#E2E8F0',
+            'text-halo-color': 'rgba(5,8,14,0.95)',
+            'text-halo-width': 1
+        }
+    });
+    map.addLayer({
+        'id': 'pts-robot-label',
+        'type': 'symbol',
+        'source': 'business-layers',
+        'filter': ['==', 'type', 'robot'],
+        'layout': {
+            'text-field': ['get', 'labelText'],
+            'text-size': 11,
+            'text-offset': [0, 1.4],
+            'text-anchor': 'top',
+            'text-allow-overlap': true
+        },
+        'paint': {
+            'text-color': '#C5A87B',
+            'text-halo-color': 'rgba(5,8,14,0.95)',
+            'text-halo-width': 1.2
+        }
+    });
     map.addLayer({ 'id': 'layer-with-pulsing-dot', 'type': 'symbol', 'source': 'alerts', 'layout': { 'icon-image': 'pulsing-dot', 'icon-allow-overlap': true } });
 
 
@@ -2090,7 +2700,9 @@ map.on('load', () => {
         lastLayerClickAt = Date.now();
         e.preventDefault();
         console.log('[MAP] Alert clicked:', e.features[0].properties.id);
-        setFocus('alert', e.features[0].properties.id);
+        if (!focusAlertPoint(e.features[0].properties.id)) {
+            setFocus('all', 'global');
+        }
     });
     // Fallback: query rendered features around click to avoid occasional layer event misses.
     map.on('click', (e) => {
@@ -2121,7 +2733,7 @@ map.on('load', () => {
             return;
         }
         if (p.id) {
-            setFocus('alert', p.id);
+            focusAlertPoint(p.id);
         }
     });
 
@@ -2141,6 +2753,8 @@ map.on('load', () => {
             document.getElementById('evi-modal').style.display = 'flex';
         };
     }
+
+    applyMapUiVisibility();
     document.getElementById('main-evi-frame') && (document.getElementById('main-evi-frame').onclick = () => {
         document.getElementById('evi-modal').style.display = 'flex';
     });

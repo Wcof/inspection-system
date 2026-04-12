@@ -118,7 +118,7 @@ const inspectionPointOptions = computed(() => {
 })
 
 function goBack() {
-  router.push('/smart-inspection/route')
+  router.push('/management/inspection/route')
 }
 
 async function handleSave() {

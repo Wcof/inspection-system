@@ -238,11 +238,11 @@ const filteredTasks = computed(() => {
   })
 })
 function goBack() {
-  router.push('/smart-inspection/statistics')
+  router.push('/management/task/list')
 }
 
 function viewDetail(id: string) {
-  router.push(`/smart-inspection/task/detail/${id}`)
+  router.push(`/management/task/detail/${id}`)
 }
 
 onMounted(() => {

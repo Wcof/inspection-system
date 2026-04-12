@@ -366,15 +366,15 @@ const getBatteryStatus = (level: number): 'success' | 'warning' | 'exception' | 
 }
 
 const handleAdd = () => {
-  router.push('/facility/robot/form')
+  router.push('/implementation/robot/form')
 }
 
 const handleView = (id: string) => {
-  router.push(`/facility/robot/detail/${id}`)
+  router.push(`/implementation/robot/simulation?robotId=${id}`)
 }
 
 const handleEdit = (id: string) => {
-  router.push(`/facility/robot/form/${id}`)
+  router.push(`/implementation/robot/form/${id}`)
 }
 
 const handleDelete = (id: string) => {

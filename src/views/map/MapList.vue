@@ -88,14 +88,14 @@ function fetchMaps() {
 
 function goToEditor(id?: string) {
   if (id) {
-    router.push(`/map/map-editor/${id}`)
+    router.push(`/implementation/map/editor/${id}`)
   } else {
-    router.push('/map/map-editor')
+    router.push('/implementation/map/editor')
   }
 }
 
 function goToPointManage(mapId: string) {
-  router.push(`/map/point-manage?mapId=${mapId}`)
+  router.push(`/implementation/map/point-manage?mapId=${mapId}`)
 }
 
 function handleDelete(id: string) {

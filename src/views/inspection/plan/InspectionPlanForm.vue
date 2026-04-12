@@ -238,7 +238,7 @@ const form = reactive<InspectionPlanFormModel>({
 })
 
 function goBack() {
-  router.push('/smart-inspection/plan')
+  router.push('/management/plan/list')
 }
 
 function handleMapChange(mapId: string, resetSelection = true) {

@@ -161,6 +161,9 @@ export interface InspectionDevice {
   referenceImageVersion?: string
   status: DeviceStatus
   checkItems: InspectionDeviceCheckItem[]
+  inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
+  executionCycle?: { startDate: string; endDate: string }
+  executionWindow?: { startTime: string; endTime: string }
   createdAt: Date
   updatedAt: Date
 }
@@ -174,6 +177,9 @@ export interface InspectionDeviceFormData {
   ptzPreset?: PTZPreset
   referenceImageUrl?: string
   status?: DeviceStatus
+  inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
+  executionCycle?: { startDate: string; endDate: string }
+  executionWindow?: { startTime: string; endTime: string }
 }
 
 export interface InspectionDeviceCheckItem {
@@ -398,6 +404,7 @@ export interface InspectionPoint {
   positionSource: PositionSource
   lastMapPickAt?: Date
   lastManualAdjustAt?: Date
+  updatedBy?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -424,6 +431,7 @@ export interface InspectionPointFormData {
   isCritical: boolean
   exceptionStrategy: InspectionPointExceptionStrategy
   positionSource: PositionSource
+  updatedBy?: string
 }
 
 export interface InspectionTask {

@@ -200,7 +200,7 @@ const form = reactive<Partial<InspectionPoint>>({
 })
 
 function goBack() {
-  router.push('/facility/inspection-point')
+  router.push('/implementation/point/list')
 }
 
 function ensureInspectionPointDescription(description: string) {

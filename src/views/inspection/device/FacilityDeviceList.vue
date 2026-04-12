@@ -591,9 +591,9 @@ const filteredDevices = computed(() => {
 
 function goToForm(id?: string) {
   if (id) {
-    router.push(`/facility/device/form/${id}`)
+    router.push(`/implementation/device/form/${id}`)
   } else if (selectedPointIdFromTree.value) {
-    router.push(`/facility/device/form?pointId=${selectedPointIdFromTree.value}`)
+    router.push(`/implementation/device/form?pointId=${selectedPointIdFromTree.value}`)
   }
 }
 
@@ -746,7 +746,29 @@ onMounted(() => {
   inspectionStore.initialize()
   inspectionPoints.value = inspectionStore.inspectionPoints
   if (route.query.pointId) selectedTreeKeys.value = [`point:${route.query.pointId}`]
-  fetchDevices()
+  
+  // 处理从检测项管理页跳转过来的查询参数
+  if (route.query.deviceId) {
+    const deviceId = route.query.deviceId as string
+    const device = inspectionStore.inspectionDevices.find(d => d.id === deviceId)
+    if (device) {
+      // 定位到对应设备的巡检点
+      selectedTreeKeys.value = [`point:${device.inspectionPointId}`]
+      fetchDevices()
+      
+      // 打开检测项管理弹窗
+      setTimeout(() => {
+        openCheckItems(deviceId)
+        
+        // 如果有checkItemId，找到并滚动到对应检测项
+        if (route.query.checkItemId) {
+          // 这里可以进一步实现滚动到特定检测项并进入编辑态的功能
+        }
+      }, 100)
+    }
+  } else {
+    fetchDevices()
+  }
 })
 </script>
 

@@ -63,9 +63,58 @@
             <template v-if="column.key === 'monitorTime'">
               {{ record.monitorTime }}
             </template>
+            <template v-if="column.key === 'opticalVideo'">
+              <div class="media-cell" @click="openMediaPreview('video', record.opticalVideoUrl, '光学视频')">
+                <img class="media-thumb" :src="record.opticalVideoCoverUrl" alt="光学视频" />
+                <span class="media-label">播放</span>
+              </div>
+            </template>
+            <template v-if="column.key === 'infraredVideo'">
+              <div class="media-cell" @click="openMediaPreview('video', record.infraredVideoUrl, '红外视频')">
+                <img class="media-thumb" :src="record.infraredVideoCoverUrl" alt="红外视频" />
+                <span class="media-label">播放</span>
+              </div>
+            </template>
+            <template v-if="column.key === 'opticalSnapshot'">
+              <div class="media-cell" @click="openMediaPreview('image', record.opticalSnapshotUrl, '光学截图')">
+                <img class="media-thumb" :src="record.opticalSnapshotUrl" alt="光学截图" />
+                <span class="media-label">查看</span>
+              </div>
+            </template>
+            <template v-if="column.key === 'infraredSnapshot'">
+              <div class="media-cell" @click="openMediaPreview('image', record.infraredSnapshotUrl, '红外截图')">
+                <img class="media-thumb" :src="record.infraredSnapshotUrl" alt="红外截图" />
+                <span class="media-label">查看</span>
+              </div>
+            </template>
           </template>
         </a-table>
       </template>
+    </a-modal>
+
+    <a-modal
+      v-model:visible="mediaPreviewVisible"
+      :title="mediaPreviewTitle"
+      width="92%"
+      :footer="null"
+      centered
+      destroy-on-close
+    >
+      <div class="media-preview-wrapper">
+        <video
+          v-if="mediaPreviewType === 'video'"
+          :src="mediaPreviewUrl"
+          controls
+          autoplay
+          class="media-preview-video"
+        />
+        <img
+          v-else
+          :src="mediaPreviewUrl"
+          :alt="mediaPreviewTitle"
+          class="media-preview-image"
+        />
+      </div>
     </a-modal>
   </div>
 </template>
@@ -89,6 +138,10 @@ const taskResults = ref<InspectionTaskResult[]>([])
 const pointDetailVisible = ref(false)
 const currentPointDetail = ref<any>(null)
 const pointDevices = ref<any[]>([])
+const mediaPreviewVisible = ref(false)
+const mediaPreviewType = ref<'image' | 'video'>('image')
+const mediaPreviewUrl = ref('')
+const mediaPreviewTitle = ref('')
 
 const pointColumns = [
   { title: '巡检点名称', dataIndex: 'name', key: 'name' },
@@ -105,7 +158,11 @@ const pointDeviceColumns = [
   { title: '设备编码', dataIndex: 'code', key: 'code', width: 140 },
   { title: '检测项', key: 'checkItems' },
   { title: '最新结果', key: 'latestResult', width: 180 },
-  { title: '监测时间', key: 'monitorTime', width: 180 }
+  { title: '监测时间', key: 'monitorTime', width: 180 },
+  { title: '光学视频', key: 'opticalVideo', width: 110 },
+  { title: '红外视频', key: 'infraredVideo', width: 110 },
+  { title: '光学截图', key: 'opticalSnapshot', width: 110 },
+  { title: '红外截图', key: 'infraredSnapshot', width: 110 }
 ]
 
 function getStatusColor(status: InspectionTaskInstanceStatus): string {
@@ -194,10 +251,23 @@ function openPointDetail(pointRow: any) {
       ...device,
       checkItemSummary: checkItems.length > 0 ? checkItems.map(item => item.name).join('、') : '-',
       latestResult: latest ? `${latest.status}${latest.value !== undefined ? ` / ${latest.value}` : ''}` : '-',
-      monitorTime: latest?.recordedAt ? new Date(latest.recordedAt).toLocaleString() : '-'
+      monitorTime: latest?.recordedAt ? new Date(latest.recordedAt).toLocaleString() : '-',
+      opticalVideoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
+      infraredVideoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm',
+      opticalVideoCoverUrl: `https://picsum.photos/seed/optical-video-${device.id}/220/120`,
+      infraredVideoCoverUrl: `https://picsum.photos/seed/infra-video-${device.id}/220/120`,
+      opticalSnapshotUrl: `https://picsum.photos/seed/optical-shot-${device.id}/300/180`,
+      infraredSnapshotUrl: `https://picsum.photos/seed/infra-shot-${device.id}/300/180`
     }
   })
   pointDetailVisible.value = true
+}
+
+function openMediaPreview(type: 'image' | 'video', url: string, title: string) {
+  mediaPreviewType.value = type
+  mediaPreviewUrl.value = url
+  mediaPreviewTitle.value = title
+  mediaPreviewVisible.value = true
 }
 
 
@@ -212,7 +282,7 @@ function fetchTaskDetail() {
 }
 
 function goBack() {
-  router.push('/smart-inspection/task')
+  router.push('/management/task/list')
 }
 
 onMounted(() => {
@@ -225,5 +295,44 @@ onMounted(() => {
 <style scoped lang="scss">
 .inspection-task-detail {
   width: 100%;
+
+  .media-cell {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+
+  .media-thumb {
+    width: 72px;
+    height: 44px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    object-fit: cover;
+  }
+
+  .media-label {
+    font-size: 12px;
+    color: #1677ff;
+  }
+
+  .media-preview-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 60vh;
+    background: #000;
+    border-radius: 8px;
+    padding: 8px;
+  }
+
+  .media-preview-video,
+  .media-preview-image {
+    max-width: 100%;
+    max-height: 78vh;
+    object-fit: contain;
+  }
 }
 </style>

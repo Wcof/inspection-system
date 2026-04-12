@@ -253,7 +253,7 @@ const handleSubmit = async () => {
         robotStore.saveRobot(formData)
       }
       message.success(isEdit ? '编辑成功' : '创建成功')
-      router.push('/facility/robot')
+      router.push('/implementation/robot/list')
     } finally {
       loading.value = false
     }
@@ -261,7 +261,7 @@ const handleSubmit = async () => {
 }
 
 const handleCancel = () => {
-  router.push('/facility/robot')
+  router.push('/implementation/robot/list')
 }
 </script>
 
