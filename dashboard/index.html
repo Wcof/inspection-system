@@ -38,12 +38,27 @@
     <main class="main-container">
       <section class="map-container" id="map"></section>
       <div class="map-toolbar" id="map-toolbar">
-        <span class="toolbar-title">地图操作栏</span>
-        <button class="toolbar-btn active" data-map-toggle="labels">名称显示</button>
-        <button class="toolbar-btn active" data-map-toggle="robots">机器人显示</button>
-        <button class="toolbar-btn active" data-map-toggle="points">巡检点显示</button>
-        <button class="toolbar-btn active" data-map-toggle="docks">充电站显示</button>
-        <button class="toolbar-btn active" data-map-toggle="route">巡检路径</button>
+        <button class="toolbar-btn" id="btn-map-search">查询</button>
+        <button class="toolbar-btn active" id="btn-display-control">显示控制</button>
+        <div class="toolbar-popover" id="display-control-popover">
+          <label><input type="checkbox" data-map-toggle-check="labels" checked> 名称显示</label>
+          <label><input type="checkbox" data-map-toggle-check="robots" checked> 机器人显示</label>
+          <label><input type="checkbox" data-map-toggle-check="points" checked> 巡检点显示</label>
+          <label><input type="checkbox" data-map-toggle-check="docks" checked> 充电站显示</label>
+          <label><input type="checkbox" data-map-toggle-check="route" checked> 巡检路径</label>
+        </div>
+        <div class="toolbar-popover search-popover" id="map-search-popover">
+          <div class="search-row">
+            <select id="map-search-type">
+              <option value="all">全部</option>
+              <option value="robot">机器人</option>
+              <option value="point">巡检点</option>
+              <option value="dock">充电站</option>
+            </select>
+            <input id="map-search-input" type="text" placeholder="输入名称/编号模糊搜索">
+          </div>
+          <button class="toolbar-btn active" id="btn-map-search-submit">定位</button>
+        </div>
         <button class="toolbar-btn" id="btn-temp-dispatch">临时调度入口</button>
         <button class="toolbar-btn" id="btn-entry-cockpit">驾驶舱入口</button>
         <button class="toolbar-btn" id="btn-reset-view">视角重置</button>
@@ -56,6 +71,11 @@
         <section class="card leadership-kpi">
           <div class="card-header">
             <h3 class="panel-title">总体运营概览</h3>
+            <div class="date-filter-inline">
+              <input id="leadership-start-date" type="date" aria-label="开始日期">
+              <span class="date-range-sep">至</span>
+              <input id="leadership-end-date" type="date" aria-label="结束日期">
+            </div>
           </div>
           <div class="kpi-grid">
             <div class="kpi-card">
@@ -75,9 +95,9 @@
               </div>
               <div class="kpi-content">
                 <div class="kpi-value" id="today-tasks">0</div>
-                <div class="kpi-label">当日巡检任务数</div>
+                <div class="kpi-label">当日巡检点次</div>
                 <div class="kpi-subvalue" id="executed-task-total">0</div>
-                <div class="kpi-sublabel">已执行任务总数</div>
+                <div class="kpi-sublabel">累计巡检点次</div>
               </div>
             </div>
           </div>
@@ -86,16 +106,8 @@
         <section class="card plan-summary">
           <div class="card-header">
             <h3 class="panel-title">巡检总览</h3>
-            <div class="rs-total">巡检任务总次数: <strong id="plan-task-total">0</strong></div>
           </div>
           <div class="summary-grid four-columns" id="plan-summary-cards"></div>
-          <div class="sub-summary-block point-coverage">
-            <div class="sub-summary-header">
-              <span>巡检点概览</span>
-            <div class="rs-total">今日已巡检里程: <strong id="point-total-mileage">0</strong></div>
-            </div>
-            <div class="summary-grid four-columns" id="point-summary-cards"></div>
-          </div>
         </section>
 
         <section class="card robot-efficiency robot-overview">
@@ -104,6 +116,16 @@
             <div class="rs-total">机器人总里程: <strong id="robot-total-mileage">0</strong></div>
           </div>
           <div class="summary-grid four-columns" id="robot-summary-cards"></div>
+        </section>
+
+        <!-- E. 充电站 -->
+        <section class="card dock-status" style="flex: 1;">
+          <div class="card-header">
+            <h3 class="panel-title">充电站概览</h3>
+          </div>
+          <div class="dock-grid" id="dock-grid-container">
+            <!-- Dynamic dock stats -->
+          </div>
         </section>
 
       </aside>
@@ -124,50 +146,28 @@
                 <div class="risk-compact-label">当日告警总数</div>
               </div>
               <div class="risk-compact-breakdown">
-                <div class="risk-compact-item danger">
+                <div class="risk-compact-item info" data-risk-cat="infrared">
                   <span class="risk-compact-dot"></span>
-                  <span class="risk-compact-item-label">安全行为</span>
-                  <span class="risk-compact-item-value" id="risk-safe-behavior">0</span>
-                </div>
-                <div class="risk-compact-item warn">
-                  <span class="risk-compact-dot"></span>
-                  <span class="risk-compact-item-label">红外测温</span>
+                  <span class="risk-compact-item-label">巡检点</span>
                   <span class="risk-compact-item-value" id="risk-infrared">0</span>
                 </div>
-                <div class="risk-compact-item info">
+                <div class="risk-compact-item info" data-risk-cat="device">
+                  <span class="risk-compact-dot"></span>
+                  <span class="risk-compact-item-label">设施设备</span>
+                  <span class="risk-compact-item-value" id="risk-device">0</span>
+                </div>
+                <div class="risk-compact-item info" data-risk-cat="gas">
                   <span class="risk-compact-dot"></span>
                   <span class="risk-compact-item-label">气体异常</span>
                   <span class="risk-compact-item-value" id="risk-gas">0</span>
                 </div>
-                <div class="risk-compact-item info">
+                <div class="risk-compact-item info" data-risk-cat="safeBehavior">
                   <span class="risk-compact-dot"></span>
-                  <span class="risk-compact-item-label">设备异常</span>
-                  <span class="risk-compact-item-value" id="risk-device">0</span>
+                  <span class="risk-compact-item-label">安全行为</span>
+                  <span class="risk-compact-item-value" id="risk-safe-behavior">0</span>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-
-        <section class="card env-summary">
-          <div class="card-header">
-            <h3 class="panel-title">环境指标概览</h3>
-            <div class="rs-total">当前点位: <strong id="env-focus-point">--</strong></div>
-          </div>
-          <div class="summary-grid two-columns" id="env-summary-cards"></div>
-        </section>
-
-        <!-- E. 充电站 -->
-        <section class="card dock-status" style="flex: 1;">
-          <div class="card-header">
-            <h3 class="panel-title">充电站概览</h3>
-            <div class="rs-total">充电站数量: <strong id="dock-total-num">0</strong></div>
-          </div>
-          <div class="dock-grid" id="dock-grid-container">
-            <!-- Dynamic dock stats -->
-          </div>
-          <div id="dock-list-container" style="overflow-y: auto; max-height: 80px;">
-            <!-- Dynamic dock rows -->
           </div>
         </section>
 
@@ -179,6 +179,21 @@
           <div class="broadcast-pin" id="broadcast-pin">暂无置顶告警</div>
           <div class="broadcast-viewport">
             <div class="broadcast-list" id="broadcast-list"></div>
+          </div>
+        </section>
+
+        <section class="card env-summary">
+          <div class="card-header">
+            <h3 class="panel-title">设施设备概览</h3>
+            <div class="rs-total">设施设备总数: <strong id="facility-total">0</strong></div>
+          </div>
+          <div class="summary-grid two-columns" id="facility-summary-cards"></div>
+          <div class="sub-summary-block env-realtime-block">
+            <div class="sub-summary-header">
+              <span>环境指标概览（实时）</span>
+              <div class="rs-total">轮播点位: <strong id="env-focus-point">--</strong></div>
+            </div>
+            <div class="summary-grid two-columns env-realtime-grid" id="env-summary-cards"></div>
           </div>
         </section>
 
@@ -271,6 +286,7 @@
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
   <div id="evi-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; flex-direction:column; align-items:center; justify-content:center; padding:40px;">
     <div id="evi-modal-close" style="position:absolute; top:20px; right:30px; font-size:32px; color:#fff; cursor:pointer;">×</div>
+    <div id="evi-modal-title" style="width:100%; max-width:1200px; margin-bottom:10px; color:#dbe7f5; font-size:18px; font-family:var(--font-data);">巡检影像</div>
     
     <div class="evi-tabs" id="modal-evi-tabs" style="margin-bottom: 20px; scale: 1.2;">
        <button class="e-tab active" data-mode="normal">可见光追踪</button>
@@ -281,6 +297,7 @@
     <div id="evi-modal-content" style="width:100%; max-width:1200px; height:75%; border:2px solid var(--border-focus); background:url('') center/contain no-repeat; box-shadow:0 0 50px rgba(197,168,123,0.3);">
        <!-- Content will be mirrored or zoomed -->
     </div>
+    <div id="evi-modal-thumbs" class="evi-modal-thumbs"></div>
     <div style="margin-top:20px; color:#fff; text-align:center;">
        <h2 id="modal-device" style="font-size:24px; color:var(--accent-titan);">设备名称</h2>
        <div id="modal-meta" style="font-size:14px; color:var(--text-sub); margin-top:10px;">元数据详情</div>

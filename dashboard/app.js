@@ -60,6 +60,7 @@ const state = {
     alertPanelVisible: false,
     envMetricPopupKey: 'O2',
     envHistoryRange: 7,
+    envFocusPointIndex: 0,
     currentControlRobotId: null,
     mapUi: {
         labels: true,
@@ -70,6 +71,8 @@ const state = {
         route: true
     }
 };
+const RISK_DISPATCH_URL = 'https://wcof.github.io/inspection-system/#/management/exception/list';
+let envRealtimeTicker = null;
 
 const ROBOT_MILEAGE_KM = {
     'R-07': 4820,
@@ -120,6 +123,69 @@ const closeMapPopup = () => {
     const el = document.getElementById('map-popup-body');
     if (el) el.style.display = 'none';
     mapPopup = null;
+};
+
+const getRobotSpeedKmh = (robot) => {
+    const biz = getRobotBizStatus(robot);
+    if (biz === 'executing') return 6 + ((robot?.battery || 0) % 4);
+    if (biz === 'returning') return 4 + ((robot?.battery || 0) % 3);
+    return 0;
+};
+
+const toTaskShortName = (name = '') => {
+    const simple = String(name).replace(/例行|巡检|任务|主干道|动力站房|安防护卫/g, '').trim();
+    return (simple || name || '--').slice(0, 8);
+};
+
+const getPointVisitStats = (pointId) => {
+    const point = getAllInspectionPoints().find((p) => p.id === pointId);
+    const base = point?.status === 'pending' ? 0 : (point?.status === 'running' ? 2 : 3);
+    const normal = 2 + base;
+    const temporary = point?.status === 'warn' || point?.status === 'danger' ? 2 : 1;
+    return { total: normal + temporary, normal, temporary };
+};
+
+const getDockQueueStats = (dock) => {
+    const charging = dock.status === 'charging' ? 1 : 0;
+    const parked = dock.status === 'safe' ? 1 : 0;
+    const fullNotLeave = dock.fullNotLeave ?? (dock.status === 'safe' ? 1 : 0);
+    const queue = dock.queueCount ?? (dock.status === 'charging' ? 1 : 0);
+    return { charging, parked, fullNotLeave, queue };
+};
+
+const openEvidenceModal = ({
+    image,
+    device = '巡检影像',
+    meta = '',
+    title = '',
+    thumbs = []
+} = {}) => {
+    const modal = document.getElementById('evi-modal');
+    const content = document.getElementById('evi-modal-content');
+    if (!modal || !content) return;
+    modal.style.display = 'flex';
+    content.style.backgroundImage = `url('${image || ''}')`;
+    document.getElementById('modal-device').innerText = device;
+    document.getElementById('modal-meta').innerText = meta;
+    const titleEl = document.getElementById('evi-modal-title');
+    if (titleEl) titleEl.innerText = title || `${device}${meta ? ` | ${meta}` : ''}`;
+    const thumbsEl = document.getElementById('evi-modal-thumbs');
+    if (thumbsEl) {
+        thumbsEl.innerHTML = (thumbs || []).map((t, idx) => `
+          <button class="evi-thumb ${idx === 0 ? 'active' : ''}" data-img="${t.img}" data-label="${t.label || ''}">
+            <span class="evi-thumb-img" style="background-image:url('${t.img}')"></span>
+            <span class="evi-thumb-label">${t.label || '检测项'}</span>
+          </button>
+        `).join('');
+        thumbsEl.querySelectorAll('.evi-thumb').forEach((btn) => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                thumbsEl.querySelectorAll('.evi-thumb').forEach((x) => x.classList.remove('active'));
+                btn.classList.add('active');
+                content.style.backgroundImage = `url('${btn.dataset.img}')`;
+            };
+        });
+    }
 };
 
 const positionPopupAtFeature = (coords) => {
@@ -284,7 +350,7 @@ const showInspectionPointPopup = (pointId) => {
         if (!point) { console.warn('[Popup] Inspection point not found:', pointId); return; }
         const coords = INSPECTION_POINT_COORDS[pointId];
         if (!coords) { console.warn('[Popup] No coords for:', pointId); return; }
-        const stMap = { running:'巡检中', pending:'待巡检', completed:'已完成', warn:'有告警' };
+        const stMap = { running:'巡检中', pending:'待巡检', completed:'已完成', warn:'有告警', danger: '严重告警' };
         const stTag = { running:'gold', pending:'smog', completed:'safe', warn:'warn' };
         const monitor = point.monitorPoints?.[0];
         const metrics = monitor?.metrics || {};
@@ -301,9 +367,20 @@ const showInspectionPointPopup = (pointId) => {
         } else if (point.status !== 'pending' && point.progress) {
             inspectTimeText = `最近一次巡检（进度 ${point.progress}）`;
         }
+        const visitStats = getPointVisitStats(pointId);
         const pointImgs = {
-            optical: taskData?.bgImg || makeMockImg(`${point.name} 光学视角`, '#1f3047', '#3d5e7f'),
-            thermal: makeMockImg(`${point.name} 热成像`, '#3a1f1f', '#5f382a')
+            optical: [
+                taskData?.bgImg || makeMockImg(`${point.name} 光学总览`, '#1f3047', '#3d5e7f'),
+                makeMockImg(`${point.name} 阀体`, '#1e2f42', '#44638b'),
+                makeMockImg(`${point.name} 接线端子`, '#20344f', '#3f5c7f'),
+                makeMockImg(`${point.name} 外观面板`, '#273e55', '#476784')
+            ],
+            thermal: [
+                makeMockImg(`${point.name} 热成像总览`, '#3a1f1f', '#5f382a'),
+                makeMockImg(`${point.name} 法兰热斑`, '#4b241f', '#743b2a'),
+                makeMockImg(`${point.name} 轴承温升`, '#442121', '#63392d'),
+                makeMockImg(`${point.name} 电缆温差`, '#3a1c23', '#5f2d36')
+            ]
         };
         const pointAlert = DATA.alerts.find((a) => {
             if (!Array.isArray(a.coords)) return false;
@@ -321,11 +398,19 @@ const showInspectionPointPopup = (pointId) => {
             ? `<button class="point-photo-tab active" data-view="alert">巡检告警</button>`
             : `<button class="point-photo-tab disabled" data-view="alert" disabled>巡检告警</button>`;
         const alertImgs = {
-            optical: pointAlert?.bgImg || pointImgs.optical,
-            thermal: makeMockImg(`${point.name} 告警热成像`, '#431c1c', '#6e3b2b')
+            optical: [
+                pointAlert?.bgImg || pointImgs.optical[0],
+                makeMockImg(`${point.name} 告警-阀体`, '#4e1d1d', '#6d3434'),
+                makeMockImg(`${point.name} 告警-接线`, '#491f2a', '#6c2f41'),
+                makeMockImg(`${point.name} 告警-机壳`, '#50282a', '#723f36')
+            ],
+            thermal: [
+                makeMockImg(`${point.name} 告警热成像1`, '#431c1c', '#6e3b2b'),
+                makeMockImg(`${point.name} 告警热成像2`, '#4e2017', '#7a4329'),
+                makeMockImg(`${point.name} 告警热成像3`, '#55241a', '#7b472d'),
+                makeMockImg(`${point.name} 告警热成像4`, '#44211f', '#6b3e33')
+            ]
         };
-        const decision = pointAlert ? (state.pointAlertDecision[pointAlert.id] || 'none') : 'none';
-        const decisionText = decision === 'confirm' ? '已确认处置' : (decision === 'shield' ? '已屏蔽告警' : '待处置');
         const alertPanelHtml = pointAlert
             ? `<div class="point-alert-card">
                 <div class="point-photo-tabs" style="margin-bottom:8px;">
@@ -333,17 +418,15 @@ const showInspectionPointPopup = (pointId) => {
                     <button class="point-photo-tab" data-alert-mode="thermal">热成像视角</button>
                 </div>
                 <div class="point-photo-frame" id="point-alert-frame">
-                    <div id="point-alert-image" class="point-photo-image" style="background-image:url('${alertImgs.optical}')"></div>
+                    <div class="point-photo-grid" id="point-alert-grid"></div>
                 </div>
                 <div style="margin-top:8px; color:var(--text-main);">${pointAlert.time} ${pointAlert.state}</div>
                 <div style="margin-top:4px">${pointAlert.defect}</div>
                 <div style="margin-top:6px;color:var(--text-sub)">设备：${pointAlert.device}</div>
                 <div class="point-alert-actions">
-                    <button class="point-alert-btn ${decision === 'confirm' ? 'active' : ''}" data-alert-action="confirm">确认</button>
-                    <button class="point-alert-btn ${decision === 'shield' ? 'active' : ''}" data-alert-action="shield">屏蔽</button>
-                    <button class="point-alert-btn" data-alert-action="undo">撤回</button>
+                    <button class="point-alert-btn active" data-alert-action="dispose">处置</button>
                 </div>
-                <div class="point-alert-decision" id="point-alert-decision">${decisionText}</div>
+                <div class="point-alert-decision" id="point-alert-decision">首页仅做提醒，请前往处置中心</div>
             </div>`
             : `<div class="point-alert-card dim">当前点位暂无告警</div>`;
         const defaultMediaActive = pointAlert ? '' : ' active';
@@ -364,22 +447,26 @@ const showInspectionPointPopup = (pointId) => {
                         <span class="popup-stat-value">${point.name}</span>
                     </div>
                     <div class="popup-stat">
-                        <span class="popup-stat-label">所属任务</span>
-                        <span class="popup-stat-value">${taskData?.taskName||taskId}</span>
+                        <span class="popup-stat-label">今日巡检次数</span>
+                        <span class="popup-stat-value">${visitStats.total}次</span>
                     </div>
                     <div class="popup-stat">
-                        <span class="popup-stat-label">巡检机器人</span>
-                        <span class="popup-stat-value">${taskData?.bot||'--'}</span>
+                        <span class="popup-stat-label">时间间隔</span>
+                        <span class="popup-stat-value">每2小时/次</span>
                     </div>
                     <div class="popup-stat">
-                        <span class="popup-stat-label">巡检时间</span>
+                        <span class="popup-stat-label">时间范围</span>
                         <span class="popup-stat-value">${inspectTimeText}</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">最近采集时间</span>
+                        <span class="popup-stat-value">${point.status === 'pending' ? '待采集' : (timelineNodes[matchIdx]?.time || '--')}</span>
                     </div>
                 </div>
                 <div class="point-photo-section">
                     <div class="popup-metrics-title">巡检信息</div>
                     <div class="point-photo-tabs">
-                        <button class="point-photo-tab${defaultMediaActive}" data-view="media">最近影像</button>
+                        <button class="point-photo-tab${defaultMediaActive}" data-view="media">最新影像</button>
                         ${alertTab}
                     </div>
                     <div id="point-media-panel" style="display:${defaultMediaDisplay};">
@@ -388,7 +475,7 @@ const showInspectionPointPopup = (pointId) => {
                             <button class="point-photo-tab" data-mode="thermal">热成像视角</button>
                         </div>
                         <div class="point-photo-frame" id="point-media-frame">
-                            <div id="point-photo-image" class="point-photo-image" style="background-image:url('${pointImgs.optical}')"></div>
+                            <div class="point-photo-grid" id="point-media-grid"></div>
                         </div>
                     </div>
                     <div id="point-alert-panel" style="display:${defaultAlertDisplay}; margin-top:8px;">
@@ -407,7 +494,6 @@ const showInspectionPointPopup = (pointId) => {
             el.innerHTML = html;
             el.style.display = 'block';
             el.style.transform = '';
-            const imgEl = el.querySelector('#point-photo-image');
             const modeTabs = el.querySelectorAll('.point-photo-tab[data-mode]');
             const alertModeTabs = el.querySelectorAll('.point-photo-tab[data-alert-mode]');
             const viewTabs = el.querySelectorAll('.point-photo-tab[data-view]');
@@ -415,13 +501,38 @@ const showInspectionPointPopup = (pointId) => {
             const alertPanel = el.querySelector('#point-alert-panel');
             const mediaFrame = el.querySelector('#point-media-frame');
             const alertFrame = el.querySelector('#point-alert-frame');
-            const alertImgEl = el.querySelector('#point-alert-image');
+            const mediaGrid = el.querySelector('#point-media-grid');
+            const alertGrid = el.querySelector('#point-alert-grid');
             const modeFilter = {
                 optical: 'grayscale(10%) contrast(1.05)',
                 thermal: 'saturate(4) hue-rotate(120deg) contrast(1.7)'
             };
             let currentMediaMode = 'optical';
             let currentAlertMode = 'optical';
+            const paintGrid = (targetEl, images, mode, labelsPrefix) => {
+                if (!targetEl) return;
+                targetEl.innerHTML = images.map((img, idx) => `
+                  <button class="point-photo-cell" data-img="${img}" data-label="${labelsPrefix}${idx + 1}">
+                    <span class="point-photo-cell-img" style="background-image:url('${img}'); filter:${modeFilter[mode] || 'none'}"></span>
+                    <span class="point-photo-cell-label">${labelsPrefix}${idx + 1}</span>
+                  </button>
+                `).join('');
+                targetEl.querySelectorAll('.point-photo-cell').forEach((cell) => {
+                    cell.onclick = (ev) => {
+                        ev.stopPropagation();
+                        const img = cell.dataset.img;
+                        openEvidenceModal({
+                            image: img,
+                            title: `${point.name} | ${taskData?.bot || '--'} | ${inspectTimeText}`,
+                            device: point.name,
+                            meta: `${cell.dataset.label} | ${point.status === 'pending' ? '待巡检' : '已采集'}`,
+                            thumbs: images.map((t, tIdx) => ({ img: t, label: `${labelsPrefix}${tIdx + 1}` }))
+                        });
+                    };
+                });
+            };
+            paintGrid(mediaGrid, pointImgs.optical, 'optical', '光学项');
+            if (pointAlert) paintGrid(alertGrid, alertImgs.optical, 'optical', '告警项');
             viewTabs.forEach((tab) => {
                 tab.onclick = (e) => {
                     e.stopPropagation();
@@ -440,10 +551,7 @@ const showInspectionPointPopup = (pointId) => {
                     tab.classList.add('active');
                     const mode = tab.dataset.mode;
                     currentMediaMode = mode;
-                    if (imgEl) {
-                        imgEl.style.backgroundImage = `url('${pointImgs[mode] || pointImgs.optical}')`;
-                        imgEl.style.filter = modeFilter[mode] || 'none';
-                    }
+                    paintGrid(mediaGrid, pointImgs[mode] || pointImgs.optical, mode, mode === 'optical' ? '光学项' : '热成像项');
                 };
             });
             alertModeTabs.forEach((tab) => {
@@ -453,54 +561,39 @@ const showInspectionPointPopup = (pointId) => {
                     tab.classList.add('active');
                     const mode = tab.dataset.alertMode;
                     currentAlertMode = mode;
-                    if (alertImgEl) {
-                        alertImgEl.style.backgroundImage = `url('${alertImgs[mode] || alertImgs.optical}')`;
-                        alertImgEl.style.filter = modeFilter[mode] || 'none';
-                    }
+                    paintGrid(alertGrid, alertImgs[mode] || alertImgs.optical, mode, mode === 'optical' ? '告警项' : '热成像项');
                 };
             });
-            const openPointEvidence = (img, filter, device, meta) => {
-                const modal = document.getElementById('evi-modal');
-                const modalContent = document.getElementById('evi-modal-content');
-                if (!modal || !modalContent) return;
-                modal.style.display = 'flex';
-                modalContent.style.backgroundImage = `url('${img}')`;
-                modalContent.style.filter = filter || 'none';
-                document.getElementById('modal-device').innerText = device || '巡检影像';
-                document.getElementById('modal-meta').innerText = meta || `${taskData?.bot || '--'} | ${inspectTimeText}`;
-            };
             if (mediaFrame) {
                 mediaFrame.onclick = (e) => {
                     e.stopPropagation();
-                    openPointEvidence(pointImgs[currentMediaMode] || pointImgs.optical, modeFilter[currentMediaMode], point.name, `${taskData?.bot || '--'} | ${inspectTimeText}`);
+                    openEvidenceModal({
+                        image: (pointImgs[currentMediaMode] || pointImgs.optical)[0],
+                        title: `${point.name} | ${taskData?.bot || '--'} | ${inspectTimeText}`,
+                        device: point.name,
+                        meta: `${taskData?.bot || '--'} | ${inspectTimeText}`,
+                        thumbs: (pointImgs[currentMediaMode] || pointImgs.optical).map((img, idx) => ({ img, label: `${currentMediaMode === 'optical' ? '光学项' : '热成像项'}${idx + 1}` }))
+                    });
                 };
             }
             if (alertFrame && pointAlert) {
                 alertFrame.onclick = (e) => {
                     e.stopPropagation();
-                    openPointEvidence(alertImgs[currentAlertMode] || alertImgs.optical, modeFilter[currentAlertMode], pointAlert.device, `${taskData?.bot || '--'} | ${pointAlert.time}`);
+                    openEvidenceModal({
+                        image: (alertImgs[currentAlertMode] || alertImgs.optical)[0],
+                        title: `${pointAlert.device} ${taskData?.bot || ''} | ${pointAlert.time}`,
+                        device: pointAlert.device,
+                        meta: `${pointAlert.time} | ${pointAlert.state}`,
+                        thumbs: (alertImgs[currentAlertMode] || alertImgs.optical).map((img, idx) => ({ img, label: `告警项${idx + 1}` }))
+                    });
                 };
             }
-            const decisionEl = el.querySelector('#point-alert-decision');
             const actionBtns = el.querySelectorAll('[data-alert-action]');
-            const applyDecisionView = (decisionValue) => {
-                actionBtns.forEach((btn) => {
-                    if (btn.dataset.alertAction === 'confirm') btn.classList.toggle('active', decisionValue === 'confirm');
-                    if (btn.dataset.alertAction === 'shield') btn.classList.toggle('active', decisionValue === 'shield');
-                });
-                if (decisionEl) {
-                    decisionEl.innerText = decisionValue === 'confirm' ? '已确认处置' : (decisionValue === 'shield' ? '已屏蔽告警' : '待处置');
-                }
-            };
             actionBtns.forEach((btn) => {
                 btn.onclick = (e) => {
                     e.stopPropagation();
                     if (!pointAlert) return;
-                    const action = btn.dataset.alertAction;
-                    if (action === 'confirm') state.pointAlertDecision[pointAlert.id] = 'confirm';
-                    if (action === 'shield') state.pointAlertDecision[pointAlert.id] = 'shield';
-                    if (action === 'undo') state.pointAlertDecision[pointAlert.id] = 'none';
-                    applyDecisionView(state.pointAlertDecision[pointAlert.id] || 'none');
+                    if (btn.dataset.alertAction === 'dispose') window.location.href = RISK_DISPATCH_URL;
                 };
             });
         }
@@ -519,7 +612,8 @@ const showDockPopup = (dockId) => {
         closeMapPopup();
         const dock = DATA.docks.find(d => d.id === dockId);
         if (!dock) return;
-        const statusText = dock.status === 'charging' ? '服务中' : '闲置';
+        const dockStats = getDockQueueStats(dock);
+        const statusText = dock.status === 'charging' ? '服务中' : '待命';
         const statusClass = dock.status === 'charging' ? 'highlight' : 'safe-txt';
         const currentRobot = dock.status === 'charging' ? dock.bot : '暂无';
         const html = `
@@ -534,6 +628,14 @@ const showDockPopup = (dockId) => {
                     <div class="popup-stat">
                         <span class="popup-stat-label">当前状态</span>
                         <span class="popup-stat-value ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">当前充电台数</span>
+                        <span class="popup-stat-value">${dockStats.charging}</span>
+                    </div>
+                    <div class="popup-stat">
+                        <span class="popup-stat-label">当前停放台数</span>
+                        <span class="popup-stat-value">${dockStats.parked}</span>
                     </div>
                     <div class="popup-stat">
                         <span class="popup-stat-label">当前服务机器人</span>
@@ -554,6 +656,12 @@ const showDockPopup = (dockId) => {
                     <div class="popup-stat">
                         <span class="popup-stat-label">站点编号</span>
                         <span class="popup-stat-value">${dock.id}</span>
+                    </div>
+                </div>
+                <div class="popup-metrics-section">
+                    <div class="popup-metrics-title">站点门面</div>
+                    <div class="point-photo-frame">
+                        <div class="point-photo-image" style="background-image:url('${dock.facadeImg || makeMockImg(`${dock.name}门面`, '#233043', '#4b6a8f')}')"></div>
                     </div>
                 </div>
             </div>
@@ -744,12 +852,12 @@ const DATA = {
         { id: 'A-03', bgImg: makeMockImg('Alert A-03', '#172033', '#334f7c'), time: '11:45', level: 'danger', state: '待复核', device: 'B区冷媒管线', loc: '侧边管囊', defect: '气体压力突降', taskId: 'T-01', coords: [121.4729, 31.2331], aimSafe: false, targetLabel: '压力表视窗 [未对准]', eviResult: '分析: 镜头失焦，无法读数', eviClass: 'danger-txt', lastTime: '2天前', lastResult: '正常', comp: '未见异常' }
     ],
     docks: [
-        { id: 'D-01', name: 'A区-主干道充电站', status: 'charging', bot: 'R-11', lastRobot: 'R-07', voltage: '398V', totalCharges: 18, coords: [121.4725, 31.2280] },
-        { id: 'D-02', name: 'C区-仓库备用站', status: 'safe', bot: '空闲', lastRobot: 'R-02', voltage: '401V', totalCharges: 12, coords: [121.4760, 31.2345] },
-        { id: 'D-03', name: 'B区-巡检入口充电站', status: 'charging', bot: 'R-02', lastRobot: 'R-12', voltage: '396V', totalCharges: 16, coords: [121.4708, 31.2282] },
-        { id: 'D-04', name: 'E区-动力站房充电站', status: 'safe', bot: '空闲', lastRobot: 'R-11', voltage: '400V', totalCharges: 21, coords: [121.4775, 31.2318] },
-        { id: 'D-05', name: '北侧-临停补能站', status: 'safe', bot: '空闲', lastRobot: 'R-05', voltage: '399V', totalCharges: 9, coords: [121.4732, 31.2342] },
-        { id: 'D-06', name: '南侧-备用充电站', status: 'charging', bot: 'R-05', lastRobot: 'R-03', voltage: '397V', totalCharges: 14, coords: [121.4768, 31.2274] }
+        { id: 'D-01', name: 'A区-主干道充电站', status: 'charging', bot: 'R-11', lastRobot: 'R-07', voltage: '398V', totalCharges: 18, fullNotLeave: 1, queueCount: 2, facadeImg: makeMockImg('A区主干道充电站门面', '#112437', '#294c73'), coords: [121.4725, 31.2280] },
+        { id: 'D-02', name: 'C区-仓库备用站', status: 'safe', bot: '空闲', lastRobot: 'R-02', voltage: '401V', totalCharges: 12, fullNotLeave: 2, queueCount: 0, facadeImg: makeMockImg('C区仓库备用站门面', '#1a2b2c', '#2f6164'), coords: [121.4760, 31.2345] },
+        { id: 'D-03', name: 'B区-巡检入口充电站', status: 'charging', bot: 'R-02', lastRobot: 'R-12', voltage: '396V', totalCharges: 16, fullNotLeave: 1, queueCount: 1, facadeImg: makeMockImg('B区入口充电站门面', '#2c1d1d', '#654037'), coords: [121.4708, 31.2282] },
+        { id: 'D-04', name: 'E区-动力站房充电站', status: 'safe', bot: '空闲', lastRobot: 'R-11', voltage: '400V', totalCharges: 21, fullNotLeave: 3, queueCount: 0, facadeImg: makeMockImg('E区动力站房充电站门面', '#241f33', '#4a3f71'), coords: [121.4775, 31.2318] },
+        { id: 'D-05', name: '北侧-临停补能站', status: 'safe', bot: '空闲', lastRobot: 'R-05', voltage: '399V', totalCharges: 9, fullNotLeave: 1, queueCount: 1, facadeImg: makeMockImg('北侧临停补能站门面', '#233021', '#496b44'), coords: [121.4732, 31.2342] },
+        { id: 'D-06', name: '南侧-备用充电站', status: 'charging', bot: 'R-05', lastRobot: 'R-03', voltage: '397V', totalCharges: 14, fullNotLeave: 2, queueCount: 2, facadeImg: makeMockImg('南侧备用充电站门面', '#2c2222', '#634646'), coords: [121.4768, 31.2274] }
     ]
 };
 
@@ -1265,15 +1373,20 @@ const renderAlerts = () => {
             const eviFrame = eviDiv.querySelector('#alert-evi-frame');
             eviFrame.onclick = (e) => {
                 e.stopPropagation();
-                document.getElementById('evi-modal').style.display = 'flex';
                 const mock = document.getElementById('alert-evi-mock');
-                const modalContent = document.getElementById('evi-modal-content');
-                if (modalContent && mock) {
-                    modalContent.style.backgroundImage = mock.style.backgroundImage;
-                    modalContent.style.filter = getFilterStyle(state.currentEvidenceMode);
-                }
-                document.getElementById('modal-device').innerText = a.device;
-                document.getElementById('modal-meta').innerText = `${botId} | ${a.time}`;
+                const img = mock?.style.backgroundImage?.replace(/^url\(["']?/, '').replace(/["']?\)$/, '') || a.bgImg;
+                openEvidenceModal({
+                    image: img,
+                    title: `${a.device} ${botId} | ${a.time}`,
+                    device: a.device,
+                    meta: `${botId} | ${a.time}`,
+                    thumbs: [
+                        { img: a.bgImg, label: '告警主视角' },
+                        { img: makeMockImg(`${a.device} 热异常`, '#4b1f1f', '#7a3f2f'), label: '热异常' },
+                        { img: makeMockImg(`${a.device} 接线端子`, '#213045', '#3d6288'), label: '接线端子' },
+                        { img: makeMockImg(`${a.device} 仪表区`, '#2b3341', '#4d6076'), label: '仪表区' }
+                    ]
+                });
             };
         }
 
@@ -1317,28 +1430,28 @@ const getFilterStyle = (mode) => {
 
 const renderDocks = () => {
     const totalStations = DATA.docks.length;
-    const chargingStations = DATA.docks.filter(d => d.status === 'charging').length;
-    const idleStations = DATA.docks.filter(d => d.status === 'safe').length;
-    const totalCharges = DATA.docks.reduce((sum, d) => sum + (d.totalCharges || 0), 0);
-
-    document.getElementById('dock-total-num').innerText = totalStations;
+    const chargingStations = DATA.docks.reduce((sum, d) => sum + getDockQueueStats(d).charging, 0);
+    const fullNotLeave = DATA.docks.reduce((sum, d) => sum + getDockQueueStats(d).fullNotLeave, 0);
+    const queueStations = DATA.docks.reduce((sum, d) => sum + getDockQueueStats(d).queue, 0);
     const grid = document.getElementById('dock-grid-container');
-    grid.innerHTML = `
-        <div class="dock-item"><div class="di-val">${totalCharges}</div><div class="di-lbl">充电总次数</div></div>
-        <div class="dock-item"><div class="di-val highlight">${idleStations}</div><div class="di-lbl">闲置数量</div></div>
-        <div class="dock-item"><div class="di-val safe-txt">${chargingStations}</div><div class="di-lbl">当前服务中</div></div>
-    `;
-    const list = document.getElementById('dock-list-container');
-    list.innerHTML = '';
-    DATA.docks.forEach(d => {
-        const div = document.createElement('div');
-        div.className = 'dock-row';
-        div.style.cursor = 'pointer';
-        if (d.id === state.currentDockId) div.style.background = 'rgba(255,255,255,0.1)';
-        div.onclick = () => setFocus('dock', d.id);
-        const stateText = d.status === 'charging' ? `服务 ${d.bot}` : '闲置';
-        div.innerHTML = `<span class="dr-lbl">${d.name}</span><span class="dr-state"><b class="dot ${d.status}"></b> ${stateText} / ${d.totalCharges || 0}次</span>`;
-        list.appendChild(div);
+    if (!grid) return;
+    const metrics = [
+        { value: totalStations, label: '充电站数量', tone: 'base' },
+        { value: chargingStations, label: '当前充电台数', tone: 'active' },
+        { value: fullNotLeave, label: '已充满未离站台数', tone: 'safe' },
+        { value: queueStations, label: '排队台数', tone: 'warn' }
+    ];
+    grid.innerHTML = metrics.map((m, idx) => `
+      <button class="dock-item clickable" data-dock-metric-index="${idx}">
+        <div class="di-val tone-${m.tone}">${m.value}</div>
+        <div class="di-lbl">${m.label}</div>
+      </button>
+    `).join('');
+    const preferredDock = DATA.docks.find((d) => d.status === 'charging') || DATA.docks[0];
+    grid.querySelectorAll('.dock-item.clickable').forEach((el) => {
+        el.onclick = () => {
+            if (preferredDock) setFocus('dock', preferredDock.id);
+        };
     });
 };
 
@@ -1535,6 +1648,12 @@ const renderEvidence = () => {
         modalContent.style.filter = mock.style.filter;
         document.getElementById('modal-device').innerText = eviDeviceEl.innerText;
         document.getElementById('modal-meta').innerText = eviRobotEl.innerText;
+        const titleEl = document.getElementById('evi-modal-title');
+        if (titleEl) titleEl.innerText = `${eviDeviceEl.innerText} | ${eviRobotEl.innerText}`;
+        const thumbsEl = document.getElementById('evi-modal-thumbs');
+        if (thumbsEl && bgImg) {
+            thumbsEl.innerHTML = `<button class="evi-thumb active"><span class="evi-thumb-img" style="background-image:url('${bgImg}')"></span><span class="evi-thumb-label">主视角</span></button>`;
+        }
     }
 
     document.querySelectorAll('.e-tab').forEach(tab => {
@@ -1669,6 +1788,7 @@ const applyMapUiVisibility = () => {
     const showDocks = !!state.mapUi.docks;
     const showRobotLabels = showRobots && !!state.mapUi.labels;
     const showPointLabels = showPoints && !!state.mapUi.labels;
+    const showDockLabels = showDocks && !!state.mapUi.labels;
     const showRoutes = !!state.mapUi.route && showRobots && showPoints;
     const statusMode = !!state.mapUi.pointStatus;
     const targetColorExpr = statusMode
@@ -1694,6 +1814,7 @@ const applyMapUiVisibility = () => {
     maybeSet('layer-with-pulsing-dot', 'visibility', vis(showPoints));
     maybeSet('pts-target-label', 'visibility', vis(showPointLabels));
     maybeSet('pts-robot-label', 'visibility', vis(showRobotLabels));
+    maybeSet('pts-dock-label', 'visibility', vis(showDockLabels));
     maybeSet('pts-target', 'circle-color', targetColorExpr, true);
     maybeSet('pts-target', 'circle-stroke-color', statusMode ? '#ffffff' : '#C5A87B', true);
 };
@@ -1777,20 +1898,36 @@ const updateMapLayers = () => {
             id: r.id,
             status: r.status,
             bizStatus: getRobotBizStatus(r),
-            labelText: `${r.id} ${ROBOT_BIZ_STATUS_LABEL[getRobotBizStatus(r)]}`
+            speed: getRobotSpeedKmh(r),
+            shortTask: toTaskShortName(r.task),
+            labelText: `${r.id} ${getRobotSpeedKmh(r)}km/h\n${toTaskShortName(r.task)}`
         },
         geometry: { type: 'Point', coordinates: r.coords }
     }));
 
-    const dFeats = DATA.docks.map(d => ({
-        type: 'Feature', properties: { type: 'dock', id: d.id, status: d.status }, geometry: { type: 'Point', coordinates: d.coords }
-    }));
+    const dFeats = DATA.docks.map(d => {
+        const ds = getDockQueueStats(d);
+        return {
+            type: 'Feature',
+            properties: {
+                type: 'dock',
+                id: d.id,
+                status: d.status,
+                labelText: `${d.id} 充${ds.charging} 停${ds.parked}`
+            },
+            geometry: { type: 'Point', coordinates: d.coords }
+        };
+    });
 
     const tFeats = [];
     Object.keys(DATA.taskHierarchy).forEach(tk => {
         (DATA.taskHierarchy[tk].inspectionPoints || []).forEach(p => {
             const coords = INSPECTION_POINT_COORDS[p.id];
             if (coords) {
+                const visit = getPointVisitStats(p.id);
+                const plannedTimes = visit.total + 1;
+                const doneTimes = visit.normal;
+                const stText = POINT_STATUS_LABEL[p.status] || '';
                 tFeats.push({
                     type: 'Feature',
                     properties: {
@@ -1799,7 +1936,7 @@ const updateMapLayers = () => {
                         name: p.name,
                         status: p.status,
                         taskId: tk,
-                        labelText: `${shortenPointName(p.name)} ${POINT_STATUS_LABEL[p.status] || ''}`.trim()
+                        labelText: `${shortenPointName(p.name)}\n今计${plannedTimes} / 已巡${doneTimes} / ${stText}`.trim()
                     },
                     geometry: { type: 'Point', coordinates: coords }
                 });
@@ -1950,8 +2087,8 @@ const renderStats = () => {
         return acc;
     }, { executing: 0, returning: 0, charging: 0, standby: 0, warning: 0 });
 
-    const todayTaskTotal = 4;
-    const executedTaskTotal = 14;
+    const todayTaskTotal = 26;
+    const executedTaskTotal = 184;
     const totalRuntimeHours = 1258;
     setText('total-robots', totalRobots);
     setText('executing-robots', robotBiz.executing);
@@ -1973,6 +2110,17 @@ const renderStats = () => {
     setText('risk-device', riskCats.device);
     setText('equipment-health-rate', '128天');
     setText('weather-summary', `${WEATHER_SNAPSHOT.condition} ${WEATHER_SNAPSHOT.temp}°C ${WEATHER_SNAPSHOT.wind} 湿度${WEATHER_SNAPSHOT.humidity}%`);
+
+    document.querySelectorAll('[data-risk-cat]').forEach((item) => {
+        const cat = item.dataset.riskCat;
+        const count = riskCats[cat] || 0;
+        item.classList.toggle('has-alert', count > 0);
+        item.onclick = (e) => {
+            e.stopPropagation();
+            const target = DATA.alerts.find((a) => classifyRiskCategory(a) === cat);
+            if (target) focusAlertPoint(target.id);
+        };
+    });
 
     const msgs = buildBroadcastMessages();
     const topMsgs = [
@@ -2030,8 +2178,6 @@ const renderLeadershipPanels = () => {
     const points = getAllInspectionPoints();
     const pointTotal = points.length;
     const inspectedPoints = points.filter(p => p.status !== 'pending').length;
-    const warnPoints = points.filter(p => p.status === 'warn').length;
-    const dangerPoints = points.filter(p => p.status === 'danger').length;
     const pointCoverage = pointTotal ? Math.round(inspectedPoints / pointTotal * 100) : 0;
     
     const totalRobots = DATA.robots.length;
@@ -2044,105 +2190,92 @@ const renderLeadershipPanels = () => {
     const onTaskCount = robotBiz.executing;
     const totalMileage = 18650; // POC: 累计行驶里程（km）
     const todayMileage = 286;   // POC: 今日行驶里程（km）
-    const inspectionTotalMileage = 326; // POC: 今日已巡检里程（km）
+    const inspectionTotalMileage = 326; // POC: 已巡检里程（km）
+    const normalTaskCount = taskPool.length + 6;
+    const tempTaskCount = 3;
+    const inspectionPointTimes = inspectedPoints * 3 + 8;
     
     const env = computeEnvMetrics();
 
     const planSummary = document.getElementById('plan-summary-cards');
     if (planSummary) {
-        const taskCount = taskPool.length * 3 + 6;
+        const taskCount = inspectionPointTimes;
         const facilities = DATA.docks.length + points.length + 8;
         const anomalies = DATA.alerts.length;
+        const detectionItemCount = points.reduce((total, point) => {
+            const monitorPoints = point.monitorPoints || [];
+            return total + monitorPoints.reduce((sum, monitorPoint) => {
+                const metrics = monitorPoint.metrics || {};
+                return sum + Object.keys(metrics).length;
+            }, 0);
+        }, 0);
         planSummary.innerHTML = `
-          <div class="summary-item"><span class="s-label">任务数</span><span class="s-val">${taskCount}</span><span class="s-meta">巡检任务</span></div>
-          <div class="summary-item"><span class="s-label">巡检点数</span><span class="s-val">${points.length}</span><span class="s-meta">巡检点总量</span></div>
+          <div class="summary-item"><span class="s-label">巡检点次</span><span class="s-val">${taskCount}</span><span class="s-meta">今日累计</span></div>
+          <div class="summary-item"><span class="s-label">已巡检里程</span><span class="s-val">${inspectionTotalMileage}km</span><span class="s-meta">巡检里程</span></div>
+          <div class="summary-item"><span class="s-label">覆盖率</span><span class="s-val">${pointCoverage}%</span><span class="s-meta">当日覆盖</span></div>
+          <div class="summary-item"><span class="s-label">检测项</span><span class="s-val">${detectionItemCount}</span><span class="s-meta">检测项数量</span></div>
           <div class="summary-item"><span class="s-label">设施设备数</span><span class="s-val">${facilities}</span><span class="s-meta">纳管设备</span></div>
           <div class="summary-item"><span class="s-label">异常数</span><span class="s-val">${anomalies}</span><span class="s-meta">待跟踪项</span></div>
         `;
-        const planTaskTotalEl = document.getElementById('plan-task-total');
-        if (planTaskTotalEl) planTaskTotalEl.innerText = taskCount;
     }
     
     const robotSummary = document.getElementById('robot-summary-cards');
     if (robotSummary) {
-        const avgBattery = totalRobots ? Math.round(DATA.robots.reduce((s, r) => s + r.battery, 0) / totalRobots) : 0;
-        const avgRange = Math.round(avgBattery * 0.85);
         const avgSpeed = Math.max(6, robotBiz.executing * 2 + robotBiz.returning);
-        const currentMileage = Math.round(todayMileage * 0.62);
         robotSummary.innerHTML = `
           <div class="summary-item"><span class="s-label">执行中 / 返航中</span><span class="s-val">${onTaskCount}/${returningCount}</span><span class="s-meta">当前状态</span></div>
           <div class="summary-item"><span class="s-label">充电中</span><span class="s-val">${robotBiz.charging}</span><span class="s-meta">充电状态</span></div>
-          <div class="summary-item"><span class="s-label">平均续航</span><span class="s-val">${avgRange}km</span><span class="s-meta">估算值</span></div>
+          <div class="summary-item"><span class="s-label">正常巡检任务</span><span class="s-val">${normalTaskCount}</span><span class="s-meta">当日计划</span></div>
+          <div class="summary-item"><span class="s-label">临时任务</span><span class="s-val">${tempTaskCount}</span><span class="s-meta">临时插单</span></div>
           <div class="summary-item"><span class="s-label">平均时速</span><span class="s-val">${avgSpeed}km/h</span><span class="s-meta">当日均值</span></div>
-          <div class="summary-item"><span class="s-label">当前里程 / 今日里程</span><span class="s-val">${currentMileage}/${todayMileage}km</span><span class="s-meta">总里程 ${totalMileage}km</span></div>
+          <div class="summary-item"><span class="s-label">今日里程</span><span class="s-val">${todayMileage}km</span><span class="s-meta">总里程 ${totalMileage}km</span></div>
         `;
     }
-    
-    const pointSummary = document.getElementById('point-summary-cards');
-    if (pointSummary) {
-        const missedPoints = Math.max(0, pointTotal - inspectedPoints);
-        const abnormalPoints = warnPoints + dangerPoints;
-        pointSummary.innerHTML = `
-          <div class="summary-item"><span class="s-label">今日已巡检点</span><span class="s-val">${inspectedPoints}</span><span class="s-meta">已完成</span></div>
-          <div class="summary-item"><span class="s-label">待巡检点</span><span class="s-val">${missedPoints}</span><span class="s-meta">待执行</span></div>
-          <div class="summary-item clickable" data-alert-level="combined"><span class="s-label">异常点数</span><span class="s-val">${abnormalPoints}</span><span class="s-meta">点位告警</span></div>
-          <div class="summary-item"><span class="s-label">巡检覆盖率</span><span class="s-val">${pointCoverage}%</span><span class="s-meta">今日覆盖</span></div>
-        `;
-        const totalMileageEl = document.getElementById('point-total-mileage');
-        if (totalMileageEl) totalMileageEl.innerText = `${inspectionTotalMileage} km`;
-        pointSummary.querySelectorAll('.summary-item.clickable').forEach(item => {
-            item.onclick = (e) => {
-                e.stopPropagation();
-                const match = DATA.alerts[0];
-                if (!match) return;
-                state.currentAlertId = match.id;
-                showAlertModal(match);
-            };
-        });
-    }
-    
-    const riskList = document.getElementById('point-risk-list');
-    if (riskList) {
-        const riskPoints = points.filter(p => p.status === 'warn' || p.status === 'danger').slice(0, 4);
-        riskList.innerHTML = riskPoints.map(p => `
-          <div class="risk-row" data-point-id="${p.id}">
-            <span>${p.name}</span>
-            <span class="risk-tag ${p.status}">${p.status === 'danger' ? '严重' : '警告'}</span>
-          </div>
+    const facilitySummary = document.getElementById('facility-summary-cards');
+    if (facilitySummary) {
+        const typed = [
+            { name: '换热设备', count: 12, risk: 2 },
+            { name: '阀门管线', count: 28, risk: 3 },
+            { name: '配电柜', count: 16, risk: 1 },
+            { name: '门禁点位', count: 9, risk: 0 }
+        ];
+        const total = typed.reduce((s, t) => s + t.count, 0);
+        const totalEl = document.getElementById('facility-total');
+        if (totalEl) totalEl.innerText = total;
+        facilitySummary.innerHTML = typed.map((it) => `
+          <div class="summary-item"><span class="s-label">${it.name}</span><span class="s-val">${it.count}</span><span class="s-meta">发现风险 ${it.risk} 项</span></div>
         `).join('');
-        riskList.querySelectorAll('.risk-row').forEach(row => {
-            row.onclick = (e) => {
-                e.stopPropagation();
-                const pointId = row.dataset.pointId;
-                const point = points.find(p => p.id === pointId);
-                const coords = INSPECTION_POINT_COORDS[pointId];
-                let alertMatch = null;
-                if (coords) {
-                    alertMatch = DATA.alerts.find(a => a.coords && a.coords[0] === coords[0] && a.coords[1] === coords[1]);
-                }
-                if (!alertMatch && point?.name) {
-                    alertMatch = DATA.alerts.find(a => a.loc && (point.name.includes(a.loc) || a.loc.includes(point.name)));
-                }
-                if (alertMatch) {
-                    state.currentAlertId = alertMatch.id;
-                    showAlertModal(alertMatch);
-                } else if (pointId) {
-                    setFocus('inspectionPoint', pointId);
-                }
-            };
-        });
     }
-    
+
     const envSummary = document.getElementById('env-summary-cards');
     if (envSummary) {
+        if (!state.envRealtimePointList?.length) {
+            state.envRealtimePointList = points;
+        }
+        const focusPoint = state.envRealtimePointList[state.envFocusPointIndex % state.envRealtimePointList.length] || points[0];
+        const focusMetrics = focusPoint?.monitorPoints?.[0]?.metrics || {};
         const metricKeys = Object.keys(ENV_METRIC_DEFS);
-        envSummary.innerHTML = metricKeys.map((key) => `
-          <div class="summary-item clickable" data-env-metric="${key}">
-            <span class="s-label">${ENV_METRIC_DEFS[key].label}</span>
-            <span class="s-val">${Math.max(0, (env.agg[key] || 0) + (key === 'CO' ? 1 : 0))}/${Math.max(0, (env.agg[key] || 0) + 2)}</span>
-            <span class="s-meta">机器 / 远端</span>
-          </div>
-        `).join('');
+        const parseNum = (raw) => {
+            const num = parseFloat(String(raw || '').replace(/[^\d.]/g, ''));
+            return Number.isNaN(num) ? 0 : num;
+        };
+        envSummary.innerHTML = metricKeys.map((key) => {
+            const machine = Math.max(0, (env.agg[key] || 0) + (key === 'CO' ? 1 : 0));
+            const remote = Math.max(0, (env.agg[key] || 0) + 2);
+            const maxVal = parseNum(focusMetrics[key]?.value || 0);
+            return `
+          <div class="env-rt-card clickable" data-env-metric="${key}">
+            <div class="env-rt-title">${ENV_METRIC_DEFS[key].label}</div>
+            <div class="env-rt-minis">
+              <div class="env-rt-mini"><span>机器</span><b>${machine}</b></div>
+              <div class="env-rt-mini"><span>远端</span><b>${remote}</b></div>
+            </div>
+            <div class="env-rt-max"><span>最大值</span><b>${maxVal}</b></div>
+          </div>`;
+        }).join('');
+        envSummary.classList.remove('slide-in');
+        void envSummary.offsetWidth;
+        envSummary.classList.add('slide-in');
         envSummary.querySelectorAll('[data-env-metric]').forEach((item) => {
             item.onclick = (e) => {
                 e.stopPropagation();
@@ -2151,9 +2284,14 @@ const renderLeadershipPanels = () => {
         });
         const focusPointEl = document.getElementById('env-focus-point');
         if (focusPointEl) {
-            const hierarchy = DATA.taskHierarchy[state.currentTaskId];
-            const selectedPoint = hierarchy?.inspectionPoints?.find(p => p.id === state.currentInspectionPointId);
-            focusPointEl.innerText = selectedPoint?.name || '--';
+            focusPointEl.innerText = focusPoint?.name || '--';
+        }
+        if (!envRealtimeTicker) {
+            envRealtimeTicker = setInterval(() => {
+                if (!state.envRealtimePointList?.length) return;
+                state.envFocusPointIndex = (state.envFocusPointIndex + 1) % state.envRealtimePointList.length;
+                renderLeadershipPanels();
+            }, 4200);
         }
     }
 };
@@ -2230,13 +2368,19 @@ const showAlertModal = (alert) => {
     if (eviFrame) {
         eviFrame.onclick = (e) => {
             e.stopPropagation();
-            document.getElementById('evi-modal').style.display = 'flex';
-            const modalContent = document.getElementById('evi-modal-content');
-            if (modalContent) {
-                modalContent.style.backgroundImage = `url('${alert.bgImg}')`;
-            }
-            document.getElementById('modal-device').innerText = alert.device;
-            document.getElementById('modal-meta').innerText = `${botId} | ${alert.time}`;
+            const thumbs = [
+                { img: alert.bgImg, label: '阀体外观' },
+                { img: makeMockImg(`${alert.device} 热斑`, '#4b1f1f', '#7a3f2f'), label: '热异常' },
+                { img: makeMockImg(`${alert.device} 接线端子`, '#213045', '#3d6288'), label: '接线端子' },
+                { img: makeMockImg(`${alert.device} 仪表区`, '#2b3341', '#4d6076'), label: '仪表区' }
+            ];
+            openEvidenceModal({
+                image: alert.bgImg,
+                title: `${alert.device} ${botId} | ${alert.time}`,
+                device: alert.device,
+                meta: `${botId} | ${alert.time}`,
+                thumbs
+            });
         };
     }
 };
@@ -2283,6 +2427,32 @@ const formatShortDate = (date) => {
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
+};
+
+const initLeadershipDateFilter = () => {
+    const startEl = document.getElementById('leadership-start-date');
+    const endEl = document.getElementById('leadership-end-date');
+    if (!startEl || !endEl) return;
+
+    const today = formatShortDate(new Date());
+    startEl.value = today;
+    endEl.value = today;
+    startEl.max = today;
+    endEl.max = today;
+
+    startEl.addEventListener('change', () => {
+        if (startEl.value && endEl.value && startEl.value > endEl.value) {
+            endEl.value = startEl.value;
+        }
+        renderLeadershipPanels();
+    });
+
+    endEl.addEventListener('change', () => {
+        if (startEl.value && endEl.value && endEl.value < startEl.value) {
+            startEl.value = endEl.value;
+        }
+        renderLeadershipPanels();
+    });
 };
 
 const generateEnvMetricHistory = (metricKey, days) => {
@@ -2458,37 +2628,103 @@ if (resetViewBtn) {
         renderAll();
     };
 }
+initLeadershipDateFilter();
+const displayControlBtn = document.getElementById('btn-display-control');
+const displayControlPopover = document.getElementById('display-control-popover');
+const mapSearchBtn = document.getElementById('btn-map-search');
+const mapSearchPopover = document.getElementById('map-search-popover');
+const mapSearchInput = document.getElementById('map-search-input');
+const mapSearchType = document.getElementById('map-search-type');
+const mapSearchSubmit = document.getElementById('btn-map-search-submit');
+
 const syncMapToolbarState = () => {
-    document.querySelectorAll('[data-map-toggle]').forEach((btn) => {
-        const key = btn.dataset.mapToggle;
-        const keyMap = { labels: 'labels', robots: 'robots', points: 'points', docks: 'docks', route: 'route' };
-        const stateKey = keyMap[key];
-        if (!stateKey) return;
-        const isAvailable =
-            key === 'labels' ? (state.mapUi.robots || state.mapUi.points)
-            : key === 'route' ? (state.mapUi.robots && state.mapUi.points)
-            : true;
-        btn.classList.toggle('active', !!state.mapUi[stateKey] && isAvailable);
-        btn.classList.toggle('limited', !isAvailable);
+    document.querySelectorAll('[data-map-toggle-check]').forEach((cb) => {
+        const key = cb.dataset.mapToggleCheck;
+        cb.checked = !!state.mapUi[key];
+        if (key === 'route') cb.disabled = !(state.mapUi.robots && state.mapUi.points);
+        if (key === 'labels') cb.disabled = !(state.mapUi.robots || state.mapUi.points || state.mapUi.docks);
     });
 };
-document.querySelectorAll('[data-map-toggle]').forEach((btn) => {
-    btn.onclick = () => {
-        const key = btn.dataset.mapToggle;
-        const keyMap = { labels: 'labels', robots: 'robots', points: 'points', docks: 'docks', route: 'route' };
-        const stateKey = keyMap[key];
-        if (!stateKey) return;
-        state.mapUi[stateKey] = !state.mapUi[stateKey];
+
+document.querySelectorAll('[data-map-toggle-check]').forEach((cb) => {
+    cb.onchange = () => {
+        const key = cb.dataset.mapToggleCheck;
+        if (!key) return;
+        state.mapUi[key] = cb.checked;
+        if (!state.mapUi.robots && !state.mapUi.points) state.mapUi.route = false;
+        if (!state.mapUi.robots && !state.mapUi.points && !state.mapUi.docks) state.mapUi.labels = false;
         syncMapToolbarState();
         updateMapLayers();
     };
+});
+
+if (displayControlBtn && displayControlPopover) {
+    displayControlBtn.onclick = (e) => {
+        e.stopPropagation();
+        displayControlPopover.classList.toggle('open');
+        mapSearchPopover?.classList.remove('open');
+    };
+}
+if (mapSearchBtn && mapSearchPopover) {
+    mapSearchBtn.onclick = (e) => {
+        e.stopPropagation();
+        mapSearchPopover.classList.toggle('open');
+        displayControlPopover?.classList.remove('open');
+        mapSearchInput?.focus();
+    };
+}
+
+const handleMapSearch = () => {
+    const kw = (mapSearchInput?.value || '').trim().toLowerCase();
+    const t = mapSearchType?.value || 'all';
+    if (!kw) return;
+    const matchRobot = () => DATA.robots.find((r) => `${r.id} ${r.task}`.toLowerCase().includes(kw));
+    const allPoints = getAllInspectionPoints();
+    const matchPoint = () => allPoints.find((p) => `${p.id} ${p.name}`.toLowerCase().includes(kw));
+    const matchDock = () => DATA.docks.find((d) => `${d.id} ${d.name}`.toLowerCase().includes(kw));
+    let hit = null;
+    if (t === 'robot') hit = { type: 'robot', data: matchRobot() };
+    if (t === 'point') hit = { type: 'inspectionPoint', data: matchPoint() };
+    if (t === 'dock') hit = { type: 'dock', data: matchDock() };
+    if (t === 'all') {
+        const robot = matchRobot();
+        const point = matchPoint();
+        const dock = matchDock();
+        if (robot) hit = { type: 'robot', data: robot };
+        else if (point) hit = { type: 'inspectionPoint', data: point };
+        else if (dock) hit = { type: 'dock', data: dock };
+    }
+    if (hit?.data?.id) {
+        setFocus(hit.type, hit.data.id, { instantPopup: hit.type === 'robot' });
+        mapSearchPopover?.classList.remove('open');
+    }
+};
+
+if (mapSearchSubmit) mapSearchSubmit.onclick = (e) => { e.stopPropagation(); handleMapSearch(); };
+if (mapSearchInput) {
+    mapSearchInput.onkeydown = (e) => {
+        if (e.key === 'Enter') handleMapSearch();
+    };
+}
+document.addEventListener('click', (e) => {
+    if (!displayControlPopover?.contains(e.target) && e.target !== displayControlBtn) {
+        displayControlPopover?.classList.remove('open');
+    }
+    if (!mapSearchPopover?.contains(e.target) && e.target !== mapSearchBtn) {
+        mapSearchPopover?.classList.remove('open');
+    }
 });
 syncMapToolbarState();
 
 // ==== 4. Map Init ====
 map.on('load', () => {
-    map.setMaxBounds(SITE_VIEW_BOUNDS);
-    map.fitBounds(SITE_VIEW_BOUNDS, { padding: 48, duration: 0 });
+    const panMarginLng = 0.0024;
+    const panMarginLat = 0.0016;
+    map.setMaxBounds([
+        [SITE_VIEW_BOUNDS[0][0] - panMarginLng, SITE_VIEW_BOUNDS[0][1] - panMarginLat],
+        [SITE_VIEW_BOUNDS[1][0] + panMarginLng, SITE_VIEW_BOUNDS[1][1] + panMarginLat]
+    ]);
+    map.jumpTo(DEFAULT_VIEW);
 
     const buildFactoryGeojson = () => {
         const features = [];
@@ -2610,15 +2846,15 @@ map.on('load', () => {
         'filter': ['==', 'type', 'target'],
         'layout': {
             'text-field': ['get', 'labelText'],
-            'text-size': 11,
-            'text-offset': [0, 1.25],
+            'text-size': 10.5,
+            'text-offset': [0, 1.35],
             'text-anchor': 'top',
-            'text-allow-overlap': false
+            'text-allow-overlap': true
         },
         'paint': {
             'text-color': '#E2E8F0',
             'text-halo-color': 'rgba(5,8,14,0.95)',
-            'text-halo-width': 1
+            'text-halo-width': 1.25
         }
     });
     map.addLayer({
@@ -2634,9 +2870,27 @@ map.on('load', () => {
             'text-allow-overlap': true
         },
         'paint': {
-            'text-color': '#C5A87B',
+            'text-color': ['match', ['get', 'bizStatus'], 'charging', '#60A5FA', 'returning', '#F59E0B', 'executing', '#10B981', '#E2E8F0'],
             'text-halo-color': 'rgba(5,8,14,0.95)',
             'text-halo-width': 1.2
+        }
+    });
+    map.addLayer({
+        'id': 'pts-dock-label',
+        'type': 'symbol',
+        'source': 'business-layers',
+        'filter': ['==', 'type', 'dock'],
+        'layout': {
+            'text-field': ['get', 'labelText'],
+            'text-size': 11,
+            'text-offset': [0, 1.2],
+            'text-anchor': 'top',
+            'text-allow-overlap': true
+        },
+        'paint': {
+            'text-color': '#93C5FD',
+            'text-halo-color': 'rgba(5,8,14,0.95)',
+            'text-halo-width': 1
         }
     });
     map.addLayer({ 'id': 'layer-with-pulsing-dot', 'type': 'symbol', 'source': 'alerts', 'layout': { 'icon-image': 'pulsing-dot', 'icon-allow-overlap': true } });
@@ -2750,13 +3004,33 @@ map.on('load', () => {
     const zoomBtn = document.getElementById('btn-zoom-evi');
     if (zoomBtn) {
         zoomBtn.onclick = () => {
-            document.getElementById('evi-modal').style.display = 'flex';
+            const mock = document.getElementById('evidence-mock');
+            const img = mock?.style.backgroundImage?.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+            const titleMeta = document.getElementById('evi-robot')?.innerText || '';
+            const device = document.getElementById('evi-device')?.innerText || '巡检影像';
+            openEvidenceModal({
+                image: img,
+                title: `${device} | ${titleMeta}`,
+                device,
+                meta: titleMeta,
+                thumbs: img ? [{ img, label: '主视角' }] : []
+            });
         };
     }
 
     applyMapUiVisibility();
     document.getElementById('main-evi-frame') && (document.getElementById('main-evi-frame').onclick = () => {
-        document.getElementById('evi-modal').style.display = 'flex';
+        const mock = document.getElementById('evidence-mock');
+        const img = mock?.style.backgroundImage?.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+        const titleMeta = document.getElementById('evi-robot')?.innerText || '';
+        const device = document.getElementById('evi-device')?.innerText || '巡检影像';
+        openEvidenceModal({
+            image: img,
+            title: `${device} | ${titleMeta}`,
+            device,
+            meta: titleMeta,
+            thumbs: img ? [{ img, label: '主视角' }] : []
+        });
     });
 
     // Initial render

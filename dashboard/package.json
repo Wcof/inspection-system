@@ -4,6 +4,9 @@
   "main": "index.js",
   "scripts": {
     "build:pages": "rm -rf dist && mkdir -p dist && cp index.html app.js main.css 地图.png dist/",
+    "build": "npm run build:pages",
+    "builder": "npm run build",
+    "package": "npm run build && zip -r dashboard_deploy.zip dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
