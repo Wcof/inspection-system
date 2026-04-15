@@ -1,7 +1,6 @@
 <template>
-  <div class="inspection-task-list">
-    <a-page-header title="巡检任务" :sub-title="pageSubTitle" @back="goBack">
-    </a-page-header>
+  <div class="temporary-task-list">
+    <a-page-header title="临时任务" sub-title="查看临时调度任务" @back="goBack" />
 
     <a-card style="margin-top: 16px">
       <div class="search-panel">
@@ -18,15 +17,6 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="机器人" class="search-item">
-                <a-select v-model:value="searchForm.robotId" placeholder="请选择机器人" allow-clear>
-                  <a-select-option v-for="robot in robotStore.robots" :key="robot.id" :value="robot.id">
-                    {{ robot.name }}
-                  </a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="状态" class="search-item">
                 <a-select v-model:value="searchForm.status" placeholder="请选择状态" allow-clear>
                   <a-select-option value="pending">待执行</a-select-option>
@@ -38,7 +28,6 @@
                 </a-select>
               </a-form-item>
             </a-col>
-
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="创建时间" class="search-item">
                 <a-input v-model:value="searchForm.createdAt" placeholder="YYYY-MM-DD" allow-clear />
@@ -53,32 +42,23 @@
           </div>
         </a-form>
       </div>
+
       <a-table :columns="columns" :data-source="filteredTasks" :loading="loading" row-key="id">
         <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'taskType'">
+            <a-tag :color="getTaskTypeColor(record.tempTaskType)">{{ getTaskTypeText(record.tempTaskType) }}</a-tag>
+          </template>
           <template v-if="column.key === 'status'">
-            <a-tag :color="getStatusColor(record.status)">
-              {{ getStatusText(record.status) }}
-            </a-tag>
+            <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
           </template>
-          <template v-if="column.key === 'robot'">
-            {{ getRobotName(record.robotId) }}
-          </template>
-          <template v-if="column.key === 'pointCount'">
-            {{ record.inspectionPointIds?.length || 0 }}
-          </template>
-          <template v-if="column.key === 'planSource'">
-            {{ getPlanName(record.planId) }}
-          </template>
-          <template v-if="column.key === 'startTime'">
-            {{ getTaskStartTimeText(record) }}
-          </template>
-          <template v-if="column.key === 'endTime'">
-            {{ getTaskEndTimeText(record) }}
-          </template>
-          <template v-if="column.key === 'actions'">
-            <a-space>
-              <a-button type="link" size="small" @click="viewDetail(record.id)">详情</a-button>
-            </a-space>
+          <template v-else-if="column.key === 'planSource'">-</template>
+          <template v-else-if="column.key === 'targetPoint'">{{ record.targetPointName || '-' }}</template>
+          <template v-else-if="column.key === 'initiator'">{{ record.initiator || '-' }}</template>
+          <template v-else-if="column.key === 'pointCount'">{{ record.inspectionPointIds?.length || 0 }}</template>
+          <template v-else-if="column.key === 'startTime'">{{ getTaskStartTimeText(record) }}</template>
+          <template v-else-if="column.key === 'endTime'">{{ getTaskEndTimeText(record) }}</template>
+          <template v-else-if="column.key === 'actions'">
+            <a-button type="link" size="small" @click="viewDetail(record.id)">详情</a-button>
           </template>
         </template>
       </a-table>
@@ -87,38 +67,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, onMounted, reactive, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
 import type { InspectionTask, InspectionTaskInstanceStatus } from '@/types/inspection'
-import { useRobotStore } from '@/stores/robot'
 
 const router = useRouter()
-const route = useRoute()
 const inspectionStore = useInspectionStore()
-const robotStore = useRobotStore()
 
 const tasks = ref<InspectionTask[]>([])
 const loading = ref(false)
 const searchForm = reactive({
   name: '',
   code: '',
-  robotId: '',
   status: '',
   createdAt: ''
-})
-const pageSubTitle = computed(() => {
-  const planId = route.query.planId as string
-  if (!planId) return '请通过巡检计划进入任务列表'
-  const plan = inspectionStore.inspectionPlans.find(item => item.id === planId)
-  return plan ? `所属计划：${plan.name}` : '所属计划任务'
 })
 
 const columns = [
   { title: '任务名称', dataIndex: 'name', key: 'name' },
+  { title: '任务类型', key: 'taskType', width: 110 },
   { title: '编码', dataIndex: 'code', key: 'code' },
-  { title: '所属计划', key: 'planSource', width: 180 },
-  { title: '机器人', key: 'robot', width: 150 },
+  { title: '所属计划', key: 'planSource', width: 140 },
+  { title: '目标点位', key: 'targetPoint', width: 180 },
+  { title: '发起人', key: 'initiator', width: 120 },
   { title: '巡检点数量', key: 'pointCount', width: 120 },
   { title: '开始时间', key: 'startTime', width: 180 },
   { title: '结束时间', key: 'endTime', width: 180 },
@@ -151,18 +123,16 @@ function getStatusText(status: InspectionTaskInstanceStatus): string {
   return textMap[status] || status
 }
 
-function getRobotName(robotId: string): string {
-  const robot = robotStore.robots.find(r => r.id === robotId)
-  return robot?.name || robotId
+function getTaskTypeText(type?: string) {
+  if (type === 'charging') return '充电任务'
+  if (type === 'parking') return '停车任务'
+  return '巡检任务'
 }
 
-// 获取计划名称
-function getPlanName(planId?: string): string {
-  if (!planId) {
-    return inspectionStore.inspectionPlans[0]?.name || '-'
-  }
-  const plan = inspectionStore.inspectionPlans.find(p => p.id === planId)
-  return plan?.name || inspectionStore.inspectionPlans[0]?.name || planId
+function getTaskTypeColor(type?: string) {
+  if (type === 'charging') return 'blue'
+  if (type === 'parking') return 'purple'
+  return 'processing'
 }
 
 function getTaskStartTime(task: any): Date {
@@ -185,44 +155,84 @@ function getTaskEndTimeText(task: any): string {
   return getTaskEndTime(task).toLocaleString()
 }
 
-
 function fetchTasks() {
   loading.value = true
   try {
-    const planId = route.query.planId as string
-    if (!planId) {
-      tasks.value = []
-      return
-    }
-    let allTasks = inspectionStore.tasks
-    allTasks = allTasks.map((task: any) => {
-      const fallbackPlanId = task.planId || inspectionStore.inspectionPlans[0]?.id
-      const fallbackStart = task.schedule?.startTime || task.plannedExecuteAt || task.createdAt
-      const fallbackEnd = task.schedule?.endTime || new Date(new Date(fallbackStart).getTime() + ((task.inspectionPointIds?.length || 1) * 8 * 60 * 1000))
-      return {
+    const existingTasks = inspectionStore.tasks
+      .filter((task: any) => task.type === 'temp' || !task.planId)
+      .map((task: any) => ({
         ...task,
-        planId: fallbackPlanId,
+        tempTaskType: task.tempTaskType || inferTempTaskType(task),
+        targetPointName: task.targetPointName || inferTargetPointName(task),
+        initiator: task.initiator || '调度员-王磊',
         schedule: {
           ...(task.schedule || {}),
-          startTime: fallbackStart,
-          endTime: fallbackEnd
+          startTime: task.schedule?.startTime || task.plannedExecuteAt || task.createdAt,
+          endTime:
+            task.schedule?.endTime ||
+            new Date(new Date(task.plannedExecuteAt || task.createdAt).getTime() + ((task.inspectionPointIds?.length || 1) * 8 * 60 * 1000))
         }
-      }
-    })
-    tasks.value = allTasks.filter((t: any) => t.planId === planId)
+      }))
+
+    tasks.value = existingTasks.length >= 6 ? existingTasks : [...existingTasks, ...buildMockTemporaryTasks(6 - existingTasks.length)]
   } finally {
     loading.value = false
   }
 }
 
+function inferTempTaskType(task: any): 'inspection' | 'charging' | 'parking' {
+  const name = String(task?.name || '')
+  if (name.includes('充电')) return 'charging'
+  if (name.includes('停车')) return 'parking'
+  return 'inspection'
+}
+
+function inferTargetPointName(task: any): string {
+  const ids = task?.inspectionPointIds || []
+  if (ids.length === 0) return '站内临时点'
+  return `巡检点-${ids[0]}`
+}
+
+function buildMockTemporaryTasks(count: number): any[] {
+  const templates = [
+    { type: 'inspection', name: '临时复检-配电柜A15', target: 'A区配电房-巡检点A12', initiator: '系统自动派发', status: 'pending' },
+    { type: 'inspection', name: '临时巡检-危化仓入口', target: '危化区-巡检点C03', initiator: '值班长-李航', status: 'running' },
+    { type: 'charging', name: '临时充电-机器人A003', target: '北侧充电站-C2', initiator: '调度员-赵敏', status: 'completed' },
+    { type: 'parking', name: '临时停车-机器人A001', target: '应急停车点-P1', initiator: '系统安全策略', status: 'pending' },
+    { type: 'inspection', name: '临时补检-电机B07', target: 'B区机房-巡检点B07', initiator: '调度员-王磊', status: 'failed' },
+    { type: 'inspection', name: '临时巡检-消防通道', target: '生产车间2层-巡检点D11', initiator: '安全员-周晨', status: 'cancelled' }
+  ]
+
+  return Array.from({ length: count }).map((_, index) => {
+    const t = templates[index % templates.length]
+    const start = new Date(Date.now() - (index + 1) * 45 * 60 * 1000)
+    const end = new Date(start.getTime() + 20 * 60 * 1000)
+    return {
+      id: `temp-mock-${index + 1}`,
+      name: t.name,
+      code: `TEMP-${String(index + 1).padStart(3, '0')}`,
+      planId: undefined,
+      inspectionPointIds: t.type === 'inspection' ? [`point-${String(index + 11).padStart(3, '0')}`] : [],
+      status: t.status,
+      tempTaskType: t.type,
+      targetPointName: t.target,
+      initiator: t.initiator,
+      createdAt: start.toISOString(),
+      schedule: {
+        startTime: start.toISOString(),
+        endTime: end.toISOString()
+      }
+    }
+  })
+}
+
 function handleSearch() {
-  // 由 filteredTasks 计算属性过滤
+  // 由计算属性过滤
 }
 
 function handleReset() {
   searchForm.name = ''
   searchForm.code = ''
-  searchForm.robotId = ''
   searchForm.status = ''
   searchForm.createdAt = ''
 }
@@ -230,45 +240,34 @@ function handleReset() {
 const filteredTasks = computed(() => {
   const name = searchForm.name.trim().toLowerCase()
   const code = searchForm.code.trim().toLowerCase()
-  const robotId = searchForm.robotId
   const status = searchForm.status
   const createdAt = searchForm.createdAt.trim()
   return tasks.value.filter(task => {
     const matchesName = !name || task.name.toLowerCase().includes(name)
     const matchesCode = !code || task.code.toLowerCase().includes(code)
-    const matchesRobot = !robotId || task.robotId === robotId
     const matchesStatus = !status || task.status === status
     const createdText = task.createdAt ? new Date(task.createdAt).toISOString().slice(0, 10) : ''
     const matchesCreated = !createdAt || createdText.includes(createdAt)
-    return matchesName && matchesCode && matchesRobot && matchesStatus && matchesCreated
+    return matchesName && matchesCode && matchesStatus && matchesCreated
   })
 })
+
 function goBack() {
   router.push('/management/plan/list')
 }
 
 function viewDetail(id: string) {
-  router.push(`/management/task/detail/${id}`)
+  router.push(`/management/task/detail/${id}?source=temp`)
 }
 
 onMounted(() => {
   inspectionStore.initialize()
-  robotStore.initialize()
-  if (!route.query.planId) {
-    router.replace('/management/plan/list')
-    return
-  }
   fetchTasks()
 })
-
-watch(
-  () => route.query.planId,
-  () => fetchTasks()
-)
 </script>
 
 <style scoped lang="scss">
-.inspection-task-list {
+.temporary-task-list {
   width: 100%;
 
   :deep(.ant-card) {
@@ -297,28 +296,6 @@ watch(
     display: flex;
     justify-content: flex-end;
     margin: 4px 0 8px;
-  }
-
-  :deep(.ant-table) {
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  :deep(.ant-table-thead > tr > th) {
-    background: #fafafa;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  :deep(.ant-table-tbody > tr > td) {
-    vertical-align: middle;
-  }
-
-  @media (max-width: 992px) {
-    :deep(.ant-card-body) {
-      padding: 12px;
-    }
   }
 }
 </style>

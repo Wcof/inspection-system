@@ -2,29 +2,21 @@
   <div class="summary-grid">
     <a-card size="small">
       <div class="title">任务统计</div>
-      <div class="value">{{ summary.totalTasks }}</div>
+      <div class="value">{{ summary.task.total }}</div>
+      <div class="sub">执行中 {{ summary.task.running }} | 待执行 {{ summary.task.pending }}</div>
+      <div class="sub">已完成 {{ summary.task.completed }} | 自动调度 {{ summary.task.auto }}</div>
     </a-card>
     <a-card size="small">
-      <div class="title">执行中任务</div>
-      <div class="value">{{ summary.runningTasks }}</div>
-    </a-card>
-    <a-card size="small">
-      <div class="title">待执行任务</div>
-      <div class="value">{{ summary.pendingTasks }}</div>
-    </a-card>
-    <a-card size="small">
-      <div class="title">自动调度任务</div>
-      <div class="value">{{ summary.autoTasks }}</div>
-    </a-card>
-    <a-card size="small">
-      <div class="title">待确认任务</div>
-      <div class="value">{{ summary.waitingConfirmTasks }}</div>
+      <div class="title">计划统计</div>
+      <div class="value">{{ summary.plan.total }}</div>
+      <div class="sub">执行中 {{ summary.plan.running }} | 待执行 {{ summary.plan.pending }}</div>
+      <div class="sub">已完成 {{ summary.plan.completed }} | 自动调度 {{ summary.plan.auto }}</div>
     </a-card>
     <a-card size="small">
       <div class="title">机器人总数</div>
-      <div class="value">{{ summary.robotTotal }}</div>
+      <div class="value">{{ summary.robot.total }}</div>
       <div class="sub">
-        空闲 {{ summary.robotIdle }} | 执行中 {{ summary.robotRunning }} | 充电中 {{ summary.robotCharging }}
+        空闲 {{ summary.robot.idle }} | 执行中 {{ summary.robot.running }} | 充电中 {{ summary.robot.charging }}
       </div>
     </a-card>
   </div>
@@ -32,15 +24,26 @@
 
 <script setup lang="ts">
 export interface DispatchSummary {
-  totalTasks: number
-  runningTasks: number
-  pendingTasks: number
-  autoTasks: number
-  waitingConfirmTasks: number
-  robotTotal: number
-  robotIdle: number
-  robotRunning: number
-  robotCharging: number
+  task: {
+    total: number
+    running: number
+    pending: number
+    completed: number
+    auto: number
+  }
+  plan: {
+    total: number
+    running: number
+    pending: number
+    completed: number
+    auto: number
+  }
+  robot: {
+    total: number
+    idle: number
+    running: number
+    charging: number
+  }
 }
 
 defineProps<{
@@ -51,7 +54,7 @@ defineProps<{
 <style scoped lang="scss">
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 
@@ -76,7 +79,7 @@ defineProps<{
 
 @media (max-width: 1400px) {
   .summary-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

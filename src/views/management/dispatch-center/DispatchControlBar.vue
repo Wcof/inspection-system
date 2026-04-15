@@ -40,10 +40,6 @@
             </a-checkbox>
           </div>
         </a-space>
-        <div class="tip">
-          <p>{{ tipSummary }}</p>
-          <p>功能说明：自动创建任务=系统检测到异常或漏检时自动生成补检任务；任务插队=紧急任务可插入到普通待执行任务之前。</p>
-        </div>
       </div>
       <div class="actions">
         <a-space>
@@ -56,8 +52,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-
 export type DispatchMode = 'auto' | 'manual'
 
 export interface DispatchControlState {
@@ -76,16 +70,6 @@ const emit = defineEmits<{
   (e: 'create-temporary'): void
   (e: 'refresh'): void
 }>()
-
-const tipSummary = computed(() => {
-  if (props.control.autoDispatchEnabled && props.control.mode === 'auto') {
-    return '当前为自动调度：系统自动确认自动创建任务，无需人工确认。'
-  }
-  if (props.control.autoDispatchEnabled && props.control.mode === 'manual') {
-    return '当前为人工调度：系统会生成自动任务，但需在“待人工确认任务”中手动确认。'
-  }
-  return '自动调度已关闭：不自动生成任务，仅支持人工发起。'
-})
 
 function updateControl<K extends keyof DispatchControlState>(key: K, value: DispatchControlState[K]) {
   const next = {
@@ -126,16 +110,6 @@ function updateControl<K extends keyof DispatchControlState>(key: K, value: Disp
 
 .label {
   font-size: 13px;
-}
-
-.tip {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: #666;
-
-  p {
-    margin: 0 0 4px;
-  }
 }
 
 .actions {

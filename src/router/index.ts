@@ -72,6 +72,12 @@ const routes: RouteRecordRaw[] = [
             meta: { title: '任务详情' }
           },
           {
+            path: 'temp-list',
+            name: 'ManagementTemporaryTaskList',
+            component: () => import('../views/inspection/task/TemporaryTaskList.vue'),
+            meta: { title: '临时任务' }
+          },
+          {
             path: 'trace/:id',
             name: 'ManagementTaskTrace',
             component: () => import('../views/management/task/ExecutionTrace.vue'),

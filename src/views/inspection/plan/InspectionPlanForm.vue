@@ -15,8 +15,8 @@
 
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="机器人" name="robotId" :rules="[{ required: true, message: '请选择机器人' }]">
-              <a-select v-model:value="form.robotId" placeholder="请选择机器人" style="width: 100%">
+            <a-form-item label="机器人" name="robotId">
+              <a-select v-model:value="form.robotId" placeholder="请选择机器人（非必填）" style="width: 100%" allow-clear>
                 <a-select-option v-for="robot in robots" :key="robot.id" :value="robot.id">
                   {{ robot.name }}
                 </a-select-option>
@@ -24,8 +24,8 @@
             </a-form-item>
           </a-col>
           <a-col :span="12" v-if="form.type !== 'global'">
-            <a-form-item label="地图" name="mapId" :rules="[{ required: true, message: '请选择地图' }]">
-              <a-select v-model:value="form.mapId" placeholder="请选择地图" style="width: 100%" @change="handleMapChange">
+            <a-form-item label="区域" name="mapId" :rules="[{ required: true, message: '请选择区域' }]">
+              <a-select v-model:value="form.mapId" placeholder="请选择区域" style="width: 100%" @change="handleMapChange">
                 <a-select-option v-for="map in maps" :key="map.id" :value="map.id">
                   {{ map.name }}
                 </a-select-option>
@@ -48,13 +48,13 @@
 
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="开始时间" name="startTime" :rules="[{ required: true, message: '请选择开始时间' }]">
-              <a-date-picker v-model:value="startTime" show-time style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="截止时间" name="endTime" :rules="[{ required: true, message: '请选择截止时间' }]">
-              <a-date-picker v-model:value="endTime" show-time style="width: 100%" />
+            <a-form-item label="巡检时间" name="inspectionTime" :rules="[{ required: true, message: '请选择巡检时间' }]">
+              <a-time-range-picker
+                v-model:value="inspectionTimeRange"
+                format="HH:mm"
+                value-format="HH:mm"
+                style="width: 100%"
+              />
             </a-form-item>
           </a-col>
         </a-row>
@@ -193,8 +193,7 @@ const availablePointOptions = computed(() => {
 })
 const selectedPointIds = ref<string[]>([])
 const sortedPoints = ref<InspectionPoint[]>([])
-const startTime = ref<any>(null)
-const endTime = ref<any>(null)
+const inspectionTimeRange = ref<string[]>([])
 
 type PlanFormType = InspectionTaskType | 'global'
 type InspectionPlanFormModel = Omit<InspectionPlan, 'type' | 'schedule'> & { type: PlanFormType; scheduleType: ScheduleType; schedule: any }
@@ -290,15 +289,15 @@ function handleScheduleTypeChange(type: ScheduleType | string) {
 
 async function handleSave() {
   // 校验必填项
-  if (!form.name || !form.robotId || !startTime.value || !endTime.value) {
+  if (!form.name || inspectionTimeRange.value.length !== 2) {
     message.error('请填写必填项')
     return
   }
 
-  const startAt = new Date(formatDateTime(startTime.value))
-  const endAt = new Date(formatDateTime(endTime.value))
+  const startAt = parseTodayTime(inspectionTimeRange.value[0])
+  const endAt = parseTodayTime(inspectionTimeRange.value[1])
   if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    message.error('开始时间或截止时间格式无效')
+    message.error('巡检时间格式无效')
     return
   }
   if (startAt >= endAt) {
@@ -307,7 +306,7 @@ async function handleSave() {
   }
 
   if (form.type !== 'global' && (!form.mapId || selectedPointIds.value.length === 0)) {
-    message.error('请选择地图和巡检点')
+    message.error('请选择区域和巡检点')
     return
   }
 
@@ -375,7 +374,7 @@ async function handleSave() {
       id: isEdit.value ? route.params.id as string : `plan-${Date.now()}`,
       name: form.name!,
       code: form.code!,
-      robotId: form.robotId!,
+      robotId: form.robotId || '',
       mapId: form.mapId!,
       pointIds: inspectionPointIds,
       pointOrders,
@@ -384,8 +383,10 @@ async function handleSave() {
       path,
       schedule: form.schedule as any,
       status: isEdit.value ? form.status : 'active',
-      startTime: formatDateTime(startTime.value),
-      endTime: formatDateTime(endTime.value),
+      startTime: startAt.toISOString(),
+      endTime: endAt.toISOString(),
+      inspectionTimeStart: startAt.toISOString(),
+      inspectionTimeEnd: endAt.toISOString(),
       config: form.config!,
       exceptionStrategy: form.exceptionStrategy!,
       createdAt: isEdit.value ? new Date() : new Date(),
@@ -495,14 +496,11 @@ function generateTriggerTimes(schedule: any, start: Date, end: Date): string[] {
   return times
 }
 
-function formatDateTime(value: any): string {
-  if (!value) return ''
-  if (typeof value === 'string') return value
-  if (value.toISOString) return value.toISOString()
-  if (typeof value.format === 'function') {
-    return value.format('YYYY-MM-DD HH:mm:ss')
-  }
-  return ''
+function parseTodayTime(timeText?: string): Date {
+  const [hourText = '00', minuteText = '00'] = (timeText || '').split(':')
+  const now = new Date()
+  now.setHours(Number(hourText), Number(minuteText), 0, 0)
+  return now
 }
 
 // 模拟生成路径
@@ -544,11 +542,11 @@ onMounted(() => {
       if (plan.schedule?.type) {
         form.scheduleType = plan.schedule.type
       }
-      if ((plan as any).startTime) {
-        startTime.value = dayjs((plan as any).startTime)
-      }
-      if ((plan as any).endTime) {
-        endTime.value = dayjs((plan as any).endTime)
+      if ((plan as any).startTime && (plan as any).endTime) {
+        inspectionTimeRange.value = [
+          dayjs((plan as any).startTime).format('HH:mm'),
+          dayjs((plan as any).endTime).format('HH:mm')
+        ]
       }
     }
   }

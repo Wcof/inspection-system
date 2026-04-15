@@ -9,7 +9,7 @@
         <a-descriptions-item label="任务编码">{{ task.code }}</a-descriptions-item>
         <a-descriptions-item label="机器人">{{ getRobotName(task.robotId) }}</a-descriptions-item>
         <a-descriptions-item label="巡检点数量">{{ task.inspectionPointIds?.length || 0 }}</a-descriptions-item>
-        <a-descriptions-item label="所属计划">{{ getPlanName((task as any).planId) }}</a-descriptions-item>
+        <a-descriptions-item label="所属计划">{{ showPlanName }}</a-descriptions-item>
         <a-descriptions-item label="执行时间">{{ getTaskRunTimeText(task) }}</a-descriptions-item>
         <a-descriptions-item label="状态">
           <a-tag :color="getStatusColor(task.status)">{{ getStatusText(task.status) }}</a-tag>
@@ -142,6 +142,7 @@ const mediaPreviewVisible = ref(false)
 const mediaPreviewType = ref<'image' | 'video'>('image')
 const mediaPreviewUrl = ref('')
 const mediaPreviewTitle = ref('')
+const fromTemporaryTask = computed(() => route.query.source === 'temp')
 
 const pointColumns = [
   { title: '巡检点名称', dataIndex: 'name', key: 'name' },
@@ -199,6 +200,12 @@ function getPlanName(planId?: string): string {
   const plan = inspectionStore.inspectionPlans.find(p => p.id === planId)
   return plan?.name || planId
 }
+
+const showPlanName = computed(() => {
+  if (!task.value) return '-'
+  if (fromTemporaryTask.value || (task.value as any).type === 'temp' || !(task.value as any).planId) return '-'
+  return getPlanName((task.value as any).planId)
+})
 
 function getTaskStart(taskValue: any): Date {
   if (taskValue?.schedule?.startTime) return new Date(taskValue.schedule.startTime)
@@ -282,7 +289,11 @@ function fetchTaskDetail() {
 }
 
 function goBack() {
-  router.push('/management/task/list')
+  if (fromTemporaryTask.value || (task.value as any)?.type === 'temp' || !(task.value as any)?.planId) {
+    router.push('/management/task/temp-list')
+    return
+  }
+  router.push(`/management/task/list?planId=${(task.value as any).planId}`)
 }
 
 onMounted(() => {

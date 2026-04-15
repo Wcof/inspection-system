@@ -22,8 +22,8 @@
             <a-menu-item key="management-dispatch-plan-list">
               <router-link to="/management/plan/list">巡检计划</router-link>
             </a-menu-item>
-            <a-menu-item key="management-dispatch-task-list">
-              <router-link to="/management/task/list">巡检任务</router-link>
+            <a-menu-item key="management-dispatch-temp-task-list">
+              <router-link to="/management/task/temp-list">临时任务</router-link>
             </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="management-exception">
@@ -34,7 +34,7 @@
               </span>
             </template>
             <a-menu-item key="management-exception-list">
-              <router-link to="/management/exception/list">异常列表</router-link>
+              <router-link to="/management/exception/list">异常告警</router-link>
             </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="management-report">
@@ -175,7 +175,8 @@ const currentKey = computed(() => {
   
   if (path.startsWith('/management/dispatch/center')) return 'management-dispatch-center'
   if (path.startsWith('/management/plan/list')) return 'management-dispatch-plan-list'
-  if (path.startsWith('/management/task/list')) return 'management-dispatch-task-list'
+  if (path.startsWith('/management/task/list')) return 'management-dispatch-plan-list'
+  if (path.startsWith('/management/task/temp-list')) return 'management-dispatch-temp-task-list'
   if (path.startsWith('/management/exception/list')) return 'management-exception-list'
   if (path.startsWith('/management/report/statistics')) return 'management-report-statistics'
 

@@ -1,6 +1,12 @@
 <template>
   <div class="board-grid">
-    <a-card class="panel" title="执行中任务">
+    <a-card class="panel panel-running">
+      <template #title>
+        <div class="panel-title-wrap">
+          <span>执行计划</span>
+          <a-tag color="blue">{{ runningTasks.length }}</a-tag>
+        </div>
+      </template>
       <a-empty v-if="runningTasks.length === 0" description="暂无执行中任务" />
       <div v-else class="task-list">
         <div v-for="task in runningTasks" :key="task.id" class="task-item">
@@ -18,13 +24,18 @@
           <div class="actions">
             <a-button size="small" @click="emitTaskAction('view-detail', task)">查看详情</a-button>
             <a-button size="small" @click="emitTaskAction('replace-robot', task)">替换机器人</a-button>
-            <a-button size="small" @click="emitTaskAction('pause-task', task)">暂停</a-button>
           </div>
         </div>
       </div>
     </a-card>
 
-    <a-card class="panel" title="待执行任务">
+    <a-card class="panel panel-pending">
+      <template #title>
+        <div class="panel-title-wrap">
+          <span>待执行任务</span>
+          <a-tag color="gold">{{ pendingTasks.length }}</a-tag>
+        </div>
+      </template>
       <a-empty v-if="pendingTasks.length === 0" description="暂无待执行任务" />
       <div v-else class="task-list">
         <div v-for="(task, index) in pendingTasks" :key="task.id" class="task-item">
@@ -42,19 +53,31 @@
       </div>
     </a-card>
 
-    <a-card class="panel" title="自动调度任务">
-      <a-empty v-if="autoTasks.length === 0" description="暂无自动调度任务" />
+    <a-card class="panel panel-process">
+      <template #title>
+        <div class="panel-title-wrap">
+          <span>待处理任务</span>
+          <a-tag color="red">{{ pendingProcessTasks.length }}</a-tag>
+        </div>
+      </template>
+      <a-empty v-if="pendingProcessTasks.length === 0" description="暂无待处理任务" />
       <div v-else class="task-list">
-        <div v-for="task in autoTasks" :key="task.id" class="task-item">
+        <div v-for="task in pendingProcessTasks" :key="task.id" class="task-item">
           <div class="task-title">{{ task.name }}</div>
           <div class="meta">
+            <span>任务类型：{{ task.type === 'auto' ? '自动调度' : '冲突待处理' }}</span>
             <span>生成时间：{{ task.createdAt }}</span>
           </div>
           <div class="meta">
-            <span>触发原因：{{ task.reason || '-' }}</span>
+            <span>处理原因：{{ task.reason || '-' }}</span>
+          </div>
+          <div v-if="task.affectedTaskName" class="meta">
+            <span>影响任务：{{ task.affectedTaskName }}</span>
           </div>
           <div class="actions">
             <a-button size="small" type="primary" @click="emitTaskAction('accept-auto', task)">接受</a-button>
+            <a-button size="small" @click="emitTaskAction('insert-execute', task)">插队执行</a-button>
+            <a-button size="small" @click="emitTaskAction('replace-robot', task)">替换机器人</a-button>
             <a-button size="small" @click="emitTaskAction('cancel-task', task)">取消</a-button>
             <a-button size="small" @click="emitTaskAction('view-reason', task)">查看原因</a-button>
           </div>
@@ -62,48 +85,13 @@
       </div>
     </a-card>
 
-    <a-card class="panel" title="冲突 / 待处理任务">
-      <a-empty v-if="conflictTasks.length === 0" description="暂无冲突或待处理任务" />
-      <div v-else class="task-list">
-        <div v-for="task in conflictTasks" :key="task.id" class="task-item">
-          <div class="task-title">{{ task.name }}</div>
-          <div class="meta">
-            <span>冲突原因：{{ task.reason || '-' }}</span>
-          </div>
-          <div class="meta">
-            <span>影响任务：{{ task.affectedTaskName || '-' }}</span>
-          </div>
-          <div class="actions">
-            <a-button size="small" @click="emitTaskAction('insert-execute', task)">插单执行</a-button>
-            <a-button size="small" @click="emitTaskAction('queue-execute', task)">排队执行</a-button>
-            <a-button size="small" @click="emitTaskAction('replace-robot', task)">替换机器人</a-button>
-            <a-button size="small" @click="emitTaskAction('merge-task', task)">并入任务</a-button>
-            <a-button size="small" danger @click="emitTaskAction('cancel-task', task)">取消</a-button>
-          </div>
+    <a-card class="panel panel-record">
+      <template #title>
+        <div class="panel-title-wrap">
+          <span>调度记录（今日）</span>
+          <a-tag>{{ records.length }}</a-tag>
         </div>
-      </div>
-    </a-card>
-
-    <a-card class="panel" title="待人工确认任务">
-      <a-empty v-if="waitingConfirmTasks.length === 0" description="暂无待确认任务" />
-      <div v-else class="task-list">
-        <div v-for="task in waitingConfirmTasks" :key="task.id" class="task-item">
-          <div class="task-title">{{ task.name }}</div>
-          <div class="meta">
-            <span>确认原因：{{ task.reason || '-' }}</span>
-          </div>
-          <div class="meta">
-            <span>申请时间：{{ task.createdAt }}</span>
-          </div>
-          <div class="actions">
-            <a-button size="small" type="primary" @click="emitTaskAction('approve-task', task)">同意</a-button>
-            <a-button size="small" @click="emitTaskAction('reject-task', task)">拒绝</a-button>
-          </div>
-        </div>
-      </div>
-    </a-card>
-
-    <a-card class="panel" title="调度记录（今日）">
+      </template>
       <a-empty v-if="records.length === 0" description="暂无调度记录" />
       <a-timeline v-else>
         <a-timeline-item v-for="record in records" :key="record.id">
@@ -123,7 +111,7 @@ export interface DispatchTask {
   id: string
   name: string
   type: 'plan' | 'auto' | 'temp'
-  status: 'running' | 'pending' | 'auto_pending' | 'conflict' | 'waiting_confirm' | 'paused' | 'cancelled'
+  status: 'running' | 'pending' | 'auto_pending' | 'conflict' | 'paused' | 'cancelled'
   robotName: string
   reason?: string
   priority: 'high' | 'medium' | 'low'
@@ -150,24 +138,17 @@ export interface DispatchRecordItem {
 type ActionType =
   | 'view-detail'
   | 'replace-robot'
-  | 'pause-task'
   | 'move-up'
   | 'move-down'
   | 'cancel-task'
   | 'accept-auto'
   | 'view-reason'
   | 'insert-execute'
-  | 'queue-execute'
-  | 'merge-task'
-  | 'approve-task'
-  | 'reject-task'
 
 defineProps<{
   runningTasks: DispatchTask[]
   pendingTasks: DispatchTask[]
-  autoTasks: DispatchTask[]
-  conflictTasks: DispatchTask[]
-  waitingConfirmTasks: DispatchTask[]
+  pendingProcessTasks: DispatchTask[]
   records: DispatchRecordItem[]
 }>()
 
@@ -183,30 +164,50 @@ function emitTaskAction(type: ActionType, task: DispatchTask) {
 <style scoped lang="scss">
 .board-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-areas:
-    'running pending auto'
-    'conflict confirm record';
+    'running running'
+    'pending pendingProcess'
+    'record record';
   gap: 12px;
 }
 
-.panel:nth-child(1) {
+.panel-running {
   grid-area: running;
 }
-.panel:nth-child(2) {
+.panel-pending {
   grid-area: pending;
 }
-.panel:nth-child(3) {
-  grid-area: auto;
+.panel-process {
+  grid-area: pendingProcess;
 }
-.panel:nth-child(4) {
-  grid-area: conflict;
-}
-.panel:nth-child(5) {
-  grid-area: confirm;
-}
-.panel:nth-child(6) {
+.panel-record {
   grid-area: record;
+}
+
+.panel-title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-running .task-list {
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.panel-pending .task-list,
+.panel-process .task-list {
+  max-height: 300px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.panel-record :deep(.ant-timeline) {
+  max-height: 250px;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .task-list {
@@ -218,7 +219,8 @@ function emitTaskAction(type: ActionType, task: DispatchTask) {
 .task-item {
   border: 1px solid #f0f0f0;
   border-radius: 8px;
-  padding: 10px;
+  padding: 12px;
+  background: #fff;
 }
 
 .task-title {
@@ -240,7 +242,9 @@ function emitTaskAction(type: ActionType, task: DispatchTask) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #f0f0f0;
 }
 
 .record-line {
@@ -261,11 +265,12 @@ function emitTaskAction(type: ActionType, task: DispatchTask) {
 
 @media (max-width: 1300px) {
   .board-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     grid-template-areas:
-      'running pending'
-      'auto conflict'
-      'confirm record';
+      'running'
+      'pending'
+      'pendingProcess'
+      'record';
   }
 }
 
@@ -275,9 +280,7 @@ function emitTaskAction(type: ActionType, task: DispatchTask) {
     grid-template-areas:
       'running'
       'pending'
-      'auto'
-      'conflict'
-      'confirm'
+      'pendingProcess'
       'record';
   }
 }

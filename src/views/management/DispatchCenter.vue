@@ -11,15 +11,14 @@
       @refresh="refreshData"
     />
 
+    <DispatchSummaryCards :summary="summary" />
+
     <div class="content-layout">
       <div class="left-side">
-        <DispatchSummaryCards :summary="summary" />
         <DispatchBoardColumns
           :running-tasks="runningTasks"
           :pending-tasks="pendingTasks"
-          :auto-tasks="autoTasks"
-          :conflict-tasks="conflictTasks"
-          :waiting-confirm-tasks="waitingConfirmTasks"
+          :pending-process-tasks="pendingProcessTasks"
           :records="records"
           @task-action="handleTaskAction"
         />
@@ -44,7 +43,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import DispatchControlBar from './dispatch-center/DispatchControlBar.vue'
 import DispatchSummaryCards from './dispatch-center/DispatchSummaryCards.vue'
 import DispatchBoardColumns from './dispatch-center/DispatchBoardColumns.vue'
@@ -163,16 +162,6 @@ const tasks = ref<DispatchTask[]>([
     priority: 'high',
     createdAt: '10:40',
     scheduledAt: '11:00'
-  },
-  {
-    id: 'task-008',
-    name: '自动调度-高压室复检',
-    type: 'auto',
-    status: 'waiting_confirm',
-    robotName: '机器人A003',
-    reason: '现场设备异常，需人工确认后执行',
-    priority: 'high',
-    createdAt: '10:55'
   }
 ])
 
@@ -196,7 +185,7 @@ const records = ref<DispatchRecordItem[]>([
   {
     id: 'record-003',
     time: '09:20',
-    event: '冲突处理：插单执行-计划巡检-变电站B区',
+    event: '冲突处理：插队执行-计划巡检-变电站B区',
     taskName: '计划巡检-变电站B区',
     resultStatus: 'running',
     source: 'manual'
@@ -204,16 +193,13 @@ const records = ref<DispatchRecordItem[]>([
 ])
 
 const mapMarkers = ref<MapMarker[]>([
-  { id: 'm-r1', label: '001', markerType: 'robot', x: 34, y: 22, relatedRobotId: 'robot-001' },
-  { id: 'm-r2', label: '002', markerType: 'robot', x: 18, y: 49, relatedRobotId: 'robot-002' },
-  { id: 'm-r3', label: '003', markerType: 'robot', x: 85, y: 58, relatedRobotId: 'robot-003' },
-  { id: 'm-run', label: '执行', markerType: 'running', x: 66, y: 78, relatedTaskId: 'task-001' },
-  { id: 'm-pending', label: '待执行', markerType: 'pending', x: 55, y: 64, relatedTaskId: 'task-003' },
-  { id: 'm-conflict', label: '冲突', markerType: 'conflict', x: 72, y: 36, relatedTaskId: 'task-007' },
-  { id: 'p-i1', label: '巡检点-A12', markerType: 'inspection', x: 35, y: 29 },
-  { id: 'p-i2', label: '巡检点-B05', markerType: 'inspection', x: 25, y: 64 },
-  { id: 'p-c1', label: '充电站-C1', markerType: 'charging', x: 78, y: 18 },
-  { id: 'p-p1', label: '停车点-P1', markerType: 'parking', x: 12, y: 82 }
+  { id: 'm-r1', label: '机器人001', markerType: 'robot', x: 34, y: 22, status: 'running', speedKmh: 6.8, taskShortName: '变电站A区', relatedRobotId: 'robot-001' },
+  { id: 'm-r2', label: '机器人002', markerType: 'robot', x: 18, y: 49, status: 'charging', speedKmh: 0, taskShortName: '回充中', relatedRobotId: 'robot-002' },
+  { id: 'm-r3', label: '机器人003', markerType: 'robot', x: 85, y: 58, status: 'idle', speedKmh: 0, taskShortName: '待命', relatedRobotId: 'robot-003' },
+  { id: 'p-i1', label: '巡检点-A12', markerType: 'inspection', x: 35, y: 29, todayPlannedCount: 8, inspectedCount: 6, status: 'running' },
+  { id: 'p-i2', label: '巡检点-B05', markerType: 'inspection', x: 25, y: 64, todayPlannedCount: 5, inspectedCount: 2, status: 'pending' },
+  { id: 'p-c1', label: '充电站-C1', markerType: 'charging', x: 78, y: 18, chargingCount: 2, parkedCount: 1, status: 'charging' },
+  { id: 'p-p1', label: '停车点-P1', markerType: 'parking', x: 12, y: 82, parkedCount: 3, status: 'idle' }
 ])
 
 const runningTasks = computed(() => tasks.value.filter(task => task.status === 'running'))
@@ -222,9 +208,7 @@ const pendingTasks = computed(() =>
     .filter(task => task.status === 'pending')
     .sort((a, b) => (a.queueOrder || 999) - (b.queueOrder || 999))
 )
-const autoTasks = computed(() => tasks.value.filter(task => task.status === 'auto_pending'))
-const conflictTasks = computed(() => tasks.value.filter(task => task.status === 'conflict'))
-const waitingConfirmTasks = computed(() => tasks.value.filter(task => task.status === 'waiting_confirm'))
+const pendingProcessTasks = computed(() => tasks.value.filter(task => task.status === 'auto_pending' || task.status === 'conflict'))
 
 const robotOptions = computed(() => robots.value.map(robot => ({ value: robot.id, label: robot.name })))
 const inspectionPointOptions = computed(() => mapMarkers.value.filter(m => m.markerType === 'inspection').map(m => ({ value: m.id, label: m.label })))
@@ -235,16 +219,28 @@ const summary = computed<DispatchSummary>(() => {
   const robotIdle = robots.value.filter(robot => robot.status === 'idle').length
   const robotRunning = robots.value.filter(robot => robot.status === 'running').length
   const robotCharging = robots.value.filter(robot => robot.status === 'charging').length
+  const completedTaskCount = tasks.value.filter(task => task.status === 'paused' || task.status === 'cancelled').length
   return {
-    totalTasks: tasks.value.filter(task => task.status !== 'cancelled').length,
-    runningTasks: runningTasks.value.length,
-    pendingTasks: pendingTasks.value.length,
-    autoTasks: autoTasks.value.length,
-    waitingConfirmTasks: waitingConfirmTasks.value.length,
-    robotTotal: robots.value.length,
-    robotIdle,
-    robotRunning,
-    robotCharging
+    task: {
+      total: tasks.value.filter(task => task.status !== 'cancelled').length,
+      running: runningTasks.value.length,
+      pending: pendingTasks.value.length,
+      completed: completedTaskCount,
+      auto: pendingProcessTasks.value.length
+    },
+    plan: {
+      total: 18,
+      running: 6,
+      pending: 7,
+      completed: 3,
+      auto: 2
+    },
+    robot: {
+      total: robots.value.length,
+      idle: robotIdle,
+      running: robotRunning,
+      charging: robotCharging
+    }
   }
 })
 
@@ -253,7 +249,9 @@ function onControlUpdate(value: DispatchControlState) {
   control.allowAutoCreate = value.autoDispatchEnabled ? true : value.allowAutoCreate
   control.allowQueueJump = value.autoDispatchEnabled ? true : value.allowQueueJump
   control.mode = value.mode
-  if (control.mode === 'auto') autoConfirmWaitingTasks()
+  if (control.mode === 'auto' && control.autoDispatchEnabled) {
+    autoConfirmPendingProcessTasks()
+  }
 }
 
 function refreshData() {
@@ -269,10 +267,6 @@ function handleTaskAction(payload: { type: string; task: DispatchTask }) {
     case 'replace-robot':
       message.success(`进入替换机器人流程：${task.name}`)
       break
-    case 'pause-task':
-      task.status = 'paused'
-      message.success(`已暂停任务：${task.name}`)
-      break
     case 'move-up':
       movePendingTask(task.id, -1)
       break
@@ -284,10 +278,10 @@ function handleTaskAction(payload: { type: string; task: DispatchTask }) {
       message.success(`已取消任务：${task.name}`)
       break
     case 'accept-auto':
-      task.status = control.mode === 'auto' ? 'pending' : 'waiting_confirm'
+      task.status = 'pending'
       task.type = 'plan'
-      task.queueOrder = task.status === 'pending' ? nextQueueOrder() : undefined
-      message.success(`已处理自动调度任务：${task.name}`)
+      task.queueOrder = nextQueueOrder()
+      message.success(`已处理任务：${task.name}`)
       break
     case 'view-reason':
       message.info(task.reason || '暂无触发原因')
@@ -295,41 +289,21 @@ function handleTaskAction(payload: { type: string; task: DispatchTask }) {
     case 'insert-execute':
       task.status = 'running'
       task.startedAt = new Date().toLocaleTimeString()
-      message.success(`已插单执行：${task.name}`)
-      break
-    case 'queue-execute':
-      task.status = 'pending'
-      task.queueOrder = nextQueueOrder()
-      message.success(`已加入待执行队列：${task.name}`)
-      break
-    case 'merge-task':
-      task.status = 'pending'
-      task.reason = '已并入相关任务执行'
-      task.queueOrder = nextQueueOrder()
-      message.success(`已并入任务：${task.name}`)
-      break
-    case 'approve-task':
-      task.status = 'pending'
-      task.queueOrder = nextQueueOrder()
-      message.success(`已同意任务：${task.name}`)
-      break
-    case 'reject-task':
-      task.status = 'cancelled'
-      message.success(`已拒绝任务：${task.name}`)
+      message.success(`已插队执行：${task.name}`)
       break
     default:
       break
   }
 }
 
-function autoConfirmWaitingTasks() {
-  const waitingAutoTasks = tasks.value.filter(task => task.status === 'waiting_confirm' && task.type === 'auto')
-  if (waitingAutoTasks.length === 0) return
-  waitingAutoTasks.forEach(task => {
+function autoConfirmPendingProcessTasks() {
+  const autoTasks = tasks.value.filter(task => task.status === 'auto_pending' && task.type === 'auto')
+  if (autoTasks.length === 0) return
+  autoTasks.forEach(task => {
     task.status = 'pending'
     task.queueOrder = nextQueueOrder()
   })
-  message.success('自动模式已生效：待确认自动任务已自动确认')
+  message.success('自动模式已生效：自动调度任务已加入待执行队列')
 }
 
 function nextQueueOrder() {
@@ -387,50 +361,58 @@ function openTemporaryFromMap(payload?: { marker?: MapMarker; x: number; y: numb
 }
 
 function submitTemporaryDispatch(form: TemporaryDispatchForm) {
-  const isChargeOrPark = form.taskType === 'charging' || form.taskType === 'parking'
-  const robotName = robots.value.find(robot => robot.id === form.robotId)?.name || form.robotId
+  Modal.confirm({
+    title: '确认下达临时任务',
+    content: '强制执行影响其他任务是否需要下达临时任务？',
+    okText: '确认下达',
+    cancelText: '取消',
+    onOk() {
+      const isChargeOrPark = form.taskType === 'charging' || form.taskType === 'parking'
+      const robotName = robots.value.find(robot => robot.id === form.robotId)?.name || form.robotId
 
-  if (isChargeOrPark && form.confirmTerminateCurrentTask) {
-    const robotRunningTask = tasks.value.find(task => task.status === 'running' && task.robotName === robotName)
-    if (robotRunningTask) {
-      robotRunningTask.status = 'cancelled'
-      records.value.unshift({
-        id: `record-stop-${Date.now()}`,
-        time: new Date().toLocaleTimeString().slice(0, 5),
-        event: `终止当前任务：${robotRunningTask.name}，转为${form.taskType === 'charging' ? '充电' : '停车'}任务`,
-        taskName: robotRunningTask.name,
-        resultStatus: 'done',
-        source: 'manual'
+      if (isChargeOrPark && form.confirmTerminateCurrentTask) {
+        const robotRunningTask = tasks.value.find(task => task.status === 'running' && task.robotName === robotName)
+        if (robotRunningTask) {
+          robotRunningTask.status = 'cancelled'
+          records.value.unshift({
+            id: `record-stop-${Date.now()}`,
+            time: new Date().toLocaleTimeString().slice(0, 5),
+            event: `终止当前任务：${robotRunningTask.name}，转为${form.taskType === 'charging' ? '充电' : '停车'}任务`,
+            taskName: robotRunningTask.name,
+            resultStatus: 'done',
+            source: 'manual'
+          })
+        }
+      }
+
+      tasks.value.push({
+        id: `temp-${Date.now()}`,
+        name: form.name,
+        type: 'temp',
+        status: isChargeOrPark ? 'running' : 'pending',
+        robotName,
+        reason: form.reason || '临时调度',
+        priority: 'medium',
+        createdAt: new Date().toLocaleString(),
+        scheduledAt: form.scheduledAt,
+        startedAt: isChargeOrPark ? new Date().toLocaleTimeString() : undefined,
+        queueOrder: isChargeOrPark ? undefined : nextQueueOrder()
       })
+
+      records.value.unshift({
+        id: `record-${Date.now()}`,
+        time: new Date().toLocaleTimeString().slice(0, 5),
+        event: `临时调度任务：${form.name}`,
+        taskName: form.name,
+        resultStatus: isChargeOrPark ? 'running' : 'pending',
+        source: 'temp'
+      })
+
+      temporaryVisible.value = false
+      temporaryPrefill.value = {}
+      message.success('临时调度已创建')
     }
-  }
-
-  tasks.value.push({
-    id: `temp-${Date.now()}`,
-    name: form.name,
-    type: 'temp',
-    status: isChargeOrPark ? 'running' : 'pending',
-    robotName,
-    reason: form.reason || '临时调度',
-    priority: 'medium',
-    createdAt: new Date().toLocaleString(),
-    scheduledAt: form.scheduledAt,
-    startedAt: isChargeOrPark ? new Date().toLocaleTimeString() : undefined,
-    queueOrder: isChargeOrPark ? undefined : nextQueueOrder()
   })
-
-  records.value.unshift({
-    id: `record-${Date.now()}`,
-    time: new Date().toLocaleTimeString().slice(0, 5),
-    event: `临时调度任务：${form.name}`,
-    taskName: form.name,
-    resultStatus: isChargeOrPark ? 'running' : 'pending',
-    source: 'temp'
-  })
-
-  temporaryVisible.value = false
-  temporaryPrefill.value = {}
-  message.success('临时调度已创建')
 }
 </script>
 
@@ -447,7 +429,7 @@ function submitTemporaryDispatch(form: TemporaryDispatchForm) {
 
   .content-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 12px;
     align-items: start;
   }
@@ -457,6 +439,7 @@ function submitTemporaryDispatch(form: TemporaryDispatchForm) {
   }
 
   .map-panel {
+    min-width: 0;
     position: sticky;
     top: 8px;
   }
