@@ -32,8 +32,25 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="创建时间" class="search-item">
-                <a-input v-model:value="searchForm.createdAt" placeholder="YYYY-MM-DD" allow-clear />
+              <a-form-item label="所属区域" class="search-item">
+                <a-select v-model:value="searchForm.areaId" placeholder="请选择所属区域" allow-clear>
+                  <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">
+                    {{ area.name }}
+                  </a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="校准状态" class="search-item">
+                <a-select v-model:value="searchForm.calibrationStatus" placeholder="请选择校准状态" allow-clear>
+                  <a-select-option value="calibrated">已校准</a-select-option>
+                  <a-select-option value="pending">待校准</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="更新时间" class="search-item">
+                <a-input v-model:value="searchForm.updatedAt" placeholder="YYYY-MM-DD" allow-clear />
               </a-form-item>
             </a-col>
           </a-row>
@@ -64,6 +81,27 @@
               <a-button type="link" size="small" @click="handleCalibrate(record.id, record)">校准</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
             </a-space>
+          </template>
+          <template v-if="column.key === 'previewImage'">
+            <img
+              v-if="record.previewImageUrl"
+              :src="record.previewImageUrl"
+              alt="现场预览图"
+              style="width: 56px; height: 56px; object-fit: cover; border-radius: 4px"
+            />
+            <span v-else>-</span>
+          </template>
+          <template v-if="column.key === 'checkItemCount'">
+            {{ getPointCheckItemCount(record.id) }}
+          </template>
+          <template v-if="column.key === 'deviceCount'">
+            {{ getPointDeviceCount(record.id) }}
+          </template>
+          <template v-if="column.key === 'calibratedAt'">
+            {{ formatDate(record.calibratedAt) || '-' }}
+          </template>
+          <template v-if="column.key === 'updatedAt'">
+            {{ formatDate(record.updatedAt) || '-' }}
           </template>
         </template>
       </a-table>
@@ -116,6 +154,7 @@
           
           <div class="modal-actions" style="margin-top: 20px; text-align: right">
             <a-space>
+              <a-button @click="goToCockpit">前往驾驶舱</a-button>
               <a-button @click="cancelCalibration">取消</a-button>
               <a-button type="primary" @click="updateCalibration">更新</a-button>
               <a-button type="primary" @click="confirmCalibration">确认</a-button>
@@ -135,6 +174,8 @@ import { useRobotStore } from '@/stores/robot'
 import type { InspectionPoint } from '@/types/inspection'
 import { CalibrationStatus } from '@/types/inspection'
 import { message, Modal } from 'ant-design-vue'
+
+const workshopImage = new URL('../../车间.png', import.meta.url).href
 
 const router = useRouter()
 const inspectionStore = useInspectionStore()
@@ -158,19 +199,23 @@ const searchForm = reactive({
   name: '',
   code: '',
   pointType: '',
-  createdAt: ''
+  areaId: '',
+  calibrationStatus: '',
+  updatedAt: ''
 })
 
 const columns = [
-  { title: '巡检点名称', dataIndex: 'name', key: 'name' },
+  { title: '巡检名称', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code' },
-  { title: '描述', dataIndex: 'description', key: 'description' },
-  { title: '序号', dataIndex: 'sequence', key: 'sequence', width: 80 },
-  { title: '停留时间(秒)', dataIndex: 'stayDurationSec', key: 'stayDurationSec', width: 120 },
+  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '现场预览图', key: 'previewImage', width: 100 },
+  { title: '巡检项数量', key: 'checkItemCount', width: 100 },
+  { title: '设施设备数量', key: 'deviceCount', width: 110 },
   { title: '巡检点类型', key: 'pointType', width: 120 },
   { title: '校准状态', key: 'calibrationStatus', width: 100 },
-  { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt' },
-  { title: '操作', key: 'actions', width: 200 }
+  { title: '校准时间', key: 'calibratedAt', width: 170 },
+  { title: '更新时间', key: 'updatedAt', width: 170 },
+  { title: '操作', key: 'actions', width: 220 }
 ]
 
 function isInspectionBizPoint(point: InspectionPoint): boolean {
@@ -188,6 +233,32 @@ function fetchPoints() {
     loading.value = false
   }
 }
+
+const areaOptions = computed(() => {
+  const regionMap = new Map<string, string>()
+  inspectionStore.inspectionMaps.forEach((map) => {
+    map.regions?.forEach((region) => {
+      regionMap.set(region.id, region.name)
+    })
+  })
+  return Array.from(regionMap.entries()).map(([id, name]) => ({ id, name }))
+})
+
+function resolveAreaName(point: InspectionPoint) {
+  if (point.areaName) return point.areaName
+  if (point.areaId) {
+    return areaOptions.value.find((area) => area.id === point.areaId)?.name || '未分区'
+  }
+  return '未分区'
+}
+
+const listRows = computed(() =>
+  points.value.map((point) => ({
+    ...point,
+    areaName: resolveAreaName(point),
+    previewImageUrl: point.previewImageUrl || workshopImage
+  }))
+)
 
 function goToForm(id?: string) {
   if (id) {
@@ -274,6 +345,7 @@ function confirmCalibration() {
         yaw: robotCoordinates.value.yaw
       },
       calibrationStatus: CalibrationStatus.CALIBRATED,
+      calibratedAt: new Date(),
       updatedAt: new Date()
     }
     
@@ -300,26 +372,53 @@ function handleReset() {
   searchForm.name = ''
   searchForm.code = ''
   searchForm.pointType = ''
-  searchForm.createdAt = ''
+  searchForm.areaId = ''
+  searchForm.calibrationStatus = ''
+  searchForm.updatedAt = ''
 }
 
 const filteredPoints = computed(() => {
   const name = searchForm.name.trim().toLowerCase()
   const code = searchForm.code.trim().toLowerCase()
   const pointType = searchForm.pointType
-  const createdAt = searchForm.createdAt.trim()
-  return points.value.filter(point => {
+  const areaId = searchForm.areaId
+  const calibrationStatus = searchForm.calibrationStatus
+  const updatedAt = searchForm.updatedAt.trim()
+  return listRows.value.filter(point => {
     const matchesName = !name || point.name.toLowerCase().includes(name)
     const matchesCode = !code || point.code.toLowerCase().includes(code)
     const matchesPointType = !pointType || (point.pointType || 'fixed') === pointType
-    const createdText = point.createdAt ? new Date(point.createdAt).toISOString().slice(0, 10) : ''
-    const matchesCreated = !createdAt || createdText.includes(createdAt)
-    return matchesName && matchesCode && matchesPointType && matchesCreated
+    const matchesArea = !areaId || point.areaId === areaId
+    const matchesCalibration = !calibrationStatus || point.calibrationStatus === calibrationStatus
+    const updatedText = point.updatedAt ? new Date(point.updatedAt).toISOString().slice(0, 10) : ''
+    const matchesUpdated = !updatedAt || updatedText.includes(updatedAt)
+    return matchesName && matchesCode && matchesPointType && matchesArea && matchesCalibration && matchesUpdated
   })
 })
 
+function getPointDeviceCount(pointId: string) {
+  return inspectionStore.inspectionDevices.filter(device => device.inspectionPointId === pointId).length
+}
+
+function getPointCheckItemCount(pointId: string) {
+  const deviceIds = inspectionStore.inspectionDevices.filter(device => device.inspectionPointId === pointId).map(device => device.id)
+  return inspectionStore.inspectionDeviceCheckItems.filter(item => deviceIds.includes(item.deviceId)).length
+}
+
+function goToCockpit() {
+  message.success('已跳转驾驶舱，正在执行校准')
+}
+
+function formatDate(date?: Date | string) {
+  if (!date) return ''
+  return new Date(date).toLocaleString()
+}
+
 onMounted(() => {
   inspectionStore.initialize()
+  inspectionStore.fetchAllInspectionMaps()
+  inspectionStore.fetchAllInspectionDevices()
+  inspectionStore.fetchAllInspectionDeviceCheckItems()
   robotStore.initialize()
   fetchPoints()
 })

@@ -53,6 +53,14 @@
         <a-descriptions-item label="超时时间">{{ robot?.connectionConfig?.timeout }}ms</a-descriptions-item>
         <a-descriptions-item label="最大重连次数">{{ robot?.connectionConfig?.maxReconnectAttempts }}</a-descriptions-item>
       </a-descriptions>
+
+      <a-divider style="margin: 24px 0" />
+
+      <a-descriptions title="挂件信息" :column="2">
+        <a-descriptions-item v-for="item in attachments" :key="item.name" :label="item.name">
+          {{ item.model }}（{{ item.status }}）
+        </a-descriptions-item>
+      </a-descriptions>
       
       <div style="margin-top: 24px; text-align: right">
         <a-button type="primary" @click="handleEdit">
@@ -76,6 +84,16 @@ const robotStore = useRobotStore()
 
 const robotId = route.params.id as string
 const robot = computed(() => robotStore.getRobotById(robotId))
+const attachments = computed(() => {
+  const model = robot.value?.model || 'Patrol-X1'
+  return [
+    { name: '底盘', model: `${model}-CHASSIS`, status: '正常' },
+    { name: '双目摄像头', model: `${model}-BI-CAM`, status: '正常' },
+    { name: '热成像', model: `${model}-THERMAL`, status: '正常' },
+    { name: '激光雷达', model: `${model}-LIDAR`, status: '正常' },
+    { name: '电池', model: `${model}-BATTERY`, status: (robot.value?.batteryLevel || 0) < 20 ? '低电量' : '正常' }
+  ]
+})
 
 onMounted(() => {
   robotStore.fetchAllRobots()

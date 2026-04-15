@@ -1,16 +1,7 @@
 <template>
   <div class="robot-simulation">
-    <a-page-header title="机器人仿真" />
-    
-    <a-card style="margin-bottom: 16px">
-      <h3>机器人选择</h3>
-      <a-select v-model:value="selectedRobotId" placeholder="请选择机器人" style="width: 300px">
-        <a-select-option v-for="robot in robots" :key="robot.id" :value="robot.id">
-          {{ robot.name }}
-        </a-select-option>
-      </a-select>
-    </a-card>
-    
+    <a-page-header title="详情" sub-title="机器人设备详情" />
+
     <a-card style="margin-bottom: 16px" v-if="selectedRobot">
       <h3>状态信息</h3>
       <a-row :gutter="[16, 16]">
@@ -34,25 +25,37 @@
         </a-col>
       </a-row>
     </a-card>
+
+    <a-card style="margin-bottom: 16px" v-if="selectedRobot">
+      <h3>版本与型号信息</h3>
+      <a-descriptions :column="3" bordered size="small">
+        <a-descriptions-item label="硬件型号">{{ selectedRobot.versions.hardwareModel }}</a-descriptions-item>
+        <a-descriptions-item label="车控型号">{{ selectedRobot.versions.vehicleControlModel }}</a-descriptions-item>
+        <a-descriptions-item label="软件型号">{{ selectedRobot.versions.softwareModel }}</a-descriptions-item>
+        <a-descriptions-item label="自控板型号">{{ selectedRobot.versions.controlBoardModel }}</a-descriptions-item>
+        <a-descriptions-item label="挂件型号">{{ selectedRobot.versions.attachmentModel }}</a-descriptions-item>
+      </a-descriptions>
+    </a-card>
     
     <a-card v-if="selectedRobot">
-      <h3>机型仿真视图</h3>
+      <h3>机器人俯视结构图</h3>
       <div class="simulation-view" ref="simulationViewRef">
         <div class="robot-model">
-          <!-- SVG 巡检机器人图片展示层 -->
+          <!-- SVG 俯视结构图 -->
           <svg class="robot-svg" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
-            <!-- 机器人主体 -->
-            <rect x="100" y="100" width="200" height="120" rx="10" fill="#e6f7ff" stroke="#1890ff" stroke-width="3"/>
-            <!-- 顶部云台 -->
-            <rect x="150" y="70" width="100" height="40" rx="5" fill="#bae7ff" stroke="#1890ff" stroke-width="2"/>
-            <!-- 左侧驱动轮 -->
-            <circle cx="120" cy="230" r="25" fill="#333" stroke="#666" stroke-width="3"/>
-            <circle cx="120" cy="230" r="10" fill="#666"/>
-            <!-- 右侧驱动轮 -->
-            <circle cx="280" cy="230" r="25" fill="#333" stroke="#666" stroke-width="3"/>
-            <circle cx="280" cy="230" r="10" fill="#666"/>
-            <!-- 标签 -->
-            <text x="200" y="165" text-anchor="middle" fill="#333" font-size="14" font-weight="bold">巡检机器人</text>
+            <rect x="95" y="55" width="210" height="190" rx="20" fill="#eef6ff" stroke="#1677ff" stroke-width="2.5"/>
+            <rect x="155" y="70" width="90" height="42" rx="8" fill="#d6ecff" stroke="#1677ff" />
+            <rect x="160" y="125" width="80" height="60" rx="8" fill="#f7fbff" stroke="#91caff" />
+            <circle cx="130" cy="90" r="16" fill="#263238" />
+            <circle cx="270" cy="90" r="16" fill="#263238" />
+            <circle cx="130" cy="220" r="18" fill="#455a64" />
+            <circle cx="270" cy="220" r="18" fill="#455a64" />
+            <text x="200" y="170" text-anchor="middle" fill="#1f1f1f" font-size="12">电池舱</text>
+            <text x="200" y="96" text-anchor="middle" fill="#1f1f1f" font-size="10">云台</text>
+            <text x="130" y="94" text-anchor="middle" fill="#fff" font-size="9">左摄像头</text>
+            <text x="270" y="94" text-anchor="middle" fill="#fff" font-size="9">右摄像头</text>
+            <text x="130" y="224" text-anchor="middle" fill="#fff" font-size="9">左轮</text>
+            <text x="270" y="224" text-anchor="middle" fill="#fff" font-size="9">右轮</text>
           </svg>
           
           <!-- 设备圆点 -->
@@ -64,6 +67,7 @@
             @click="showDeviceInfo(device, $event)"
           >
             <div class="device-dot" :class="[device.type, device.onlineStatus === 'offline' ? 'offline' : '']"></div>
+            <div class="device-name">{{ device.name }}</div>
           </div>
           
           <!-- 设备信息浮层 -->
@@ -105,19 +109,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
-const selectedRobotId = ref<string>('')
 const simulationViewRef = ref<HTMLElement>()
 const selectedDevice = ref<any>(null)
 const popupPosition = ref({ x: 0, y: 0 })
 
 const robots = ref<any[]>([])
+const handleDocumentClick = (event: MouseEvent) => {
+  if (simulationViewRef.value && !simulationViewRef.value.contains(event.target as Node)) {
+    selectedDevice.value = null
+  }
+}
+
+const currentRobotId = computed(() => (route.query.robotId as string) || robots.value[0]?.id || '')
 
 const selectedRobot = computed(() => {
-  return robots.value.find(robot => robot.id === selectedRobotId.value)
+  return robots.value.find((robot) => robot.id === currentRobotId.value) || null
 })
 
 function showDeviceInfo(device: any, event: MouseEvent) {
@@ -135,7 +145,7 @@ function showDeviceInfo(device: any, event: MouseEvent) {
 // 模拟数据
 const mockRobots = [
   {
-    id: 'robot-1',
+    id: 'robot-001',
     name: '巡检机器人 A',
     totalMileage: 125.5,
     todayMileage: 5.2,
@@ -143,6 +153,13 @@ const mockRobots = [
     remainingMileage: 45.0,
     status: '正常',
     currentTask: '巡检任务 #123',
+    versions: {
+      hardwareModel: 'PATROL-X1',
+      vehicleControlModel: 'VCU-2.3',
+      softwareModel: 'SW-3.12.8',
+      controlBoardModel: 'MCB-1.8',
+      attachmentModel: 'KIT-IND-01'
+    },
     devices: [
       {
         id: 'dev-1',
@@ -257,7 +274,7 @@ const mockRobots = [
     ]
   },
   {
-    id: 'robot-2',
+    id: 'robot-002',
     name: '巡检机器人 B',
     totalMileage: 89.2,
     todayMileage: 3.1,
@@ -265,6 +282,13 @@ const mockRobots = [
     remainingMileage: 28.5,
     status: '正常',
     currentTask: '巡检任务 #456',
+    versions: {
+      hardwareModel: 'PATROL-X2',
+      vehicleControlModel: 'VCU-3.1',
+      softwareModel: 'SW-3.14.2',
+      controlBoardModel: 'MCB-2.1',
+      attachmentModel: 'KIT-IND-02'
+    },
     devices: [
       {
         id: 'dev-11',
@@ -370,28 +394,12 @@ const mockRobots = [
 ]
 
 onMounted(() => {
-  // 使用模拟数据
   robots.value = mockRobots
-  
-  // 读取 route.query.robotId 并设置默认选中的机器人
-  const queryRobotId = route.query.robotId as string
-  if (queryRobotId) {
-    const robotExists = robots.value.some(robot => robot.id === queryRobotId)
-    if (robotExists) {
-      selectedRobotId.value = queryRobotId
-    } else if (robots.value.length > 0) {
-      selectedRobotId.value = robots.value[0].id
-    }
-  } else if (robots.value.length > 0) {
-    selectedRobotId.value = robots.value[0].id
-  }
-  
-  // 点击空白处关闭设备信息浮层
-  document.addEventListener('click', (event) => {
-    if (simulationViewRef.value && !simulationViewRef.value.contains(event.target as Node)) {
-      selectedDevice.value = null
-    }
-  })
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 
@@ -423,6 +431,10 @@ onMounted(() => {
       .device-node {
         position: absolute;
         cursor: pointer;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         
         .device-dot {
           width: 16px;
@@ -467,6 +479,19 @@ onMounted(() => {
             background-color: #d9d9d9;
             border-color: #bfbfbf;
           }
+        }
+
+        .device-name {
+          margin-top: 4px;
+          padding: 1px 6px;
+          border-radius: 10px;
+          font-size: 11px;
+          line-height: 16px;
+          color: #fff;
+          white-space: nowrap;
+          background: rgba(0, 0, 0, 0.5);
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+          pointer-events: none;
         }
       }
       

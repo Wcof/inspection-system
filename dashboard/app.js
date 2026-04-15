@@ -66,6 +66,7 @@ const state = {
         labels: true,
         robots: true,
         points: true,
+        pointAreas: { A: true, B: true, C: true },
         docks: true,
         pointStatus: true,
         route: true
@@ -87,6 +88,10 @@ const ENV_METRIC_DEFS = {
     CH4: { label: '可燃气体 CH4', unit: '次' },
     CO: { label: '一氧化碳 CO', unit: '次' },
     H2S: { label: '硫化氢 H2S', unit: '次' }
+};
+const ATTACHMENT_SUMMARY_BASE = {
+    gasSensors: { total: 24, normal: 22, offline: 2 },
+    gimbals: { total: 10, normal: 9, offline: 1 }
 };
 const WEATHER_SNAPSHOT = { condition: '晴', temp: 26, wind: '东南风2级', humidity: 58 };
 const ROBOT_BIZ_STATUS_LABEL = {
@@ -231,6 +236,10 @@ const showRobotPopup = (robotId) => {
         const bgImg = t.bgImg || makeMockImg('Live', '#152338', '#2f4866');
         const now = new Date();
         const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        const taskPoints = DATA.taskHierarchy[r.taskId]?.inspectionPoints || [];
+        const selectedPoint = taskPoints.find((p) => p.id === state.currentInspectionPointId) || taskPoints[0];
+        const attachmentMetrics = selectedPoint?.monitorPoints?.[0]?.metrics || {};
+        const attachmentCardsHtml = buildAttachmentRealtimeCardsHtml(attachmentMetrics);
 
         const html = `
         <div class="map-popup">
@@ -285,6 +294,10 @@ const showRobotPopup = (robotId) => {
                     <div class="ptz-action">
                         <button class="ptz-control-entry" onclick="goDispatchCenter('${r.id}')">前往调度台</button>
                     </div>
+                </div>
+                <div class="popup-metrics-section">
+                    <div class="popup-metrics-title">挂件检测</div>
+                    <div class="summary-grid two-columns env-realtime-grid slide-in">${attachmentCardsHtml}</div>
                 </div>
             </div>
         </div>`;
@@ -681,6 +694,46 @@ const showDockPopup = (dockId) => {
 };
 window.showDockPopup = showDockPopup;
 
+const showApPopup = (apId) => {
+    try {
+        closeMapPopup();
+        const ap = DATA.apDevices.find((x) => x.id === apId);
+        if (!ap) return;
+        const statusText = ap.status === 'safe' ? '正常' : '异常';
+        const statusClass = ap.status === 'safe' ? 'safe-txt' : 'danger-txt';
+        const html = `
+        <div class="map-popup">
+            <div class="popup-header">
+                <span class="popup-title">${ap.name}</span>
+                <span class="tag ${ap.status === 'safe' ? 'gold' : 'warn'}">${statusText}</span>
+                <span class="popup-close-btn" onclick="closeMapPopup()">✕</span>
+            </div>
+            <div class="popup-body">
+                <div class="popup-stats">
+                    <div class="popup-stat"><span class="popup-stat-label">AP 编号</span><span class="popup-stat-value">${ap.id}</span></div>
+                    <div class="popup-stat"><span class="popup-stat-label">区域</span><span class="popup-stat-value">${ap.area} 区域</span></div>
+                    <div class="popup-stat"><span class="popup-stat-label">运行状态</span><span class="popup-stat-value ${statusClass}">${statusText}</span></div>
+                    <div class="popup-stat"><span class="popup-stat-label">信号强度</span><span class="popup-stat-value">${ap.signal}</span></div>
+                    <div class="popup-stat"><span class="popup-stat-label">频段/信道</span><span class="popup-stat-value">${ap.band} / ${ap.channel}</span></div>
+                    <div class="popup-stat"><span class="popup-stat-label">当前接入终端</span><span class="popup-stat-value">${ap.users}</span></div>
+                    <div class="popup-stat" style="grid-column:span 2"><span class="popup-stat-label">最近状态</span><span class="popup-stat-value">${ap.uptime}</span></div>
+                </div>
+            </div>
+        </div>`;
+        const el = document.getElementById('map-popup-body');
+        if (el) {
+            el.innerHTML = html;
+            el.style.display = 'block';
+            el.style.transform = '';
+        }
+        positionPopupAtFeature(ap.coords);
+        mapPopup = ap.id;
+    } catch (err) {
+        console.error('[Popup] Error showing AP popup:', err);
+    }
+};
+window.showApPopup = showApPopup;
+
 // ==== 2. Mock Data ====
 const makeMockImg = (title, c1, c2) => {
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 360'>
@@ -858,6 +911,11 @@ const DATA = {
         { id: 'D-04', name: 'E区-动力站房充电站', status: 'safe', bot: '空闲', lastRobot: 'R-11', voltage: '400V', totalCharges: 21, fullNotLeave: 3, queueCount: 0, facadeImg: makeMockImg('E区动力站房充电站门面', '#241f33', '#4a3f71'), coords: [121.4775, 31.2318] },
         { id: 'D-05', name: '北侧-临停补能站', status: 'safe', bot: '空闲', lastRobot: 'R-05', voltage: '399V', totalCharges: 9, fullNotLeave: 1, queueCount: 1, facadeImg: makeMockImg('北侧临停补能站门面', '#233021', '#496b44'), coords: [121.4732, 31.2342] },
         { id: 'D-06', name: '南侧-备用充电站', status: 'charging', bot: 'R-05', lastRobot: 'R-03', voltage: '397V', totalCharges: 14, fullNotLeave: 2, queueCount: 2, facadeImg: makeMockImg('南侧备用充电站门面', '#2c2222', '#634646'), coords: [121.4768, 31.2274] }
+    ],
+    apDevices: [
+        { id: 'AP-A1', name: 'A区-入口AP', area: 'A', status: 'safe', signal: '-51dBm', channel: 'CH-6', band: '2.4GHz', users: 8, uptime: '17天', coords: siteCoord(0.24, 0.48) },
+        { id: 'AP-B2', name: 'B区-廊道AP', area: 'B', status: 'safe', signal: '-58dBm', channel: 'CH-40', band: '5GHz', users: 5, uptime: '31天', coords: siteCoord(0.52, 0.60) },
+        { id: 'AP-C3', name: 'C区-仓储AP', area: 'C', status: 'danger', signal: '-87dBm', channel: 'CH-149', band: '5GHz', users: 1, uptime: '离线 18m', coords: siteCoord(0.82, 0.44) }
     ]
 };
 
@@ -2142,6 +2200,41 @@ const getAllInspectionPoints = () => {
         points.forEach(p => all.push({ ...p, taskId: tk }));
     });
     return all;
+};
+
+const getPointAreaKey = (point) => {
+    const text = `${point?.name || ''}${point?.id || ''}`;
+    if (/^A区|A区|IP-A/i.test(text)) return 'A';
+    if (/^B区|B区|IP-B/i.test(text)) return 'B';
+    if (/^C区|C区|IP-C/i.test(text)) return 'C';
+    if (/^E区|E区|IP-E/i.test(text)) return 'C';
+    return 'C';
+};
+
+const parseMetricValueParts = (raw) => {
+    const val = String(raw || '');
+    const num = parseFloat(val.replace(/[^\d.]/g, ''));
+    const unit = (val.match(/[^\d.\s]+$/) || [''])[0];
+    return { num: Number.isNaN(num) ? 0 : num, unit };
+};
+
+const buildAttachmentRealtimeCardsHtml = (metrics = {}) => {
+    return Object.keys(ENV_METRIC_DEFS).map((key) => {
+        const metric = metrics[key] || {};
+        const realtime = metric.value || '--';
+        const values = [metric.value, ...(metric.history || [])].map((v) => parseMetricValueParts(v));
+        const maxNum = values.reduce((m, it) => Math.max(m, it.num), 0);
+        const maxUnit = values.find((it) => it.unit)?.unit || '';
+        return `
+          <div class="env-rt-card">
+            <div class="env-rt-title">${ENV_METRIC_DEFS[key].label}</div>
+            <div class="env-rt-minis">
+              <div class="env-rt-mini"><span>实时(机器)</span><b>${realtime}</b></div>
+            </div>
+            <div class="env-rt-max"><span>最大值</span><b>${maxNum}${maxUnit}</b></div>
+          </div>
+        `;
+    }).join('');
 };
 
 const computeEnvMetrics = () => {

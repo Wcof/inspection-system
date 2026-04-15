@@ -23,6 +23,11 @@
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="序号" class="search-item">
+                <a-input-number v-model:value="searchForm.index" :min="1" style="width: 100%" placeholder="请输入序号" />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="机器人名称" class="search-item">
                 <a-input v-model:value="searchForm.name" placeholder="请输入机器人名称" allow-clear />
               </a-form-item>
@@ -50,16 +55,6 @@
                 </a-select>
               </a-form-item>
             </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="电量(最小)" class="search-item">
-                <a-input-number v-model:value="searchForm.batteryMin" :min="0" :max="100" style="width: 100%" placeholder="最小值" />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="电量(最大)" class="search-item">
-                <a-input-number v-model:value="searchForm.batteryMax" :min="0" :max="100" style="width: 100%" placeholder="最大值" />
-              </a-form-item>
-            </a-col>
           </a-row>
           <div class="search-actions">
             <a-space>
@@ -75,12 +70,22 @@
             {{ index + 1 }}
           </template>
         </a-table-column>
+        <a-table-column title="型号" data-index="model" width="120px" />
         <a-table-column title="机器人名称" data-index="name" />
         <a-table-column title="序列号" data-index="serialNumber" />
-        <a-table-column title="型号" data-index="model" />
         <a-table-column title="状态" data-index="status" width="120px">
           <template #default="{ record }">
             <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
+          </template>
+        </a-table-column>
+        <a-table-column title="续航" width="100px">
+          <template #default="{ record }">
+            {{ getEnduranceText(record) }}
+          </template>
+        </a-table-column>
+        <a-table-column title="总里程" width="110px">
+          <template #default="{ record }">
+            {{ getTotalMileage(record) }} km
           </template>
         </a-table-column>
         <a-table-column title="电量" data-index="batteryLevel" width="100px">
@@ -92,11 +97,37 @@
             />
           </template>
         </a-table-column>
+        <a-table-column title="保养" width="260px">
+          <template #default="{ record }">
+            <div class="maintenance-cell">
+              <div class="maintenance-row">
+                <span class="maintenance-label">时间</span>
+                <a-progress
+                  :percent="getMaintenanceInfo(record).timePercent"
+                  :status="getMaintenanceInfo(record).timeStatus"
+                  size="small"
+                  :show-info="false"
+                />
+                <span class="maintenance-text">{{ getMaintenanceInfo(record).timeText }}</span>
+              </div>
+              <div class="maintenance-row">
+                <span class="maintenance-label">里程</span>
+                <a-progress
+                  :percent="getMaintenanceInfo(record).mileagePercent"
+                  :status="getMaintenanceInfo(record).mileageStatus"
+                  size="small"
+                  :show-info="false"
+                />
+                <span class="maintenance-text">{{ getMaintenanceInfo(record).mileageText }}</span>
+              </div>
+            </div>
+          </template>
+        </a-table-column>
         <a-table-column title="操作" width="280px" fixed="right">
           <template #default="{ record }">
             <a-space size="small">
               <a-button type="link" @click="handleView(record.id)">
-                查看
+                详情
               </a-button>
               <a-button type="link" @click="handleEdit(record.id)">
                 编辑
@@ -271,12 +302,11 @@ const importForm = reactive({
 
 // 搜索表单
 const searchForm = reactive({
+  index: undefined as number | undefined,
   name: '',
   serialNumber: '',
   model: '',
-  status: '',
-  batteryMin: undefined as number | undefined,
-  batteryMax: undefined as number | undefined
+  status: ''
 })
 
 // 可用的目标机器人（排除源机器人）
@@ -286,20 +316,18 @@ const availableRobots = computed(() => {
 
 // 过滤后的机器人列表
 const filteredRobots = computed(() => {
+  const index = searchForm.index
   const name = searchForm.name.trim().toLowerCase()
   const serial = searchForm.serialNumber.trim().toLowerCase()
   const model = searchForm.model.trim().toLowerCase()
   const status = searchForm.status
-  const min = searchForm.batteryMin
-  const max = searchForm.batteryMax
-  return robots.value.filter(robot => {
+  return robots.value.filter((robot, idx) => {
+    const matchesIndex = index === undefined || idx + 1 === index
     const matchesName = !name || robot.name.toLowerCase().includes(name)
     const matchesSerial = !serial || robot.serialNumber.toLowerCase().includes(serial)
     const matchesModel = !model || robot.model.toLowerCase().includes(model)
     const matchesStatus = !status || robot.status === status
-    const matchesBatteryMin = min === undefined || robot.batteryLevel >= min
-    const matchesBatteryMax = max === undefined || robot.batteryLevel <= max
-    return matchesName && matchesSerial && matchesModel && matchesStatus && matchesBatteryMin && matchesBatteryMax
+    return matchesIndex && matchesName && matchesSerial && matchesModel && matchesStatus
   })
 })
 
@@ -309,12 +337,11 @@ const handleSearch = () => {
 
 // 处理重置
 const handleReset = () => {
+  searchForm.index = undefined
   searchForm.name = ''
   searchForm.serialNumber = ''
   searchForm.model = ''
   searchForm.status = ''
-  searchForm.batteryMin = undefined
-  searchForm.batteryMax = undefined
 }
 
 onMounted(() => {
@@ -363,6 +390,41 @@ const getBatteryStatus = (level: number): 'success' | 'warning' | 'exception' | 
   if (level < 10) return 'exception'
   if (level < 20) return 'warning'
   return 'success'
+}
+
+const getTotalMileage = (robot: any): number => {
+  const seed = robot.id.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0)
+  return 500 + (seed % 1200)
+}
+
+const getEnduranceText = (robot: any): string => {
+  const hours = Math.max(1, Math.round((robot.batteryLevel / 100) * 10))
+  return `${hours} 小时`
+}
+
+const getMaintenanceInfo = (robot: any): {
+  timeText: string
+  mileageText: string
+  timePercent: number
+  mileagePercent: number
+  timeStatus: 'success' | 'warning' | 'exception'
+  mileageStatus: 'success' | 'warning' | 'exception'
+} => {
+  const totalMileage = getTotalMileage(robot)
+  const remainDays = Math.max(0, 90 - Math.floor(totalMileage / 40))
+  const remainKm = Math.max(0, 2000 - totalMileage)
+  const timePercent = Math.max(0, Math.min(100, Math.round((remainDays / 90) * 100)))
+  const mileagePercent = Math.max(0, Math.min(100, Math.round((remainKm / 2000) * 100)))
+  const timeStatus: 'success' | 'warning' | 'exception' = remainDays === 0 ? 'exception' : remainDays <= 15 ? 'warning' : 'success'
+  const mileageStatus: 'success' | 'warning' | 'exception' = remainKm === 0 ? 'exception' : remainKm <= 300 ? 'warning' : 'success'
+  return {
+    timeText: remainDays === 0 ? '待保养' : `${remainDays} 天`,
+    mileageText: remainKm === 0 ? '待保养' : `${remainKm} km`,
+    timePercent,
+    mileagePercent,
+    timeStatus,
+    mileageStatus
+  }
 }
 
 const handleAdd = () => {
@@ -673,6 +735,31 @@ const handleImportData = () => {
       margin: 0;
       font-size: 20px;
     }
+  }
+
+  .maintenance-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .maintenance-row {
+    display: grid;
+    grid-template-columns: 30px 1fr auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .maintenance-label {
+    color: #595959;
+    font-size: 12px;
+  }
+
+  .maintenance-text {
+    color: #262626;
+    font-size: 12px;
+    min-width: 56px;
+    text-align: right;
   }
 
   @media (max-width: 992px) {

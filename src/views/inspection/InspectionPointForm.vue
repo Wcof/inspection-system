@@ -19,11 +19,20 @@
         </a-row>
 
         <a-row :gutter="16">
-          <a-col :span="24">
+          <a-col :span="12">
             <a-form-item label="地图" name="mapId" :rules="[{ required: true, message: '请选择地图' }]">
               <a-select v-model:value="form.mapId" placeholder="请选择地图" style="width: 100%">
                 <a-select-option v-for="map in maps" :key="map.id" :value="map.id">
                   {{ map.name }}
+                </a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="所属区域" name="areaId" :rules="[{ required: true, message: '请选择所属区域' }]">
+              <a-select v-model:value="form.areaId" placeholder="请选择所属区域" style="width: 100%">
+                <a-select-option v-for="region in activeRegions" :key="region.id" :value="region.id">
+                  {{ region.name }}
                 </a-select-option>
               </a-select>
             </a-form-item>
@@ -125,10 +134,6 @@
           </a-col>
         </a-row>
 
-        <a-form-item label="描述" name="description">
-          <a-textarea v-model:value="form.description" placeholder="请输入描述" :rows="3" />
-        </a-form-item>
-
         <a-form-item>
           <a-space>
             <a-button type="primary" @click="handleSave" :loading="saving">保存</a-button>
@@ -163,13 +168,15 @@ const areaRect = ref({ x: 0, y: 0, width: 0, height: 0 })
 const areaDragStart = ref({ x: 0, y: 0 })
 const isDrawingArea = ref(false)
 const activeMap = computed(() => maps.value.find(map => map.id === form.mapId))
+const activeRegions = computed(() => activeMap.value?.regions || [])
 
 const form = reactive<Partial<InspectionPoint>>({
   name: '',
   code: '',
   pointType: InspectionPointType.FIXED,
-  description: '',
   mapId: '',
+  areaId: '',
+  areaName: '',
   location: {
     longitude: 0,
     latitude: 0,
@@ -378,7 +385,7 @@ function hasValidPosition(position?: { x: number; y: number; yaw?: number }) {
 }
 
 async function handleSave() {
-  if (!form.name || !form.code || !form.mapId || !form.pointType) {
+  if (!form.name || !form.code || !form.mapId || !form.areaId || !form.pointType) {
     message.error('请填写必填项')
     return
   }
@@ -411,8 +418,10 @@ async function handleSave() {
       name: form.name!,
       code: form.code!,
       pointType: form.pointType,
-      description: ensureInspectionPointDescription(form.description || ''),
+      description: ensureInspectionPointDescription(form.name || ''),
       mapId: form.mapId!,
+      areaId: form.areaId,
+      areaName: activeRegions.value.find(region => region.id === form.areaId)?.name || form.areaName || '',
       location: form.location!,
       mapPosition: form.pointType === InspectionPointType.FIXED ? form.mapPosition : form.areaStartMapPosition,
       areaStartMapPosition: form.pointType === InspectionPointType.AREA ? form.areaStartMapPosition : undefined,

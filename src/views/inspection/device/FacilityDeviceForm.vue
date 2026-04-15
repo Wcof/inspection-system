@@ -228,6 +228,14 @@
                     <template v-else>{{ record.itemType || '-' }}</template>
                   </template>
 
+                  <template v-if="column.key === 'priority'">
+                    <a-select v-if="record.isEditing" v-model:value="record.priority" placeholder="优先级" style="width: 100%">
+                      <a-select-option value="primary">主要</a-select-option>
+                      <a-select-option value="secondary">次要</a-select-option>
+                    </a-select>
+                    <template v-else>{{ record.priority === 'primary' ? '主要' : '次要' }}</template>
+                  </template>
+
                   <template v-if="column.key === 'min'">
                     <a-input-number
                       v-if="record.isEditing && isThresholdFieldEnabled(record.itemType, 'min')"
@@ -332,6 +340,8 @@
                       <a-button type="link" danger @click="handleCancelEdit(index)">取消</a-button>
                     </a-space>
                     <a-space v-else>
+                      <a-button type="link" @click="moveCheckItem(index, -1)" :disabled="index === 0">上移</a-button>
+                      <a-button type="link" @click="moveCheckItem(index, 1)" :disabled="index === checkItems.length - 1">下移</a-button>
                       <a-button type="link" @click="handleEditRow(index)">编辑</a-button>
                       <a-button type="link" danger @click="handleDeleteCheckItem(index)">删除</a-button>
                     </a-space>
@@ -608,9 +618,10 @@ const wizardCheckColumns = [
   { title: '图像', key: 'image', width: 150 },
   { title: '识别模式', key: 'recognitionMode', width: 140 },
   { title: '类型', dataIndex: 'itemType', key: 'itemType', width: 120 },
+  { title: '优先级', key: 'priority', width: 100 },
   { title: '最小值', key: 'min', width: 100 },
   { title: '最大值', key: 'max', width: 100 },
-  { title: '操作', key: 'actions', width: 180 }
+  { title: '操作', key: 'actions', width: 260 }
 ]
 const wizardRoi = reactive({ x: 0, y: 0, width: 0, height: 0 })
 const wizardPtz = reactive({ x: 0, y: 0, z: 0, angle: 0 })
@@ -750,9 +761,10 @@ const checkItemColumns = [
   { title: '图像', key: 'image', width: 150 },
   { title: '识别模式', key: 'recognitionMode', width: 140 },
   { title: '类型', dataIndex: 'itemType', key: 'itemType', width: 120 },
+  { title: '优先级', key: 'priority', width: 100 },
   { title: '最小值', key: 'min', width: 100 },
   { title: '最大值', key: 'max', width: 100 },
-  { title: '操作', key: 'actions', width: 180 }
+  { title: '操作', key: 'actions', width: 260 }
 ]
 
 function goBack() {
@@ -805,6 +817,7 @@ function normalizeCheckItem(item: any) {
   const normalized = {
     ...item,
     checkType: 'vision',
+    priority: item?.priority || 'secondary',
     itemType: inferCheckItemType(item?.unit, item?.name),
     threshold: {
       min: item?.threshold?.min,
@@ -854,6 +867,7 @@ function handleAddCheckItem() {
     code: '',
     checkType: 'vision',
     itemType: '温度',
+    priority: 'secondary',
     threshold: {
       min: undefined,
       max: undefined
@@ -867,6 +881,16 @@ function handleAddCheckItem() {
     isEditing: true,
     _backup: null
   })
+}
+
+function moveCheckItem(index: number, step: -1 | 1) {
+  const targetIndex = index + step
+  if (targetIndex < 0 || targetIndex >= checkItems.value.length) return
+  const list = [...checkItems.value]
+  const current = list[index]
+  list[index] = list[targetIndex]
+  list[targetIndex] = current
+  checkItems.value = list
 }
 
 function handleEditRow(index: number) {
@@ -943,6 +967,7 @@ function addDefaultCheckItems() {
       name: '温度',
       code: 'CHECK-TEMP',
       itemType: '温度',
+      priority: 'primary',
       threshold: { min: 0, max: 100 },
       visionMapping: { sourceType: 'system', customImageUrl: '', recognitionMode: 'ocr' }
     }),
@@ -951,6 +976,7 @@ function addDefaultCheckItems() {
       name: '外观',
       code: 'CHECK-APPEARANCE',
       itemType: '外观',
+      priority: 'secondary',
       threshold: {},
       visionMapping: { sourceType: 'system', customImageUrl: '', recognitionMode: 'ai' }
     })
@@ -1122,6 +1148,7 @@ async function handleSave() {
         code: normalized.code,
         checkType: 'vision',
         unit: normalized.itemType,
+        priority: normalized.priority,
         threshold: normalized.threshold,
         visionMapping: {
           sourceType: normalized.visionMapping.sourceType,

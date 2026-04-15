@@ -45,14 +45,14 @@
               </div>
 
               <button
-                v-for="point in pointRows"
+                v-for="(point, idx) in pointRows"
                 :key="point.id"
                 class="map-marker"
                 :class="{ selected: selectedPointIds.includes(point.id), deleting: deleteMode }"
                 :style="getMarkerStyle(point)"
                 @click.stop="handleMarkerClick(point)"
               >
-                {{ point.index }}
+                {{ idx + 1 }}
               </button>
             </div>
           </div>
@@ -92,6 +92,10 @@
                 <template v-if="column.key === 'location'">
                   {{ record.locationText }}
                 </template>
+                <template v-if="column.key === 'preview'">
+                  <img v-if="record.previewImageUrl" :src="record.previewImageUrl" style="width: 56px; height: 56px; object-fit: cover; border-radius: 4px" />
+                  <span v-else>-</span>
+                </template>
                 <template v-if="column.key === 'updatedBy'">
                   {{ record.updatedBy || '-' }}
                 </template>
@@ -118,6 +122,13 @@
           <a-select v-model:value="createPointForm.bizType" placeholder="请选择点位类型">
             <a-select-option v-for="type in pointBizTypeOptions" :key="type" :value="type">
               {{ type }}
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="所属区域" required>
+          <a-select v-model:value="createPointForm.areaId" placeholder="请选择所属区域">
+            <a-select-option v-for="region in activeRegions" :key="region.id" :value="region.id">
+              {{ region.name }}
             </a-select-option>
           </a-select>
         </a-form-item>
@@ -151,32 +162,42 @@ const createPointVisible = ref(false)
 const pendingPoint = ref({ x: 0, y: 0 })
 const pointBizTypeOptions = ['巡检点', '停车点', '充电点'] as const
 type PointBizType = typeof pointBizTypeOptions[number]
-const createPointForm = ref<{ name: string; bizType: PointBizType }>({
+const createPointForm = ref<{ name: string; bizType: PointBizType; areaId: string }>({
   name: '',
-  bizType: '巡检点'
+  bizType: '巡检点',
+  areaId: ''
 })
 
 const maps = computed(() => inspectionStore.inspectionMaps)
 const activeMap = computed(() => maps.value.find(m => m.id === activeMapId.value))
 const points = computed(() => inspectionStore.inspectionPoints.filter(p => p.mapId === activeMapId.value))
+const activeRegions = computed(() => activeMap.value?.regions || [])
 
 const pointRows = computed(() =>
   points.value
     .slice()
     .sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
-    .map((point, idx) => ({
+    .map((point) => ({
       ...point,
-      index: idx + 1,
       bizType: getPointBizType(point),
-      locationText: `${point.location.longitude.toFixed(6)}, ${point.location.latitude.toFixed(6)}`
+      locationText: `${point.location.longitude.toFixed(6)}, ${point.location.latitude.toFixed(6)}`,
+      updatedAtText: point.updatedAt ? new Date(point.updatedAt).toLocaleString() : '-',
+      calibrationTimeText: point.calibratedAt ? new Date(point.calibratedAt).toLocaleString() : '-',
+      checkItemCount: getPointCheckItemCount(point.id),
+      deviceCount: getPointDeviceCount(point.id)
     }))
 )
 
 const columns = [
-  { title: '序号', dataIndex: 'index', key: 'index', width: 70 },
-  { title: '点位名称', dataIndex: 'name', key: 'name', width: 140 },
+  { title: '巡检名称', dataIndex: 'name', key: 'name', width: 150 },
+  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '点位类型', key: 'pointType', width: 100 },
   { title: '点位经纬度', key: 'location' },
+  { title: '巡检项数量', dataIndex: 'checkItemCount', key: 'checkItemCount', width: 100 },
+  { title: '设施设备数量', dataIndex: 'deviceCount', key: 'deviceCount', width: 120 },
+  { title: '现场预览图', key: 'preview', width: 100 },
+  { title: '校准时间', dataIndex: 'calibrationTimeText', key: 'calibrationTimeText', width: 170 },
+  { title: '更新时间', dataIndex: 'updatedAtText', key: 'updatedAtText', width: 170 },
   { title: '更新人', key: 'updatedBy', width: 100 }
 ]
 
@@ -205,7 +226,7 @@ function toggleDeleteMode() {
   }
 }
 
-function getMarkerStyle(point: InspectionPoint & { index: number }) {
+function getMarkerStyle(point: InspectionPoint) {
   const x = point.mapPosition?.x ?? 0
   const y = point.mapPosition?.y ?? 0
   return {
@@ -224,7 +245,8 @@ function handleMapClick(event: MouseEvent) {
   const nextIndex = pointRows.value.length + 1
   createPointForm.value = {
     name: `点位-${nextIndex}`,
-    bizType: '巡检点'
+    bizType: '巡检点',
+    areaId: activeRegions.value[0]?.id || ''
   }
   createPointVisible.value = true
 }
@@ -252,6 +274,10 @@ function handleConfirmCreatePoint() {
     message.error('请填写点位名称')
     return
   }
+  if (!createPointForm.value.areaId) {
+    message.error('请选择所属区域')
+    return
+  }
 
   const x = pendingPoint.value.x
   const y = pendingPoint.value.y
@@ -261,6 +287,7 @@ function handleConfirmCreatePoint() {
   const baseLat = activeMap.value?.geographicCoordinates?.latitude || 31.2304
   const baseLng = activeMap.value?.geographicCoordinates?.longitude || 121.4737
   const codePrefix = getPointCodePrefix(createPointForm.value.bizType)
+  const area = activeRegions.value.find(r => r.id === createPointForm.value.areaId)
 
   inspectionStore.saveInspectionPoint({
     id: `point-${Date.now()}`,
@@ -268,6 +295,9 @@ function handleConfirmCreatePoint() {
     code: `${codePrefix}-${String(Date.now()).slice(-6)}`,
     pointType: InspectionPointType.FIXED,
     description: `[${createPointForm.value.bizType}] ${activeMap.value?.name || '地图'}新增点位`,
+    areaId: createPointForm.value.areaId,
+    areaName: area?.name || '',
+    previewImageUrl: `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent(`${createPointForm.value.name} industrial site inspection`)}&image_size=square`,
     mapId: activeMapId.value,
     location: {
       longitude: Number((baseLng + x / 100000).toFixed(6)),
@@ -295,11 +325,22 @@ function handleConfirmCreatePoint() {
   message.success('点位新增成功')
 }
 
+function getPointDeviceCount(pointId: string) {
+  return inspectionStore.inspectionDevices.filter(device => device.inspectionPointId === pointId).length
+}
+
+function getPointCheckItemCount(pointId: string) {
+  const deviceIds = inspectionStore.inspectionDevices
+    .filter(device => device.inspectionPointId === pointId)
+    .map(device => device.id)
+  return inspectionStore.inspectionDeviceCheckItems.filter(item => deviceIds.includes(item.deviceId)).length
+}
+
 function handleCancelCreatePoint() {
   createPointVisible.value = false
 }
 
-function handleMarkerClick(point: InspectionPoint & { index: number }) {
+function handleMarkerClick(point: InspectionPoint) {
   if (deleteMode.value) {
     Modal.confirm({
       title: '确认删除',
@@ -334,6 +375,8 @@ function handleDeleteSelected() {
 
 onMounted(() => {
   inspectionStore.initialize()
+  inspectionStore.fetchAllInspectionDevices()
+  inspectionStore.fetchAllInspectionDeviceCheckItems()
   activeMapId.value = (route.query.mapId as string) || inspectionStore.inspectionMaps[0]?.id || ''
 })
 </script>

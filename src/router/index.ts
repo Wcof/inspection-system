@@ -156,6 +156,12 @@ const routes: RouteRecordRaw[] = [
             name: 'ImplementationMapPointManage',
             component: () => import('../views/map/PointManage.vue'),
             meta: { title: '点位管理' }
+          },
+          {
+            path: 'area-manage',
+            name: 'ImplementationMapAreaManage',
+            component: () => import('../views/map/AreaManage.vue'),
+            meta: { title: '区域管理' }
           }
         ]
       },
@@ -186,7 +192,7 @@ const routes: RouteRecordRaw[] = [
             path: 'simulation',
             name: 'ImplementationRobotSimulation',
             component: () => import('../views/implementation/RobotSimulation.vue'),
-            meta: { title: '机器人仿真' }
+            meta: { title: '详情' }
           }
         ]
       },

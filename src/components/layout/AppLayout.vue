@@ -72,9 +72,6 @@
             <a-menu-item key="implementation-robot-list">
               <router-link to="/implementation/robot/list">机器人管理</router-link>
             </a-menu-item>
-            <a-menu-item key="implementation-robot-simulation">
-              <router-link to="/implementation/robot/simulation">机器人仿真</router-link>
-            </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="implementation-point-device">
             <template #title>
@@ -85,9 +82,6 @@
             </template>
             <a-menu-item key="implementation-point">
               <router-link to="/implementation/point/list">点位管理</router-link>
-            </a-menu-item>
-            <a-menu-item key="implementation-calibration">
-              <router-link to="/implementation/calibration/list">校准记录</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-device">
               <router-link to="/implementation/device/list">设施设备管理</router-link>
@@ -125,11 +119,27 @@
           </div>
         </div>
       </a-layout-header>
-      <a-layout-content style="margin: 24px; padding: 24px; background: #fff; min-height: 280px">
+      <a-layout-content
+        style="margin: 24px; padding: 24px; background: #fff; min-height: 280px"
+        @click.capture="handleContentClick"
+      >
         <router-view />
       </a-layout-content>
     </a-layout>
   </a-layout>
+
+  <a-modal
+    v-model:open="imagePreviewVisible"
+    title="图片预览"
+    :footer="null"
+    width="80vw"
+    centered
+    destroy-on-close
+  >
+    <div class="preview-modal-body">
+      <img v-if="imagePreviewSrc" :src="imagePreviewSrc" alt="图片预览" class="preview-modal-image" />
+    </div>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -138,6 +148,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
+const imagePreviewVisible = ref(false)
+const imagePreviewSrc = ref('')
 
 const currentSystem = ref('management')
 
@@ -159,6 +171,17 @@ const handleSystemChange = () => {
   } else {
     router.push('/implementation/map/list')
   }
+}
+
+const handleContentClick = (event: MouseEvent) => {
+  const container = event.currentTarget as HTMLElement | null
+  const target = event.target as HTMLElement | null
+  if (!container || !target) return
+  const image = target.closest('img') as HTMLImageElement | null
+  if (!image || !container.contains(image)) return
+  if (!image.src) return
+  imagePreviewSrc.value = image.src
+  imagePreviewVisible.value = true
 }
 
 // 开放的菜单
@@ -183,10 +206,10 @@ const currentKey = computed(() => {
   if (path.startsWith('/implementation/map/list')) return 'implementation-map-list'
   if (path.startsWith('/implementation/map/editor')) return 'implementation-map-list'
   if (path.startsWith('/implementation/map/point-manage')) return 'implementation-map-list'
+  if (path.startsWith('/implementation/map/area-manage')) return 'implementation-map-list'
   if (path.startsWith('/implementation/robot/list')) return 'implementation-robot-list'
-  if (path.startsWith('/implementation/robot/simulation')) return 'implementation-robot-simulation'
+  if (path.startsWith('/implementation/robot/simulation')) return 'implementation-robot-list'
   if (path.startsWith('/implementation/point/list')) return 'implementation-point'
-  if (path.startsWith('/implementation/calibration/list')) return 'implementation-calibration'
   if (path.startsWith('/implementation/device/list')) return 'implementation-device'
   if (path.startsWith('/implementation/metric/list')) return 'implementation-metric'
   if (path.startsWith('/implementation/dispatch/rule-config')) return 'implementation-dispatch-rule-config'
@@ -222,5 +245,20 @@ const currentKey = computed(() => {
   .system-switcher {
     margin-left: 24px;
   }
+}
+
+.preview-modal-body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 260px;
+  max-height: 72vh;
+  overflow: auto;
+}
+
+.preview-modal-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
 }
 </style>

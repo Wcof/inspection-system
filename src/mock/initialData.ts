@@ -87,11 +87,14 @@ export const initialRobots: Robot[] = [
 export const initialInspectionPoints: InspectionPoint[] = [
   {
     id: 'point-001',
-    name: 'A区-反应釜车间',
+    name: '反应釜车间巡检点',
     code: 'IP-A-001',
     pointType: InspectionPointType.FIXED,
-    description: 'A区反应釜车间巡检点',
+    description: '[巡检点] A区反应釜车间巡检点',
     mapId: 'map-001',
+    areaId: 'region-a',
+    areaName: '反应区',
+    previewImageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=industrial%20reactor%20workshop%20inspection%20point&image_size=square',
     location: { longitude: 121.4737, latitude: 31.2304, altitude: 0 },
     mapPosition: { x: 100, y: 200, yaw: 0 },
     waypointId: 'wp-001',
@@ -107,16 +110,21 @@ export const initialInspectionPoints: InspectionPoint[] = [
     },
     positionSource: PositionSource.MAP_PICK,
     lastMapPickAt: new Date(),
+    calibratedAt: new Date(),
+    updatedBy: '系统管理员',
     createdAt: new Date(),
     updatedAt: new Date()
   },
   {
     id: 'point-002',
-    name: 'B区-储罐区',
+    name: '储罐区巡检点',
     code: 'IP-B-001',
     pointType: InspectionPointType.FIXED,
-    description: 'B区储罐区巡检点',
+    description: '[巡检点] B区储罐区巡检点',
     mapId: 'map-001',
+    areaId: 'region-b',
+    areaName: '储罐区',
+    previewImageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=industrial%20storage%20tank%20inspection%20point&image_size=square',
     location: { longitude: 121.4740, latitude: 31.2307, altitude: 0 },
     mapPosition: { x: 300, y: 400, yaw: 90 },
     waypointId: 'wp-002',
@@ -132,6 +140,8 @@ export const initialInspectionPoints: InspectionPoint[] = [
     },
     positionSource: PositionSource.MAP_PICK,
     lastMapPickAt: new Date(),
+    calibratedAt: new Date(),
+    updatedBy: '系统管理员',
     createdAt: new Date(),
     updatedAt: new Date()
   }
@@ -149,6 +159,11 @@ export const initialInspectionMaps: InspectionMap[] = [
       origin: { x: 0, y: 0 },
       rotation: 0
     },
+    regions: [
+      { id: 'region-a', name: '反应区', color: '#1677ff', x: 60, y: 120, width: 220, height: 160 },
+      { id: 'region-b', name: '储罐区', color: '#52c41a', x: 290, y: 300, width: 240, height: 170 },
+      { id: 'region-c', name: '管廊区', color: '#fa8c16', x: 560, y: 160, width: 200, height: 180 }
+    ],
     createdAt: new Date(),
     updatedAt: new Date()
   }
@@ -235,6 +250,9 @@ export const initialInspectionDevices: InspectionDevice[] = [
     referenceImageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=industrial%20temperature%20gauge&image_size=square',
     referenceImageVersion: 'v1',
     status: DeviceStatus.ACTIVE,
+    inspectionFrequency: { value: 4, unit: 'hour' },
+    executionCycle: { startDate: '2026-01-01', endDate: '2026-12-31' },
+    executionWindow: { startTime: '08:00', endTime: '18:00' },
     checkItems: [],
     createdAt: new Date(),
     updatedAt: new Date()
@@ -249,6 +267,9 @@ export const initialInspectionDevices: InspectionDevice[] = [
     ptzPreset: { x: 12, y: 5, z: 1.5 },
     referenceImageUrl: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=industrial%20pressure%20gauge&image_size=square',
     status: DeviceStatus.ACTIVE,
+    inspectionFrequency: { value: 6, unit: 'hour' },
+    executionCycle: { startDate: '2026-01-01', endDate: '2026-12-31' },
+    executionWindow: { startTime: '08:00', endTime: '20:00' },
     checkItems: [],
     createdAt: new Date(),
     updatedAt: new Date()
@@ -262,6 +283,9 @@ export const initialInspectionDevices: InspectionDevice[] = [
     sequence: 1,
     ptzPreset: { x: 20, y: 10, z: 2.0 },
     status: DeviceStatus.ACTIVE,
+    inspectionFrequency: { value: 2, unit: 'hour' },
+    executionCycle: { startDate: '2026-01-01', endDate: '2026-12-31' },
+    executionWindow: { startTime: '00:00', endTime: '23:59' },
     checkItems: [],
     createdAt: new Date(),
     updatedAt: new Date()
@@ -276,6 +300,9 @@ export const initialInspectionDeviceCheckItems: InspectionDeviceCheckItem[] = [
     name: '温度',
     code: 'CHECK-TEMP-001',
     checkType: 'vision',
+    priority: 'primary',
+    inspectionFrequency: { value: 4, unit: 'hour' },
+    executionWindow: { startTime: '08:00', endTime: '18:00' },
     unit: '℃',
     threshold: { min: 0, max: 200, warning: 150, critical: 180 },
     visionMapping: {
@@ -292,6 +319,9 @@ export const initialInspectionDeviceCheckItems: InspectionDeviceCheckItem[] = [
     name: '压力',
     code: 'CHECK-PRESS-001',
     checkType: 'vision',
+    priority: 'secondary',
+    inspectionFrequency: { value: 6, unit: 'hour' },
+    executionWindow: { startTime: '08:00', endTime: '20:00' },
     unit: 'MPa',
     threshold: { min: 0, max: 10, warning: 8, critical: 9 },
     visionMapping: {
@@ -308,6 +338,9 @@ export const initialInspectionDeviceCheckItems: InspectionDeviceCheckItem[] = [
     name: '液位',
     code: 'CHECK-LEVEL-001',
     checkType: 'vision',
+    priority: 'primary',
+    inspectionFrequency: { value: 2, unit: 'hour' },
+    executionWindow: { startTime: '00:00', endTime: '23:59' },
     unit: 'm',
     threshold: { min: 0, max: 10, warning: 8, critical: 9 },
     visionMapping: {

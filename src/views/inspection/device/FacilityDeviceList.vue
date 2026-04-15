@@ -7,7 +7,7 @@
         <div class="tree-panel">
           <a-input
             v-model:value="treeSearchValue"
-            placeholder="搜索巡检点名称/编码"
+            placeholder="搜索分区名称"
             allow-clear
             style="margin-bottom: 16px"
           />
@@ -28,7 +28,7 @@
             <span class="header-count">共 {{ filteredDevices.length }} 台</span>
           </div>
           <a-space>
-            <a-tooltip v-if="selectedTreeKey === 'all'" title="请先在左侧选择巡检点">
+            <a-tooltip v-if="selectedTreeKey === 'all'" title="请先在左侧选择分区">
               <a-button type="primary" disabled>
                 <a-icon type="plus" />
                 新建设备
@@ -88,8 +88,7 @@
               {{ pointNameMap[record.inspectionPointId] || '-' }}
             </template>
             <template v-if="column.key === 'referenceImage'">
-              <img v-if="record.referenceImageUrl" :src="record.referenceImageUrl" alt="参考图" style="width: 60px; height: 60px; object-fit: cover" />
-              <span v-else>-</span>
+              <img :src="getReferenceImageUrl(record)" alt="参考图" style="width: 60px; height: 60px; object-fit: cover; cursor: zoom-in; border-radius: 4px" />
             </template>
             <template v-if="column.key === 'ptz'">
               <span v-if="record.ptzPreset">
@@ -103,7 +102,6 @@
             </template>
             <template v-if="column.key === 'actions'">
               <a-space>
-                <a-button type="link" size="small" @click="openCheckItems(record.id)">检测项</a-button>
                 <a-button type="link" size="small" @click="goToForm(record.id)">编辑</a-button>
                 <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
               </a-space>
@@ -319,8 +317,16 @@
 import { ref, onMounted, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
-import type { InspectionDevice, InspectionPoint } from '@/types/inspection'
+import {
+  CalibrationStatus,
+  DeviceStatus,
+  InspectionPointType,
+  PositionSource,
+  type InspectionDevice,
+  type InspectionPoint
+} from '@/types/inspection'
 import { message, Modal } from 'ant-design-vue'
+const deviceMockImage = new URL('../../../设备.png', import.meta.url).href
 
 const router = useRouter()
 const route = useRoute()
@@ -344,36 +350,42 @@ const searchForm = reactive({
 const treeSearchValue = ref('')
 const selectedTreeKeys = ref<string[]>(['all'])
 const selectedTreeKey = computed(() => selectedTreeKeys.value[0] || 'all')
+const maps = computed(() => inspectionStore.inspectionMaps)
 
 const treeData = computed(() => {
+  const regionMap = new Map<string, { id: string; name: string }>()
+  maps.value.forEach(map => {
+    ;(map.regions || []).forEach(region => regionMap.set(region.id, { id: region.id, name: region.name }))
+  })
   return [{
     title: '全部',
     key: 'all',
-    children: inspectionPoints.value.map(point => ({ title: point.name, key: `point:${point.id}`, description: point.code }))
+    children: Array.from(regionMap.values()).map(region => ({ title: region.name, key: `region:${region.id}` }))
   }]
 })
 
 const filteredTreeData = computed(() => {
   if (!treeSearchValue.value.trim()) return treeData.value
   const searchValue = treeSearchValue.value.trim().toLowerCase()
-  const filteredPoints = inspectionPoints.value.filter(point =>
-    point.name.toLowerCase().includes(searchValue) || point.code.toLowerCase().includes(searchValue)
+  const filteredRegions = (treeData.value[0].children || []).filter((item: any) =>
+    String(item.title || '').toLowerCase().includes(searchValue)
   )
   return [{
     title: '全部',
     key: 'all',
-    children: filteredPoints.map(point => ({ title: point.name, key: `point:${point.id}`, description: point.code }))
+    children: filteredRegions
   }]
 })
 
-const selectedPointIdFromTree = computed(() => {
+const selectedRegionIdFromTree = computed(() => {
   if (selectedTreeKey.value === 'all') return undefined
-  return selectedTreeKey.value.replace('point:', '')
+  return selectedTreeKey.value.replace('region:', '')
 })
 
 const selectedPointName = computed(() => {
-  if (!selectedPointIdFromTree.value) return '全部巡检点'
-  return pointNameMap.value[selectedPointIdFromTree.value] || '未命名巡检点'
+  if (!selectedRegionIdFromTree.value) return '全部分区'
+  const regionNode = (treeData.value[0].children || []).find((item: any) => item.key === `region:${selectedRegionIdFromTree.value}`)
+  return regionNode?.title || '未命名分区'
 })
 
 const pointNameMap = computed<Record<string, string>>(() => {
@@ -538,10 +550,14 @@ function validateCheckItem(item: any) {
 function fetchDevices() {
   loading.value = true
   try {
+    inspectionStore.fetchAllInspectionPoints()
     inspectionStore.fetchAllInspectionDevices()
+    inspectionStore.fetchAllInspectionMaps()
     inspectionStore.fetchAllInspectionDeviceCheckItems()
-    if (selectedPointIdFromTree.value) {
-      devices.value = inspectionStore.getInspectionDevicesByInspectionPointId(selectedPointIdFromTree.value)
+    inspectionPoints.value = inspectionStore.inspectionPoints
+    if (selectedRegionIdFromTree.value) {
+      const pointIds = inspectionPoints.value.filter(point => point.areaId === selectedRegionIdFromTree.value).map(point => point.id)
+      devices.value = inspectionStore.inspectionDevices.filter(device => pointIds.includes(device.inspectionPointId))
     } else {
       devices.value = inspectionStore.inspectionDevices
     }
@@ -592,8 +608,9 @@ const filteredDevices = computed(() => {
 function goToForm(id?: string) {
   if (id) {
     router.push(`/implementation/device/form/${id}`)
-  } else if (selectedPointIdFromTree.value) {
-    router.push(`/implementation/device/form?pointId=${selectedPointIdFromTree.value}`)
+  } else if (selectedRegionIdFromTree.value) {
+    const point = inspectionPoints.value.find(item => item.areaId === selectedRegionIdFromTree.value)
+    if (point) router.push(`/implementation/device/form?pointId=${point.id}`)
   }
 }
 
@@ -728,6 +745,103 @@ function getSystemImageUrl(_record: any) {
   return 'https://neeko-copilot.bytedance.net/api/text2image?prompt=system%20configured%20device%20image&size=512x512'
 }
 
+function getReferenceImageUrl(_record: InspectionDevice) {
+  return deviceMockImage
+}
+
+function ensureRegionMockHierarchy() {
+  inspectionStore.fetchAllInspectionMaps()
+  inspectionStore.fetchAllInspectionPoints()
+  inspectionStore.fetchAllInspectionDevices()
+  inspectionStore.fetchAllInspectionDeviceCheckItems()
+
+  const maps = inspectionStore.inspectionMaps
+  const now = new Date()
+
+  maps.forEach((map) => {
+    ;(map.regions || []).forEach((region, idx) => {
+      const existingPoint = inspectionStore.inspectionPoints.find((p) => p.areaId === region.id)
+      const pointId = existingPoint?.id || `mock-point-${region.id}`
+      if (!existingPoint) {
+        inspectionStore.saveInspectionPoint({
+          id: pointId,
+          name: `${region.name}巡检点`,
+          code: `IP-${region.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6) || idx + 1}`,
+          pointType: InspectionPointType.FIXED,
+          description: `[巡检点] ${region.name}默认巡检点`,
+          mapId: map.id,
+          areaId: region.id,
+          areaName: region.name,
+          location: {
+            longitude: (map.geographicCoordinates?.longitude || 121.4737) + (idx + 1) * 0.0001,
+            latitude: (map.geographicCoordinates?.latitude || 31.2304) + (idx + 1) * 0.0001,
+            altitude: 0
+          },
+          mapPosition: {
+            x: Math.round(region.x + Math.max(30, region.width / 2)),
+            y: Math.round(region.y + Math.max(30, region.height / 2)),
+            yaw: 0
+          },
+          sequence: idx + 1,
+          calibrationStatus: CalibrationStatus.PENDING,
+          stayDurationSec: 30,
+          monitorPoints: [],
+          isCritical: false,
+          exceptionStrategy: { onFailure: 'skip', retryCount: 2, skipToNext: true } as any,
+          positionSource: PositionSource.MAP_PICK,
+          lastMapPickAt: now,
+          updatedBy: '系统管理员',
+          createdAt: now,
+          updatedAt: now
+        } as InspectionPoint)
+      }
+
+      const existingDevice = inspectionStore.inspectionDevices.find((d) => d.inspectionPointId === pointId)
+      const deviceId = existingDevice?.id || `mock-device-${region.id}`
+      if (!existingDevice) {
+        inspectionStore.saveInspectionDevice({
+          id: deviceId,
+          inspectionPointId: pointId,
+          name: `${region.name}温度计`,
+          code: `DEV-${region.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6) || idx + 1}`,
+          type: '温度计',
+          sequence: 1,
+          ptzPreset: { x: 12 + idx, y: 8 + idx, z: 1.5 },
+          referenceImageUrl:
+            'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=industrial%20meter%20inspection&image_size=square',
+          status: DeviceStatus.ACTIVE,
+          checkItems: [],
+          createdAt: now,
+          updatedAt: now
+        } as InspectionDevice)
+      }
+
+      const existingItem = inspectionStore.inspectionDeviceCheckItems.find((item) => item.deviceId === deviceId)
+      if (!existingItem) {
+        inspectionStore.saveInspectionDeviceCheckItem({
+          id: `mock-check-${region.id}`,
+          deviceId,
+          name: '温度',
+          code: `CHECK-${region.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6) || idx + 1}`,
+          checkType: 'vision',
+          priority: 'primary',
+          inspectionFrequency: { value: 4, unit: 'hour' },
+          executionWindow: { startTime: '08:00', endTime: '18:00' },
+          unit: '温度',
+          threshold: { min: 0, max: 100 },
+          visionMapping: { sourceType: 'system', recognitionMode: 'ocr', customImageUrl: '' },
+          createdAt: now,
+          updatedAt: now
+        } as any)
+      }
+    })
+  })
+
+  inspectionStore.fetchAllInspectionPoints()
+  inspectionStore.fetchAllInspectionDevices()
+  inspectionStore.fetchAllInspectionDeviceCheckItems()
+}
+
 function handleDelete(id: string) {
   Modal.confirm({
     title: '确认删除',
@@ -744,8 +858,13 @@ function handleDelete(id: string) {
 
 onMounted(() => {
   inspectionStore.initialize()
+  inspectionStore.fetchAllInspectionMaps()
+  ensureRegionMockHierarchy()
   inspectionPoints.value = inspectionStore.inspectionPoints
-  if (route.query.pointId) selectedTreeKeys.value = [`point:${route.query.pointId}`]
+  if (route.query.pointId) {
+    const point = inspectionPoints.value.find(item => item.id === route.query.pointId)
+    if (point?.areaId) selectedTreeKeys.value = [`region:${point.areaId}`]
+  }
   
   // 处理从检测项管理页跳转过来的查询参数
   if (route.query.deviceId) {
@@ -753,7 +872,8 @@ onMounted(() => {
     const device = inspectionStore.inspectionDevices.find(d => d.id === deviceId)
     if (device) {
       // 定位到对应设备的巡检点
-      selectedTreeKeys.value = [`point:${device.inspectionPointId}`]
+      const point = inspectionPoints.value.find(item => item.id === device.inspectionPointId)
+      if (point?.areaId) selectedTreeKeys.value = [`region:${point.areaId}`]
       fetchDevices()
       
       // 打开检测项管理弹窗

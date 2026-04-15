@@ -59,6 +59,16 @@ export interface PTZPreset {
   z?: number
 }
 
+export interface MapRegion {
+  id: string
+  name: string
+  color: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface InspectionMap {
   id: string
   name: string
@@ -88,6 +98,7 @@ export interface InspectionMap {
     latitude: number // 纬度
     longitude: number // 经度
   }
+  regions?: MapRegion[]
   createdAt: Date
   updatedAt: Date
 }
@@ -188,6 +199,10 @@ export interface InspectionDeviceCheckItem {
   name: string
   code: string
   checkType?: 'threshold' | 'vision'
+  priority?: 'primary' | 'secondary'
+  inspectionFrequency?: { value: number; unit: 'hour' | 'day' | 'week' }
+  executionCycle?: { startDate: string; endDate: string }
+  executionWindow?: { startTime: string; endTime: string }
   unit: string
   threshold: {
     min?: number
@@ -226,6 +241,10 @@ export interface InspectionDeviceCheckItemFormData {
   name: string
   code: string
   checkType?: 'threshold' | 'vision'
+  priority?: 'primary' | 'secondary'
+  inspectionFrequency?: { value: number; unit: 'hour' | 'day' | 'week' }
+  executionCycle?: { startDate: string; endDate: string }
+  executionWindow?: { startTime: string; endTime: string }
   unit: string
   threshold: {
     min?: number
@@ -404,6 +423,10 @@ export interface InspectionPoint {
   positionSource: PositionSource
   lastMapPickAt?: Date
   lastManualAdjustAt?: Date
+  areaId?: string
+  areaName?: string
+  previewImageUrl?: string
+  calibratedAt?: Date
   updatedBy?: string
   createdAt: Date
   updatedAt: Date
@@ -431,6 +454,10 @@ export interface InspectionPointFormData {
   isCritical: boolean
   exceptionStrategy: InspectionPointExceptionStrategy
   positionSource: PositionSource
+  areaId?: string
+  areaName?: string
+  previewImageUrl?: string
+  calibratedAt?: Date
   updatedBy?: string
 }
 
