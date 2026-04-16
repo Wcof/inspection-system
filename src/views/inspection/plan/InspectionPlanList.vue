@@ -2,7 +2,7 @@
   <div class="inspection-plan-list">
     <a-page-header title="巡检计划" sub-title="管理巡检计划">
       <template #extra>
-        <a-button type="primary" @click="goToForm">
+        <a-button type="primary" @click="goToForm()">
           <template #icon><PlusOutlined /></template>
           新建计划
         </a-button>
@@ -24,10 +24,10 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="调度类型" class="search-item">
-                <a-select v-model:value="searchForm.scheduleType" placeholder="请选择调度类型" allow-clear>
-                  <a-select-option value="weekly">每周</a-select-option>
-                  <a-select-option value="monthly">每月</a-select-option>
+              <a-form-item label="周期类型" class="search-item">
+                <a-select v-model:value="searchForm.scheduleType" placeholder="请选择周期类型" allow-clear>
+                  <a-select-option value="weekly">周</a-select-option>
+                  <a-select-option value="monthly">月</a-select-option>
                   <a-select-option value="once">一次性</a-select-option>
                 </a-select>
               </a-form-item>
@@ -71,6 +71,12 @@
           <template v-if="column.key === 'pointCount'">
             {{ record.inspectionPointIds?.length || 0 }}
           </template>
+          <template v-if="column.key === 'checkItemCount'">
+            {{ getCheckItemCount(record) }}
+          </template>
+          <template v-if="column.key === 'scheduleTypeText'">
+            {{ getScheduleTypeText(record.schedule?.type) }}
+          </template>
           <template v-if="column.key === 'actions'">
             <a-space>
               <a-button type="link" size="small" @click="goToForm(record.id)">编辑</a-button>
@@ -112,6 +118,8 @@ const columns = [
   { title: '计划名称', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code' },
   { title: '巡检点数量', key: 'pointCount', width: 120 },
+  { title: '检测项数量', key: 'checkItemCount', width: 120 },
+  { title: '周期类型', key: 'scheduleTypeText', width: 120 },
   { title: '巡检周期', key: 'schedule', width: 200 },
   { title: '巡检时间', key: 'inspectionTime', width: 180 },
   { title: '状态', key: 'status', width: 100 },
@@ -133,6 +141,27 @@ function getScheduleText(schedule: any): string {
     default:
       return ''
   }
+}
+
+function getScheduleTypeText(type?: string): string {
+  if (type === 'weekly') return '周'
+  if (type === 'monthly') return '月'
+  if (type === 'once') return '一次性'
+  return '-'
+}
+
+function getCheckItemCount(plan: InspectionPlan): number {
+  const pointIds = plan.inspectionPointIds || []
+  if (!pointIds.length) return 0
+
+  const deviceIds = new Set<string>()
+  pointIds.forEach(pointId => {
+    const devices = inspectionStore.getInspectionDevicesByInspectionPointId(pointId)
+    devices.forEach(device => deviceIds.add(device.id))
+  })
+
+  if (!deviceIds.size) return 0
+  return inspectionStore.inspectionDeviceCheckItems.filter(item => deviceIds.has(item.deviceId)).length
 }
 
 // 获取派生状态文本
@@ -200,7 +229,7 @@ const filteredPlans = computed(() => {
   })
 })
 function goToForm(id?: string) {
-  if (id) {
+  if (typeof id === 'string' && id) {
     router.push(`/management/plan/form/${id}`)
   } else {
     router.push('/management/plan/form')

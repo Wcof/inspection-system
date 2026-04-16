@@ -24,8 +24,8 @@
             </a-form-item>
           </a-col>
           <a-col :span="12" v-if="form.type !== 'global'">
-            <a-form-item label="区域" name="mapId" :rules="[{ required: true, message: '请选择区域' }]">
-              <a-select v-model:value="form.mapId" placeholder="请选择区域" style="width: 100%" @change="handleMapChange">
+            <a-form-item label="分区" name="mapId" :rules="[{ required: true, message: '请选择分区' }]">
+              <a-select v-model:value="form.mapId" placeholder="请选择分区" style="width: 100%" @change="handleMapChange">
                 <a-select-option v-for="map in maps" :key="map.id" :value="map.id">
                   {{ map.name }}
                 </a-select-option>
@@ -61,10 +61,10 @@
 
 
 
-        <a-form-item label="调度类型" name="scheduleType" :rules="[{ required: true, message: '请选择调度类型' }]">
-          <a-select v-model:value="form.scheduleType" placeholder="请选择调度类型" style="width: 100%" @change="handleScheduleTypeChange">
-            <a-select-option value="weekly">每周</a-select-option>
-            <a-select-option value="monthly">每月</a-select-option>
+        <a-form-item label="周期类型" name="scheduleType" :rules="[{ required: true, message: '请选择周期类型' }]">
+          <a-select v-model:value="form.scheduleType" placeholder="请选择周期类型" style="width: 100%" @change="handleScheduleTypeChange">
+            <a-select-option value="weekly">周</a-select-option>
+            <a-select-option value="monthly">月</a-select-option>
             <a-select-option value="once">一次性</a-select-option>
           </a-select>
         </a-form-item>
@@ -126,31 +126,6 @@
             </a-table>
           </a-form-item>
         </div>
-
-        <a-divider>配置</a-divider>
-
-        <a-row :gutter="16">
-          <a-col :span="6">
-            <a-form-item label="自动开始">
-              <a-switch v-model:checked="form.config.autoStart" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item label="完成通知">
-              <a-switch v-model:checked="form.config.notifyOnComplete" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item label="错误通知">
-              <a-switch v-model:checked="form.config.notifyOnError" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="6">
-            <a-form-item label="中断后自动恢复">
-              <a-switch v-model:checked="form.config.autoResumeAfterInterrupt" />
-            </a-form-item>
-          </a-col>
-        </a-row>
 
         <a-form-item>
           <a-space>
@@ -306,12 +281,12 @@ async function handleSave() {
   }
 
   if (form.type !== 'global' && (!form.mapId || selectedPointIds.value.length === 0)) {
-    message.error('请选择区域和巡检点')
+    message.error('请选择分区和巡检点')
     return
   }
 
   if (!form.scheduleType) {
-    message.error('请选择调度类型')
+    message.error('请选择周期类型')
     return
   }
 
