@@ -91,40 +91,33 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
-.inspection-route-list {
+<style scoped lang="css">.inspection-route-list {
   width: 100%;
-
-  :deep(.ant-card) {
-    border-radius: 10px;
-    border-color: #f0f0f0;
-    box-shadow: none;
-  }
-
-  :deep(.ant-card-body) {
-    padding: 16px;
-  }
-
-  :deep(.ant-table) {
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  :deep(.ant-table-thead > tr > th) {
-    background: #fafafa;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  :deep(.ant-table-tbody > tr > td) {
-    vertical-align: middle;
-  }
-
-  @media (max-width: 992px) {
-    :deep(.ant-card-body) {
-      padding: 12px;
-    }
+}
+.inspection-route-list :deep(.ant-card) {
+  border-radius: 10px;
+  border-color: #f0f0f0;
+  box-shadow: none;
+}
+.inspection-route-list :deep(.ant-card-body) {
+  padding: 16px;
+}
+.inspection-route-list :deep(.ant-table) {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.inspection-route-list :deep(.ant-table-thead > tr > th) {
+  background: #fafafa;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.inspection-route-list :deep(.ant-table-tbody > tr > td) {
+  vertical-align: middle;
+}
+@media (max-width: 992px) {
+  .inspection-route-list :deep(.ant-card-body) {
+    padding: 12px;
   }
 }
 </style>

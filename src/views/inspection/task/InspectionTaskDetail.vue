@@ -1,129 +1,65 @@
+
 <template>
   <div class="inspection-task-detail">
-    <a-page-header title="巡检任务详情" @back="goBack">
-    </a-page-header>
+    <a-page-header title="任务详情" @back="goBack" />
 
-    <a-card style="margin-top: 16px" v-if="task">
-      <a-descriptions :column="2" bordered>
-        <a-descriptions-item label="任务名称">{{ task.name }}</a-descriptions-item>
-        <a-descriptions-item label="任务编码">{{ task.code }}</a-descriptions-item>
-        <a-descriptions-item label="机器人">{{ getRobotName(task.robotId) }}</a-descriptions-item>
-        <a-descriptions-item label="巡检点数量">{{ task.inspectionPointIds?.length || 0 }}</a-descriptions-item>
+    <a-card style="margin-top: 16px">
+      <a-descriptions bordered :column="3" size="small">
+        <a-descriptions-item label="任务名称">{{ task?.name || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="任务编码">{{ task?.code || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="执行机器人">{{ getRobotName(task?.robotId) }}</a-descriptions-item>
         <a-descriptions-item label="所属计划">{{ showPlanName }}</a-descriptions-item>
-        <a-descriptions-item label="执行时间">{{ getTaskRunTimeText(task) }}</a-descriptions-item>
-        <a-descriptions-item label="状态">
-          <a-tag :color="getStatusColor(task.status)">{{ getStatusText(task.status) }}</a-tag>
+        <a-descriptions-item label="任务状态">
+          <a-tag :color="getStatusColor(task?.status)">{{ getStatusText(task?.status) }}</a-tag>
         </a-descriptions-item>
-        <a-descriptions-item label="创建时间">{{ task.createdAt }}</a-descriptions-item>
+        <a-descriptions-item label="任务总执行时间">{{ task ? getTaskRunTimeText(task) : '-' }}</a-descriptions-item>
       </a-descriptions>
-
-      <a-divider />
-
-      <a-card title="巡检点结果" style="margin-top: 16px">
-        <a-table :columns="pointColumns" :data-source="inspectionPointRows" row-key="id" :pagination="false">
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'startTime'">
-              {{ record.startTimeText }}
-            </template>
-            <template v-if="column.key === 'endTime'">
-              {{ record.endTimeText }}
-            </template>
-            <template v-if="column.key === 'runTime'">
-              {{ record.runTimeText }}
-            </template>
-            <template v-if="column.key === 'actions'">
-              <a-button type="link" size="small" @click="openPointDetail(record)">详情</a-button>
-            </template>
-          </template>
-        </a-table>
-      </a-card>
     </a-card>
 
-    <a-modal
-      v-model:visible="pointDetailVisible"
-      :title="`巡检点详情 - ${currentPointDetail?.name || ''}`"
-      width="900px"
-      :footer="null"
-    >
-      <a-empty v-if="!currentPointDetail" description="暂无数据" />
-      <template v-else>
-        <a-descriptions :column="2" bordered size="small" style="margin-bottom: 12px">
-          <a-descriptions-item label="巡检点编码">{{ currentPointDetail.code }}</a-descriptions-item>
-          <a-descriptions-item label="巡检时段">{{ currentPointDetail.runTimeText }}</a-descriptions-item>
-        </a-descriptions>
-
-        <a-table :columns="pointDeviceColumns" :data-source="pointDevices" row-key="id" :pagination="false">
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'checkItems'">
-              {{ record.checkItemSummary }}
+    <a-card style="margin-top: 16px" title="任务视图">
+      <a-tabs v-model:activeKey="activeView">
+        <a-tab-pane key="point" tab="按巡检点查看">
+          <a-table :columns="pointColumns" :data-source="inspectionPointRows" row-key="id" :pagination="false">
+            <template #bodyCell="{ column, record, index }">
+              <template v-if="column.key === 'index'">{{ index + 1 }}</template>
+              <template v-else-if="column.key === 'inspectionItemCount'">{{ record.inspectionItemCount }}</template>
+              <template v-else-if="column.key === 'timeRange'">{{ record.timeRange }}</template>
             </template>
-            <template v-if="column.key === 'latestResult'">
-              {{ record.latestResult }}
+          </a-table>
+        </a-tab-pane>
+        <a-tab-pane key="device" tab="按设备查看">
+          <a-table :columns="deviceColumns" :data-source="deviceRows" row-key="id" :pagination="false">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'checkItems'">{{ record.checkItems }}</template>
+              <template v-else-if="column.key === 'status'">
+                <a-tag :color="record.status === '已检测' ? 'green' : 'orange'">{{ record.status }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'result'">
+                <a-tag :color="record.result === '正常' ? 'green' : 'red'">{{ record.result }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'inspectTime'">{{ record.inspectTime }}</template>
+              <template v-else-if="column.key === 'opticalShot'">
+                <img :src="record.opticalShot" alt="光学截图" class="shot-thumb" />
+              </template>
+              <template v-else-if="column.key === 'thermalShot'">
+                <img :src="record.thermalShot" alt="热成像截图" class="shot-thumb" />
+              </template>
+              <template v-else-if="column.key === 'prioritySummary'">
+                <a-tag color="red" v-if="record.primaryCount">主要 {{ record.primaryCount }}</a-tag>
+                <a-tag v-if="record.secondaryCount">次要 {{ record.secondaryCount }}</a-tag>
+              </template>
             </template>
-            <template v-if="column.key === 'monitorTime'">
-              {{ record.monitorTime }}
-            </template>
-            <template v-if="column.key === 'opticalVideo'">
-              <div class="media-cell" @click="openMediaPreview('video', record.opticalVideoUrl, '光学视频')">
-                <img class="media-thumb" :src="record.opticalVideoCoverUrl" alt="光学视频" />
-                <span class="media-label">播放</span>
-              </div>
-            </template>
-            <template v-if="column.key === 'infraredVideo'">
-              <div class="media-cell" @click="openMediaPreview('video', record.infraredVideoUrl, '红外视频')">
-                <img class="media-thumb" :src="record.infraredVideoCoverUrl" alt="红外视频" />
-                <span class="media-label">播放</span>
-              </div>
-            </template>
-            <template v-if="column.key === 'opticalSnapshot'">
-              <div class="media-cell" @click="openMediaPreview('image', record.opticalSnapshotUrl, '光学截图')">
-                <img class="media-thumb" :src="record.opticalSnapshotUrl" alt="光学截图" />
-                <span class="media-label">查看</span>
-              </div>
-            </template>
-            <template v-if="column.key === 'infraredSnapshot'">
-              <div class="media-cell" @click="openMediaPreview('image', record.infraredSnapshotUrl, '红外截图')">
-                <img class="media-thumb" :src="record.infraredSnapshotUrl" alt="红外截图" />
-                <span class="media-label">查看</span>
-              </div>
-            </template>
-          </template>
-        </a-table>
-      </template>
-    </a-modal>
-
-    <a-modal
-      v-model:visible="mediaPreviewVisible"
-      :title="mediaPreviewTitle"
-      width="92%"
-      :footer="null"
-      centered
-      destroy-on-close
-    >
-      <div class="media-preview-wrapper">
-        <video
-          v-if="mediaPreviewType === 'video'"
-          :src="mediaPreviewUrl"
-          controls
-          autoplay
-          class="media-preview-video"
-        />
-        <img
-          v-else
-          :src="mediaPreviewUrl"
-          :alt="mediaPreviewTitle"
-          class="media-preview-image"
-        />
-      </div>
-    </a-modal>
+          </a-table>
+        </a-tab-pane>
+      </a-tabs>
+    </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
-import type { InspectionTask, InspectionTaskInstanceStatus, InspectionPoint, InspectionTaskResult } from '@/types/inspection'
 import { useRobotStore } from '@/stores/robot'
 
 const router = useRouter()
@@ -131,219 +67,135 @@ const route = useRoute()
 const inspectionStore = useInspectionStore()
 const robotStore = useRobotStore()
 
-const taskId = computed(() => route.params.id as string)
-const task = ref<InspectionTask | undefined>()
-const inspectionPoints = ref<InspectionPoint[]>([])
-const taskResults = ref<InspectionTaskResult[]>([])
-const pointDetailVisible = ref(false)
-const currentPointDetail = ref<any>(null)
-const pointDevices = ref<any[]>([])
-const mediaPreviewVisible = ref(false)
-const mediaPreviewType = ref<'image' | 'video'>('image')
-const mediaPreviewUrl = ref('')
-const mediaPreviewTitle = ref('')
-const fromTemporaryTask = computed(() => route.query.source === 'temp')
+const task = ref<any>()
+const inspectionPoints = ref<any[]>([])
+const activeView = ref('point')
 
 const pointColumns = [
+  { title: '序号', key: 'index', width: 80 },
   { title: '巡检点名称', dataIndex: 'name', key: 'name' },
-  { title: '编码', dataIndex: 'code', key: 'code' },
-  { title: '顺序', dataIndex: 'sequence', key: 'sequence', width: 80 },
-  { title: '开始时间', key: 'startTime', width: 170 },
-  { title: '结束时间', key: 'endTime', width: 170 },
-  { title: '运行时间', key: 'runTime', width: 160 },
-  { title: '操作', key: 'actions', width: 90 }
+  { title: '编码', dataIndex: 'code', key: 'code', width: 160 },
+  { title: '检测项数量', key: 'inspectionItemCount', width: 120 },
+  { title: '时间范围', key: 'timeRange', width: 260 }
 ]
 
-const pointDeviceColumns = [
+const deviceColumns = [
   { title: '设备名称', dataIndex: 'name', key: 'name' },
-  { title: '设备编码', dataIndex: 'code', key: 'code', width: 140 },
-  { title: '检测项', key: 'checkItems' },
-  { title: '最新结果', key: 'latestResult', width: 180 },
-  { title: '监测时间', key: 'monitorTime', width: 180 },
-  { title: '光学视频', key: 'opticalVideo', width: 110 },
-  { title: '红外视频', key: 'infraredVideo', width: 110 },
-  { title: '光学截图', key: 'opticalSnapshot', width: 110 },
-  { title: '红外截图', key: 'infraredSnapshot', width: 110 }
+  { title: '所在巡检点', dataIndex: 'pointNames', key: 'pointNames', width: 220 },
+  { title: '状态', key: 'status', width: 110 },
+  { title: '检测结果', key: 'result', width: 110 },
+  { title: '监测时间', key: 'inspectTime', width: 190 },
+  { title: '光学截图', key: 'opticalShot', width: 120 },
+  { title: '热成像截图', key: 'thermalShot', width: 120 },
+  { title: '检测项清单', key: 'checkItems' },
+  { title: '优先级分布', key: 'prioritySummary', width: 180 }
 ]
 
-function getStatusColor(status: InspectionTaskInstanceStatus): string {
-  const colorMap: Record<InspectionTaskInstanceStatus, string> = {
-    pending: 'default',
-    running: 'blue',
-    completed: 'green',
-    paused: 'orange',
-    cancelled: 'default',
-    failed: 'red'
-  }
-  return colorMap[status] || 'default'
+function getStatusText(status?: string) {
+  return ({ pending: '待执行', running: '执行中', completed: '已完成', paused: '已暂停', cancelled: '已取消', failed: '失败' } as Record<string, string>)[status || ''] || '-'
 }
 
-function getStatusText(status: InspectionTaskInstanceStatus): string {
-  const textMap: Record<InspectionTaskInstanceStatus, string> = {
-    pending: '待执行',
-    running: '执行中',
-    completed: '已完成',
-    paused: '已暂停',
-    cancelled: '已取消',
-    failed: '失败'
-  }
-  return textMap[status] || status
+function getStatusColor(status?: string) {
+  return ({ pending: 'default', running: 'blue', completed: 'green', paused: 'orange', cancelled: 'default', failed: 'red' } as Record<string, string>)[status || ''] || 'default'
 }
 
-function getRobotName(robotId: string): string {
-  const robot = robotStore.robots.find(r => r.id === robotId)
-  return robot?.name || robotId
+function getRobotName(robotId?: string) {
+  if (!robotId) return '-'
+  return robotStore.robots.find((robot: any) => robot.id === robotId)?.name || robotId
 }
 
-function getPlanName(planId?: string): string {
+function getPlanName(planId?: string) {
   if (!planId) return '-'
-  const plan = inspectionStore.inspectionPlans.find(p => p.id === planId)
-  return plan?.name || planId
+  return inspectionStore.inspectionPlans.find((plan: any) => plan.id === planId)?.name || '-'
 }
 
-const showPlanName = computed(() => {
-  if (!task.value) return '-'
-  if (fromTemporaryTask.value || (task.value as any).type === 'temp' || !(task.value as any).planId) return '-'
-  return getPlanName((task.value as any).planId)
-})
+const showPlanName = computed(() => task.value?.planId ? getPlanName(task.value.planId) : '-')
 
-function getTaskStart(taskValue: any): Date {
-  if (taskValue?.schedule?.startTime) return new Date(taskValue.schedule.startTime)
-  return new Date(taskValue?.createdAt || Date.now())
+function getTaskStart(taskValue: any) {
+  return taskValue?.schedule?.startTime ? new Date(taskValue.schedule.startTime) : new Date(taskValue?.createdAt || Date.now())
 }
 
-function getTaskEnd(taskValue: any): Date {
+function getTaskEnd(taskValue: any) {
   if (taskValue?.schedule?.endTime) return new Date(taskValue.schedule.endTime)
+  return new Date(getTaskStart(taskValue).getTime() + ((taskValue?.inspectionPointIds?.length || 1) * 8 * 60 * 1000))
+}
+
+function getTaskRunTimeText(taskValue: any) {
   const start = getTaskStart(taskValue)
-  const pointCount = taskValue?.inspectionPointIds?.length || 1
-  return new Date(start.getTime() + pointCount * 8 * 60 * 1000)
-}
-
-function formatRunTime(start: Date, end: Date): string {
-  const ms = end.getTime() - start.getTime()
-  const min = Math.max(1, Math.round(ms / 60000))
-  return `${start.toLocaleString()} ~ ${end.toLocaleString()}（${min}分钟）`
-}
-
-function getTaskRunTimeText(taskValue: any): string {
-  return formatRunTime(getTaskStart(taskValue), getTaskEnd(taskValue))
+  const end = getTaskEnd(taskValue)
+  return `${start.toLocaleString()} ~ ${end.toLocaleString()}`
 }
 
 const inspectionPointRows = computed(() => {
-  if (!task.value) return []
-  const baseStart = getTaskStart(task.value)
-  return inspectionPoints.value.map((point, index) => {
-    const pointStart = new Date(baseStart.getTime() + index * 8 * 60 * 1000)
-    const durationMin = Math.max(1, Math.round((point.stayDurationSec || 60) / 60))
-    const pointEnd = new Date(pointStart.getTime() + durationMin * 60 * 1000)
+  const start = task.value ? getTaskStart(task.value) : new Date()
+  return inspectionPoints.value.map((point: any, index: number) => {
+    const pointStart = new Date(start.getTime() + index * 8 * 60 * 1000)
+    const pointEnd = new Date(pointStart.getTime() + 8 * 60 * 1000)
+    const devices = inspectionStore.inspectionDevices.filter((device: any) => device.inspectionPointId === point.id)
+    const itemCount = inspectionStore.inspectionDeviceCheckItems.filter((item: any) => devices.some((device: any) => device.id === item.deviceId)).length
     return {
       ...point,
-      startTime: pointStart,
-      endTime: pointEnd,
-      startTimeText: pointStart.toLocaleString(),
-      endTimeText: pointEnd.toLocaleString(),
-      runTimeText: `${durationMin}分钟`
+      inspectionItemCount: itemCount,
+      timeRange: `${pointStart.toLocaleString()} ~ ${pointEnd.toLocaleString()}`
     }
   })
 })
 
-function openPointDetail(pointRow: any) {
-  currentPointDetail.value = pointRow
-  const devices = inspectionStore.getInspectionDevicesByInspectionPointId(pointRow.id)
-  pointDevices.value = devices.map(device => {
-    const checkItems = inspectionStore.getInspectionDeviceCheckItemsByDeviceId(device.id)
-    const relatedResults = taskResults.value.filter(result => result.inspectionPointId === pointRow.id && result.deviceId === device.id)
-    const latest = relatedResults[0]
-    return {
-      ...device,
-      checkItemSummary: checkItems.length > 0 ? checkItems.map(item => item.name).join('、') : '-',
-      latestResult: latest ? `${latest.status}${latest.value !== undefined ? ` / ${latest.value}` : ''}` : '-',
-      monitorTime: latest?.recordedAt ? new Date(latest.recordedAt).toLocaleString() : '-',
-      opticalVideoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-      infraredVideoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm',
-      opticalVideoCoverUrl: `https://picsum.photos/seed/optical-video-${device.id}/220/120`,
-      infraredVideoCoverUrl: `https://picsum.photos/seed/infra-video-${device.id}/220/120`,
-      opticalSnapshotUrl: `https://picsum.photos/seed/optical-shot-${device.id}/300/180`,
-      infraredSnapshotUrl: `https://picsum.photos/seed/infra-shot-${device.id}/300/180`
-    }
+const deviceRows = computed(() => {
+  const opticalImage = new URL('../../../设备.png', import.meta.url).href
+  const thermalImage = new URL('../../../车间.png', import.meta.url).href
+  const taskStart = task.value ? getTaskStart(task.value) : new Date()
+  const deviceMap = new Map<string, any>()
+  inspectionPoints.value.forEach((point: any) => {
+    inspectionStore.inspectionDevices.filter((device: any) => device.inspectionPointId === point.id).forEach((device: any) => {
+      const items = inspectionStore.inspectionDeviceCheckItems.filter((item: any) => item.deviceId === device.id)
+      const deviceNo = Number(String(device.id).replace(/\D/g, '')) || 0
+      const isChecked = deviceNo % 2 === 1
+      const result = isChecked ? (deviceNo % 3 === 0 ? '异常' : '正常') : '-'
+      const inspectTime = isChecked
+        ? new Date(taskStart.getTime() + (deviceNo % 7) * 6 * 60 * 1000).toLocaleString()
+        : '-'
+      const current = deviceMap.get(device.id) || {
+        id: device.id,
+        name: device.name,
+        pointNames: [],
+        status: isChecked ? '已检测' : '待检测',
+        result,
+        inspectTime,
+        opticalShot: opticalImage,
+        thermalShot: thermalImage,
+        checkItems: '',
+        primaryCount: 0,
+        secondaryCount: 0
+      }
+      current.pointNames.push(point.name)
+      current.checkItems = items.map((item: any) => item.name).join('、') || '-'
+      current.primaryCount = items.filter((item: any) => item.priority === 'primary').length
+      current.secondaryCount = items.filter((item: any) => (item.priority || 'secondary') !== 'primary').length
+      deviceMap.set(device.id, current)
+    })
   })
-  pointDetailVisible.value = true
-}
-
-function openMediaPreview(type: 'image' | 'video', url: string, title: string) {
-  mediaPreviewType.value = type
-  mediaPreviewUrl.value = url
-  mediaPreviewTitle.value = title
-  mediaPreviewVisible.value = true
-}
-
-
-function fetchTaskDetail() {
-  task.value = inspectionStore.getTaskById(taskId.value)
-  if (task.value) {
-    inspectionPoints.value = task.value.inspectionPointIds.map(id => 
-      inspectionStore.getInspectionPointById(id)
-    ).filter(Boolean) as InspectionPoint[]
-    taskResults.value = inspectionStore.getInspectionTaskResultsByTaskId(taskId.value)
-  }
-}
+  return Array.from(deviceMap.values()).map((row: any) => ({ ...row, pointNames: row.pointNames.join('、') }))
+})
 
 function goBack() {
-  if (fromTemporaryTask.value || (task.value as any)?.type === 'temp' || !(task.value as any)?.planId) {
-    router.push('/management/task/temp-list')
-    return
-  }
-  router.push(`/management/task/list?planId=${(task.value as any).planId}`)
+  router.back()
 }
 
 onMounted(() => {
   inspectionStore.initialize()
   robotStore.initialize()
-  fetchTaskDetail()
+  task.value = inspectionStore.getTaskById(route.params.id as string)
+  inspectionPoints.value = (task.value?.inspectionPointIds || []).map((id: string) => inspectionStore.getInspectionPointById(id)).filter(Boolean)
 })
 </script>
 
-<style scoped lang="scss">
-.inspection-task-detail {
-  width: 100%;
-
-  .media-cell {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-  }
-
-  .media-thumb {
-    width: 72px;
-    height: 44px;
-    border-radius: 6px;
-    border: 1px solid #e5e7eb;
-    object-fit: cover;
-  }
-
-  .media-label {
-    font-size: 12px;
-    color: #1677ff;
-  }
-
-  .media-preview-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    min-height: 60vh;
-    background: #000;
-    border-radius: 8px;
-    padding: 8px;
-  }
-
-  .media-preview-video,
-  .media-preview-image {
-    max-width: 100%;
-    max-height: 78vh;
-    object-fit: contain;
-  }
+<style scoped lang="css">
+.shot-thumb {
+  width: 64px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
 }
 </style>

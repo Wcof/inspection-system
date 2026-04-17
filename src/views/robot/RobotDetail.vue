@@ -178,18 +178,14 @@ const handleEdit = () => {
 }
 </script>
 
-<style scoped lang="scss">
-.robot-detail {
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    
-    h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-  }
+<style scoped lang="css">.robot-detail .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.robot-detail .page-header h2 {
+  margin: 0;
+  font-size: 20px;
 }
 </style>

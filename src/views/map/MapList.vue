@@ -52,7 +52,7 @@
           <template v-if="column.key === 'actions'">
             <a-space>
               <a-button type="link" size="small" @click="goToAreaManage(record.id)">区域管理</a-button>
-              <a-button type="link" size="small" @click="goToPointManage(record.id)">点位管理</a-button>
+              <a-button type="link" size="small" @click="goToPointManage(record.id)">点位设置</a-button>
               <a-button type="link" size="small" @click="goToEditor(record.id)">编辑</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
             </a-space>
@@ -154,68 +154,56 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
-.map-list {
+<style scoped lang="css">.map-list {
   width: 100%;
-
-  :deep(.ant-card) {
-    border-radius: 10px;
-    border-color: #f0f0f0;
-    box-shadow: none;
-  }
-
-  :deep(.ant-card-body) {
-    padding: 16px;
-  }
-
-  .search-panel {
-    margin-bottom: 12px;
-    padding: 12px 12px 4px;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    background: #fafafa;
-  }
-
-  .search-item {
-    margin-bottom: 8px;
-  }
-
-  .search-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin: 4px 0 8px;
-  }
-
-  :deep(.ant-table) {
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  :deep(.ant-table-thead > tr > th) {
-    background: #fafafa;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  :deep(.ant-table-tbody > tr > td) {
-    vertical-align: middle;
-  }
-
-  .map-children {
-    padding: 4px 0;
-  }
-
-  .map-children-title {
-    margin-bottom: 8px;
-    color: #8c8c8c;
-    font-size: 12px;
-  }
-
-  @media (max-width: 992px) {
-    :deep(.ant-card-body) {
-      padding: 12px;
-    }
+}
+.map-list :deep(.ant-card) {
+  border-radius: 10px;
+  border-color: #f0f0f0;
+  box-shadow: none;
+}
+.map-list :deep(.ant-card-body) {
+  padding: 16px;
+}
+.map-list .search-panel {
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.map-list .search-item {
+  margin-bottom: 8px;
+}
+.map-list .search-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 8px;
+}
+.map-list :deep(.ant-table) {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.map-list :deep(.ant-table-thead > tr > th) {
+  background: #fafafa;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.map-list :deep(.ant-table-tbody > tr > td) {
+  vertical-align: middle;
+}
+.map-list .map-children {
+  padding: 4px 0;
+}
+.map-list .map-children-title {
+  margin-bottom: 8px;
+  color: #8c8c8c;
+  font-size: 12px;
+}
+@media (max-width: 992px) {
+  .map-list :deep(.ant-card-body) {
+    padding: 12px;
   }
 }
 </style>

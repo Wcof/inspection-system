@@ -1,28 +1,28 @@
+
 <template>
   <div class="inspection-task-list">
-    <a-page-header title="巡检任务" :sub-title="pageSubTitle" @back="goBack">
-    </a-page-header>
+    <a-page-header title="巡检任务" :sub-title="pageSubTitle" @back="goBack" />
 
     <a-card style="margin-top: 16px">
+      <a-alert type="info" show-icon style="margin-bottom: 12px" :message="`当前任务生成周期是：${taskWindowLabel}`" />
+
       <div class="search-panel">
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="名称" class="search-item">
+              <a-form-item label="任务名称" class="search-item">
                 <a-input v-model:value="searchForm.name" placeholder="请输入任务名称" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="编码" class="search-item">
+              <a-form-item label="任务编码" class="search-item">
                 <a-input v-model:value="searchForm.code" placeholder="请输入任务编码" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="机器人" class="search-item">
-                <a-select v-model:value="searchForm.robotId" placeholder="请选择机器人" allow-clear>
-                  <a-select-option v-for="robot in robotStore.robots" :key="robot.id" :value="robot.id">
-                    {{ robot.name }}
-                  </a-select-option>
+              <a-form-item label="执行机器人" class="search-item">
+                <a-select v-model:value="searchForm.robotId" placeholder="请选择执行机器人" allow-clear>
+                  <a-select-option v-for="robot in robotStore.robots" :key="robot.id" :value="robot.id">{{ robot.name }}</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -38,47 +38,45 @@
                 </a-select>
               </a-form-item>
             </a-col>
-
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="创建时间" class="search-item">
-                <a-input v-model:value="searchForm.createdAt" placeholder="YYYY-MM-DD" allow-clear />
+              <a-form-item label="时间范围（起）" class="search-item">
+                <a-input v-model:value="searchForm.startDate" placeholder="YYYY-MM-DD" allow-clear />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="时间范围（止）" class="search-item">
+                <a-input v-model:value="searchForm.endDate" placeholder="YYYY-MM-DD" allow-clear />
               </a-form-item>
             </a-col>
           </a-row>
           <div class="search-actions">
             <a-space>
-              <a-button type="primary" @click="handleSearch">搜索</a-button>
+              <a-button type="primary">搜索</a-button>
               <a-button @click="handleReset">重置</a-button>
             </a-space>
           </div>
         </a-form>
       </div>
-      <a-table :columns="columns" :data-source="filteredTasks" :loading="loading" row-key="id">
+
+      <a-table :columns="columns" :data-source="filteredTasks" :loading="loading" row-key="id" :scroll="{ x: 1280 }">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
-            <a-tag :color="getStatusColor(record.status)">
-              {{ getStatusText(record.status) }}
-            </a-tag>
+            <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
           </template>
-          <template v-if="column.key === 'robot'">
+          <template v-else-if="column.key === 'robot'">
             {{ getRobotName(record.robotId) }}
           </template>
-          <template v-if="column.key === 'pointCount'">
+          <template v-else-if="column.key === 'pointCount'">
             {{ record.inspectionPointIds?.length || 0 }}
           </template>
-          <template v-if="column.key === 'planSource'">
+          <template v-else-if="column.key === 'planSource'">
             {{ getPlanName(record.planId) }}
           </template>
-          <template v-if="column.key === 'startTime'">
-            {{ getTaskStartTimeText(record) }}
+          <template v-else-if="column.key === 'timeRange'">
+            {{ getTaskTimeRangeText(record) }}
           </template>
-          <template v-if="column.key === 'endTime'">
-            {{ getTaskEndTimeText(record) }}
-          </template>
-          <template v-if="column.key === 'actions'">
-            <a-space>
-              <a-button type="link" size="small" @click="viewDetail(record.id)">详情</a-button>
-            </a-space>
+          <template v-else-if="column.key === 'actions'">
+            <a-button type="link" size="small" @click="viewDetail(record.id)">详情</a-button>
           </template>
         </template>
       </a-table>
@@ -87,238 +85,151 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
-import type { InspectionTask, InspectionTaskInstanceStatus } from '@/types/inspection'
 import { useRobotStore } from '@/stores/robot'
+
+type TaskRow = any
 
 const router = useRouter()
 const route = useRoute()
 const inspectionStore = useInspectionStore()
 const robotStore = useRobotStore()
 
-const tasks = ref<InspectionTask[]>([])
 const loading = ref(false)
+const tasks = ref<TaskRow[]>([])
+const taskWindowLabel = ref('任务开始前 7 天')
+
 const searchForm = reactive({
   name: '',
   code: '',
-  robotId: '',
-  status: '',
-  createdAt: ''
+  robotId: undefined as string | undefined,
+  status: undefined as string | undefined,
+  startDate: '',
+  endDate: ''
 })
+
 const pageSubTitle = computed(() => {
   const planId = route.query.planId as string
-  if (!planId) return '请通过巡检计划进入任务列表'
-  const plan = inspectionStore.inspectionPlans.find(item => item.id === planId)
+  if (!planId) return '任务列表按时间范围查看，可从巡检计划或调度台进入'
+  const plan = inspectionStore.inspectionPlans.find((item: any) => item.id === planId)
   return plan ? `所属计划：${plan.name}` : '所属计划任务'
 })
 
 const columns = [
-  { title: '任务名称', dataIndex: 'name', key: 'name' },
-  { title: '编码', dataIndex: 'code', key: 'code' },
+  { title: '状态', key: 'status', width: 100, fixed: 'left' },
+  { title: '任务名称', dataIndex: 'name', key: 'name', width: 220 },
+  { title: '编码', dataIndex: 'code', key: 'code', width: 160 },
   { title: '所属计划', key: 'planSource', width: 180 },
-  { title: '机器人', key: 'robot', width: 150 },
+  { title: '执行机器人', key: 'robot', width: 150 },
   { title: '巡检点数量', key: 'pointCount', width: 120 },
-  { title: '开始时间', key: 'startTime', width: 180 },
-  { title: '结束时间', key: 'endTime', width: 180 },
-  { title: '状态', key: 'status', width: 100 },
+  { title: '时间范围', key: 'timeRange', width: 280 },
   { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 180 },
-  { title: '操作', key: 'actions', width: 100 }
+  { title: '操作', key: 'actions', width: 100, fixed: 'right' }
 ]
 
-function getStatusColor(status: InspectionTaskInstanceStatus): string {
-  const colorMap: Record<InspectionTaskInstanceStatus, string> = {
-    pending: 'default',
-    running: 'blue',
-    completed: 'green',
-    paused: 'orange',
-    cancelled: 'default',
-    failed: 'red'
-  }
-  return colorMap[status] || 'default'
+function getStatusText(status: string) {
+  return ({ pending: '待执行', running: '执行中', completed: '已完成', paused: '已暂停', cancelled: '已取消', failed: '失败' } as Record<string, string>)[status] || status
 }
 
-function getStatusText(status: InspectionTaskInstanceStatus): string {
-  const textMap: Record<InspectionTaskInstanceStatus, string> = {
-    pending: '待执行',
-    running: '执行中',
-    completed: '已完成',
-    paused: '已暂停',
-    cancelled: '已取消',
-    failed: '失败'
-  }
-  return textMap[status] || status
+function getStatusColor(status: string) {
+  return ({ pending: 'default', running: 'blue', completed: 'green', paused: 'orange', cancelled: 'default', failed: 'red' } as Record<string, string>)[status] || 'default'
 }
 
-function getRobotName(robotId: string): string {
-  const robot = robotStore.robots.find(r => r.id === robotId)
-  return robot?.name || robotId
+function getRobotName(robotId: string) {
+  return robotStore.robots.find((robot: any) => robot.id === robotId)?.name || robotId || '-'
 }
 
-// 获取计划名称
-function getPlanName(planId?: string): string {
-  if (!planId) {
-    return inspectionStore.inspectionPlans[0]?.name || '-'
-  }
-  const plan = inspectionStore.inspectionPlans.find(p => p.id === planId)
-  return plan?.name || inspectionStore.inspectionPlans[0]?.name || planId
+function getPlanName(planId?: string) {
+  if (!planId) return '-'
+  return inspectionStore.inspectionPlans.find((item: any) => item.id === planId)?.name || '-'
 }
 
-function getTaskStartTime(task: any): Date {
-  if (task?.schedule?.startTime) return new Date(task.schedule.startTime)
-  return new Date(task.createdAt)
+function getTaskStartTime(task: any) {
+  return task?.schedule?.startTime ? new Date(task.schedule.startTime) : new Date(task.createdAt)
 }
 
-function getTaskEndTime(task: any): Date {
+function getTaskEndTime(task: any) {
   if (task?.schedule?.endTime) return new Date(task.schedule.endTime)
   const start = getTaskStartTime(task)
-  const pointCount = task?.inspectionPointIds?.length || 1
-  return new Date(start.getTime() + pointCount * 8 * 60 * 1000)
+  return new Date(start.getTime() + ((task.inspectionPointIds?.length || 1) * 8 * 60 * 1000))
 }
 
-function getTaskStartTimeText(task: any): string {
-  return getTaskStartTime(task).toLocaleString()
+function getTaskTimeRangeText(task: any) {
+  const start = getTaskStartTime(task)
+  const end = getTaskEndTime(task)
+  return `${start.toLocaleString()} ~ ${end.toLocaleString()}`
 }
-
-function getTaskEndTimeText(task: any): string {
-  return getTaskEndTime(task).toLocaleString()
-}
-
 
 function fetchTasks() {
   loading.value = true
   try {
-    const planId = route.query.planId as string
-    if (!planId) {
-      tasks.value = []
-      return
-    }
-    let allTasks = inspectionStore.tasks
-    allTasks = allTasks.map((task: any) => {
-      const fallbackPlanId = task.planId || inspectionStore.inspectionPlans[0]?.id
-      const fallbackStart = task.schedule?.startTime || task.plannedExecuteAt || task.createdAt
-      const fallbackEnd = task.schedule?.endTime || new Date(new Date(fallbackStart).getTime() + ((task.inspectionPointIds?.length || 1) * 8 * 60 * 1000))
-      return {
-        ...task,
-        planId: fallbackPlanId,
-        schedule: {
-          ...(task.schedule || {}),
-          startTime: fallbackStart,
-          endTime: fallbackEnd
-        }
-      }
-    })
-    tasks.value = allTasks.filter((t: any) => t.planId === planId)
+    inspectionStore.initialize()
+    robotStore.initialize()
+    const planId = route.query.planId as string | undefined
+    const allTasks = inspectionStore.tasks.map((task: any) => ({
+      ...task,
+      createdAt: task.createdAt ? new Date(task.createdAt).toLocaleString() : '-'
+    }))
+    tasks.value = planId ? allTasks.filter((task: any) => task.planId === planId || !task.planId) : allTasks
   } finally {
     loading.value = false
   }
 }
 
-function handleSearch() {
-  // 由 filteredTasks 计算属性过滤
-}
+const filteredTasks = computed(() => {
+  const name = searchForm.name.trim().toLowerCase()
+  const code = searchForm.code.trim().toLowerCase()
+  return tasks.value.filter((task) => {
+    const timeRangeText = getTaskTimeRangeText(task)
+    const matchName = !name || String(task.name).toLowerCase().includes(name)
+    const matchCode = !code || String(task.code).toLowerCase().includes(code)
+    const matchRobot = !searchForm.robotId || task.robotId === searchForm.robotId
+    const matchStatus = !searchForm.status || task.status === searchForm.status
+    const matchStart = !searchForm.startDate || timeRangeText.includes(searchForm.startDate)
+    const matchEnd = !searchForm.endDate || timeRangeText.includes(searchForm.endDate)
+    return matchName && matchCode && matchRobot && matchStatus && matchStart && matchEnd
+  })
+})
 
 function handleReset() {
   searchForm.name = ''
   searchForm.code = ''
-  searchForm.robotId = ''
-  searchForm.status = ''
-  searchForm.createdAt = ''
-}
-
-const filteredTasks = computed(() => {
-  const name = searchForm.name.trim().toLowerCase()
-  const code = searchForm.code.trim().toLowerCase()
-  const robotId = searchForm.robotId
-  const status = searchForm.status
-  const createdAt = searchForm.createdAt.trim()
-  return tasks.value.filter(task => {
-    const matchesName = !name || task.name.toLowerCase().includes(name)
-    const matchesCode = !code || task.code.toLowerCase().includes(code)
-    const matchesRobot = !robotId || task.robotId === robotId
-    const matchesStatus = !status || task.status === status
-    const createdText = task.createdAt ? new Date(task.createdAt).toISOString().slice(0, 10) : ''
-    const matchesCreated = !createdAt || createdText.includes(createdAt)
-    return matchesName && matchesCode && matchesRobot && matchesStatus && matchesCreated
-  })
-})
-function goBack() {
-  router.push('/management/plan/list')
+  searchForm.robotId = undefined
+  searchForm.status = undefined
+  searchForm.startDate = ''
+  searchForm.endDate = ''
 }
 
 function viewDetail(id: string) {
   router.push(`/management/task/detail/${id}`)
 }
 
-onMounted(() => {
-  inspectionStore.initialize()
-  robotStore.initialize()
-  if (!route.query.planId) {
-    router.replace('/management/plan/list')
-    return
-  }
-  fetchTasks()
-})
+function goBack() {
+  router.push('/management/plan/list')
+}
 
-watch(
-  () => route.query.planId,
-  () => fetchTasks()
-)
+onMounted(fetchTasks)
+watch(() => route.query.planId, fetchTasks)
 </script>
 
-<style scoped lang="scss">
-.inspection-task-list {
+<style scoped lang="css">.inspection-task-list {
   width: 100%;
-
-  :deep(.ant-card) {
-    border-radius: 10px;
-    border-color: #f0f0f0;
-    box-shadow: none;
-  }
-
-  :deep(.ant-card-body) {
-    padding: 16px;
-  }
-
-  .search-panel {
-    margin-bottom: 12px;
-    padding: 12px 12px 4px;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    background: #fafafa;
-  }
-
-  .search-item {
-    margin-bottom: 8px;
-  }
-
-  .search-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin: 4px 0 8px;
-  }
-
-  :deep(.ant-table) {
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  :deep(.ant-table-thead > tr > th) {
-    background: #fafafa;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  :deep(.ant-table-tbody > tr > td) {
-    vertical-align: middle;
-  }
-
-  @media (max-width: 992px) {
-    :deep(.ant-card-body) {
-      padding: 12px;
-    }
-  }
+}
+.inspection-task-list .search-panel {
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.inspection-task-list .search-item {
+  margin-bottom: 8px;
+}
+.inspection-task-list .search-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 8px;
 }
 </style>

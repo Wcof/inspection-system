@@ -5,13 +5,19 @@ import type {
   InspectionPoint,
   InspectionDevice,
   InspectionDeviceCheckItem,
+  InspectionMap,
   CalibrationStatus
 } from '@/types/inspection'
 import { DeviceStatus, PositionSource } from '@/types/inspection'
 
 const SCHEMA_VERSION = 2
+const mapImageUrl = new URL('../地图.png', import.meta.url).href
+const workshopImageUrl = new URL('../车间.png', import.meta.url).href
+const deviceImageUrl = new URL('../设备.png', import.meta.url).href
 
 export function migrateToV2(): void {
+  normalizeImageReferences()
+
   const currentVersion = storage.get<number>(STORAGE_KEYS.SCHEMA_VERSION) || 1
   
   if (currentVersion >= SCHEMA_VERSION) {
@@ -26,6 +32,37 @@ export function migrateToV2(): void {
   
   storage.set(STORAGE_KEYS.SCHEMA_VERSION, SCHEMA_VERSION)
   console.log('Migration completed successfully!')
+}
+
+function normalizeImageReferences(): void {
+  const maps = storage.get<InspectionMap[]>(STORAGE_KEYS.INSPECTION_MAPS) || []
+  if (maps.length) {
+    const nextMaps = maps.map((item) => ({ ...item, imageUrl: mapImageUrl }))
+    storage.set(STORAGE_KEYS.INSPECTION_MAPS, nextMaps)
+  }
+
+  const points = storage.get<InspectionPoint[]>(STORAGE_KEYS.INSPECTION_POINTS) || []
+  if (points.length) {
+    const nextPoints = points.map((item) => ({ ...item, previewImageUrl: workshopImageUrl }))
+    storage.set(STORAGE_KEYS.INSPECTION_POINTS, nextPoints)
+  }
+
+  const devices = storage.get<InspectionDevice[]>(STORAGE_KEYS.INSPECTION_DEVICES) || []
+  if (devices.length) {
+    const nextDevices = devices.map((item) => ({ ...item, referenceImageUrl: deviceImageUrl }))
+    storage.set(STORAGE_KEYS.INSPECTION_DEVICES, nextDevices)
+  }
+
+  const checkItems = storage.get<InspectionDeviceCheckItem[]>(STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS) || []
+  if (checkItems.length) {
+    const nextCheckItems = checkItems.map((item) => ({
+      ...item,
+      visionMapping: item.visionMapping
+        ? { ...item.visionMapping, customImageUrl: deviceImageUrl }
+        : item.visionMapping
+    }))
+    storage.set(STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS, nextCheckItems)
+  }
 }
 
 function migrateMonitorPointsToInspectionDevices(): void {

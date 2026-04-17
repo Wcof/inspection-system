@@ -26,6 +26,17 @@
               <router-link to="/management/task/temp-list">临时任务</router-link>
             </a-menu-item>
           </a-sub-menu>
+          <a-sub-menu key="management-cockpit">
+            <template #title>
+              <span>
+                <a-icon type="dashboard" />
+                驾驶舱
+              </span>
+            </template>
+            <a-menu-item key="management-cockpit-view">
+              <router-link to="/management/cockpit/view">驾驶舱</router-link>
+            </a-menu-item>
+          </a-sub-menu>
           <a-sub-menu key="management-exception">
             <template #title>
               <span>
@@ -44,8 +55,20 @@
                 报表统计
               </span>
             </template>
-            <a-menu-item key="management-report-statistics">
-              <router-link to="/management/report/statistics">巡检分析</router-link>
+            <a-menu-item key="management-report-overview">
+              <router-link to="/management/report/overview">统计总览</router-link>
+            </a-menu-item>
+            <a-menu-item key="management-report-inspection-point-analysis">
+              <router-link to="/management/report/inspection-point-analysis">巡检点分析</router-link>
+            </a-menu-item>
+            <a-menu-item key="management-report-facility-device-analysis">
+              <router-link to="/management/report/facility-device-analysis">设施设备分析</router-link>
+            </a-menu-item>
+            <a-menu-item key="management-report-gas-analysis">
+              <router-link to="/management/report/gas-analysis">气体分析</router-link>
+            </a-menu-item>
+            <a-menu-item key="management-report-safety-behavior-analysis">
+              <router-link to="/management/report/safety-behavior-analysis">安全行为分析</router-link>
             </a-menu-item>
           </a-sub-menu>
         </template>
@@ -94,7 +117,7 @@
             <template #title>
               <span>
                 <a-icon type="setting" />
-                调度配置
+                系统配置
               </span>
             </template>
             <a-menu-item key="implementation-dispatch-rule-config">
@@ -102,6 +125,12 @@
             </a-menu-item>
             <a-menu-item key="implementation-dispatch-resource-config">
               <router-link to="/implementation/dispatch/resource-config">资源基础配置</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-dispatch-notify-config">
+              <router-link to="/implementation/dispatch/notify-config">通知配置</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-dispatch-edge-inspection">
+              <router-link to="/implementation/dispatch/edge-inspection">边巡边检</router-link>
             </a-menu-item>
           </a-sub-menu>
         </template>
@@ -187,7 +216,7 @@ const handleContentClick = (event: MouseEvent) => {
 // 开放的菜单
 const openKeys = computed(() => {
   if (currentSystem.value === 'management') {
-    return ['management-dispatch', 'management-exception', 'management-report']
+    return ['management-dispatch', 'management-cockpit', 'management-exception', 'management-report']
   }
   return ['implementation-map', 'implementation-robot', 'implementation-point-device', 'implementation-dispatch-config']
 })
@@ -200,8 +229,15 @@ const currentKey = computed(() => {
   if (path.startsWith('/management/plan/list')) return 'management-dispatch-plan-list'
   if (path.startsWith('/management/task/list')) return 'management-dispatch-plan-list'
   if (path.startsWith('/management/task/temp-list')) return 'management-dispatch-temp-task-list'
+  if (path.startsWith('/management/cockpit/view')) return 'management-cockpit-view'
+  if (path.startsWith('/management/cockpit')) return 'management-cockpit-view'
   if (path.startsWith('/management/exception/list')) return 'management-exception-list'
-  if (path.startsWith('/management/report/statistics')) return 'management-report-statistics'
+  if (path.startsWith('/management/report/overview')) return 'management-report-overview'
+  if (path.startsWith('/management/report/statistics')) return 'management-report-overview'
+  if (path.startsWith('/management/report/inspection-point-analysis')) return 'management-report-inspection-point-analysis'
+  if (path.startsWith('/management/report/facility-device-analysis')) return 'management-report-facility-device-analysis'
+  if (path.startsWith('/management/report/gas-analysis')) return 'management-report-gas-analysis'
+  if (path.startsWith('/management/report/safety-behavior-analysis')) return 'management-report-safety-behavior-analysis'
 
   if (path.startsWith('/implementation/map/list')) return 'implementation-map-list'
   if (path.startsWith('/implementation/map/editor')) return 'implementation-map-list'
@@ -214,39 +250,37 @@ const currentKey = computed(() => {
   if (path.startsWith('/implementation/metric/list')) return 'implementation-metric'
   if (path.startsWith('/implementation/dispatch/rule-config')) return 'implementation-dispatch-rule-config'
   if (path.startsWith('/implementation/dispatch/resource-config')) return 'implementation-dispatch-resource-config'
+  if (path.startsWith('/implementation/dispatch/cockpit')) return 'management-cockpit-view'
+  if (path.startsWith('/implementation/dispatch/notify-config')) return 'implementation-dispatch-notify-config'
+  if (path.startsWith('/implementation/dispatch/edge-inspection')) return 'implementation-dispatch-edge-inspection'
 
   // 默认值
   return currentSystem.value === 'management' ? 'management-dispatch-center' : 'implementation-map-list'
 })
 </script>
 
-<style scoped lang="scss">
-.logo {
+<style scoped lang="css">.logo {
   height: 32px;
   margin: 16px;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 4px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
-
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
   height: 64px;
-  
-  .title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 500;
-    color: rgba(0, 0, 0, 0.85);
-  }
-
-  .system-switcher {
-    margin-left: 24px;
-  }
 }
-
+.header-content .title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+}
+.header-content .system-switcher {
+  margin-left: 24px;
+}
 .preview-modal-body {
   display: flex;
   justify-content: center;
@@ -255,7 +289,6 @@ const currentKey = computed(() => {
   max-height: 72vh;
   overflow: auto;
 }
-
 .preview-modal-image {
   max-width: 100%;
   max-height: 70vh;

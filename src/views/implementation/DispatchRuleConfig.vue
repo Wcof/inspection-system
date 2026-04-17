@@ -245,112 +245,86 @@ function handleCancel() {
 }
 </script>
 
-<style scoped lang="scss">
-.dispatch-rule-config {
+<style scoped lang="css">.dispatch-rule-config {
   width: 100%;
   padding-bottom: 8px;
-
-  :deep(.ant-page-header) {
-    padding: 0;
+}
+.dispatch-rule-config :deep(.ant-page-header) {
+  padding: 0;
+}
+.dispatch-rule-config :deep(.ant-page-header-heading) {
+  align-items: center;
+}
+.dispatch-rule-config :deep(.ant-card) {
+  border-radius: 10px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+}
+.dispatch-rule-config .rule-card {
+  overflow: hidden;
+}
+.dispatch-rule-config :deep(.ant-card-body) {
+  padding: 20px 20px 16px;
+}
+.dispatch-rule-config .rule-form {
+  max-width: 920px;
+  margin: 0 auto;
+}
+.dispatch-rule-config .single-line-form .single-line-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+.dispatch-rule-config .single-line-form .first-line {
+  padding-top: 2px;
+}
+.dispatch-rule-config :deep(.ant-form-vertical .ant-form-item) {
+  margin-bottom: 0;
+}
+.dispatch-rule-config :deep(.ant-form-item-label > label) {
+  color: #262626;
+  font-weight: 500;
+}
+.dispatch-rule-config :deep(.ant-form-item-explain), .dispatch-rule-config :deep(.ant-form-item-extra) {
+  font-size: 12px;
+  color: #8c8c8c;
+  line-height: 1.3;
+}
+.dispatch-rule-config :deep(.ant-input-number), .dispatch-rule-config :deep(.ant-picker), .dispatch-rule-config :deep(.ant-select) {
+  width: 100%;
+}
+.dispatch-rule-config :deep(.ant-checkbox-group) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.dispatch-rule-config .action-row {
+  margin-top: 6px;
+  margin-bottom: 0;
+  padding-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+.dispatch-rule-config .disabled-tip {
+  margin-top: 14px;
+}
+.dispatch-rule-config :deep(.ant-modal-body) {
+  max-height: 68vh;
+  overflow: auto;
+  padding-top: 12px;
+}
+.dispatch-rule-config :deep(.ant-table-wrapper) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+@media (max-width: 1200px) {
+  .dispatch-rule-config :deep(.ant-card-body) {
+    padding: 16px 16px 10px;
   }
-
-  :deep(.ant-page-header-heading) {
-    align-items: center;
+  .dispatch-rule-config .rule-form {
+    max-width: 100%;
   }
-
-  :deep(.ant-card) {
-    border-radius: 10px;
-    border: 1px solid #f0f0f0;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
-  }
-
-  .rule-card {
-    overflow: hidden;
-  }
-
-  :deep(.ant-card-body) {
-    padding: 20px 20px 16px;
-  }
-
-  .rule-form {
-    max-width: 920px;
-    margin: 0 auto;
-  }
-
-  .single-line-form {
-    .single-line-item {
-      padding: 12px 0;
-      border-bottom: 1px solid #f5f5f5;
-    }
-
-    .first-line {
-      padding-top: 2px;
-    }
-  }
-
-  :deep(.ant-form-vertical .ant-form-item) {
-    margin-bottom: 0;
-  }
-
-  :deep(.ant-form-item-label > label) {
-    color: #262626;
-    font-weight: 500;
-  }
-
-  :deep(.ant-form-item-explain),
-  :deep(.ant-form-item-extra) {
-    font-size: 12px;
-    color: #8c8c8c;
-    line-height: 1.3;
-  }
-
-  :deep(.ant-input-number),
-  :deep(.ant-picker),
-  :deep(.ant-select) {
-    width: 100%;
-  }
-
-  :deep(.ant-checkbox-group) {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 12px;
-  }
-
-  .action-row {
-    margin-top: 6px;
-    margin-bottom: 0;
-    padding-top: 16px;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .disabled-tip {
-    margin-top: 14px;
-  }
-
-  :deep(.ant-modal-body) {
-    max-height: 68vh;
-    overflow: auto;
-    padding-top: 12px;
-  }
-
-  :deep(.ant-table-wrapper) {
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  @media (max-width: 1200px) {
-    :deep(.ant-card-body) {
-      padding: 16px 16px 10px;
-    }
-
-    .rule-form {
-      max-width: 100%;
-    }
-
-    .action-row {
-      justify-content: flex-start;
-    }
+  .dispatch-rule-config .action-row {
+    justify-content: flex-start;
   }
 }
 </style>

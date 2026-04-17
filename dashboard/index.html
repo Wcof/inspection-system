@@ -122,22 +122,18 @@
             <div class="rs-total">机器人总里程: <strong id="robot-total-mileage">0</strong></div>
           </div>
           <div class="summary-grid four-columns" id="robot-summary-cards"></div>
-        </section>
-
-        <section class="card attachment-overview">
-          <div class="card-header">
-            <h3 class="panel-title">挂件总览</h3>
+          <div class="sub-summary-block gas-sensor-block">
+            <div class="sub-summary-header">
+              <span>气体感应器</span>
+            </div>
+            <div class="summary-grid three-columns" id="attachment-gas-cards"></div>
           </div>
-          <div class="summary-grid three-columns" id="attachment-summary-cards"></div>
-        </section>
 
-        <!-- E. 充电站 -->
-        <section class="card dock-status" style="flex: 1;">
-          <div class="card-header">
-            <h3 class="panel-title">充电站概览</h3>
-          </div>
-          <div class="dock-grid" id="dock-grid-container">
-            <!-- Dynamic dock stats -->
+          <div class="sub-summary-block gimbal-block">
+            <div class="sub-summary-header">
+              <span>云台</span>
+            </div>
+            <div class="summary-grid three-columns" id="attachment-gimbal-cards"></div>
           </div>
         </section>
 
@@ -203,10 +199,20 @@
           <div class="summary-grid two-columns" id="facility-summary-cards"></div>
           <div class="sub-summary-block env-realtime-block">
             <div class="sub-summary-header">
-              <span>环境指标概览（实时）</span>
+              <span>环境检测</span>
               <div class="rs-total">轮播点位: <strong id="env-focus-point">--</strong></div>
             </div>
             <div class="summary-grid two-columns env-realtime-grid" id="env-summary-cards"></div>
+          </div>
+        </section>
+
+        <!-- E. 充电站 -->
+        <section class="card dock-status" style="flex: 1;">
+          <div class="card-header">
+            <h3 class="panel-title">充电站概览</h3>
+          </div>
+          <div class="dock-grid" id="dock-grid-container">
+            <!-- Dynamic dock stats -->
           </div>
         </section>
 

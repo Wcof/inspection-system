@@ -53,6 +53,21 @@ const routes: RouteRecordRaw[] = [
           }
         ]
       },
+      // 驾驶舱（管理端一级，调度台同级）
+      {
+        path: 'cockpit',
+        name: 'ManagementCockpit',
+        meta: { title: '驾驶舱' },
+        redirect: '/management/cockpit/view',
+        children: [
+          {
+            path: 'view',
+            name: 'ManagementCockpitView',
+            component: () => import('../views/implementation/CockpitView.vue'),
+            meta: { title: '驾驶舱' }
+          }
+        ]
+      },
       // 任务中心
       {
         path: 'task',
@@ -116,12 +131,42 @@ const routes: RouteRecordRaw[] = [
         path: 'report',
         name: 'ManagementReport',
         meta: { title: '报表统计' },
+        redirect: '/management/report/overview',
         children: [
           {
             path: 'statistics',
             name: 'ManagementReportStatistics',
-            component: () => import('../views/smart-inspection/InspectionStatistics.vue'),
-            meta: { title: '巡检分析' }
+            redirect: '/management/report/overview'
+          },
+          {
+            path: 'overview',
+            name: 'ManagementReportOverview',
+            component: () => import('../views/management/report/ReportOverview.vue'),
+            meta: { title: '统计总览' }
+          },
+          {
+            path: 'inspection-point-analysis',
+            name: 'ManagementReportInspectionPointAnalysis',
+            component: () => import('../views/management/report/ReportInspectionPointAnalysis.vue'),
+            meta: { title: '巡检点分析' }
+          },
+          {
+            path: 'facility-device-analysis',
+            name: 'ManagementReportFacilityDeviceAnalysis',
+            component: () => import('../views/management/report/ReportFacilityDeviceAnalysis.vue'),
+            meta: { title: '设施设备分析' }
+          },
+          {
+            path: 'gas-analysis',
+            name: 'ManagementReportGasAnalysis',
+            component: () => import('../views/management/report/ReportGasAnalysis.vue'),
+            meta: { title: '气体分析' }
+          },
+          {
+            path: 'safety-behavior-analysis',
+            name: 'ManagementReportSafetyBehaviorAnalysis',
+            component: () => import('../views/management/report/ReportSafetyBehaviorAnalysis.vue'),
+            meta: { title: '安全行为分析' }
           }
         ]
       }
@@ -276,6 +321,23 @@ const routes: RouteRecordRaw[] = [
             name: 'ImplementationDispatchResourceConfig',
             component: () => import('../views/implementation/ResourceBaseConfig.vue'),
             meta: { title: '资源基础配置' }
+          },
+          {
+            path: 'cockpit',
+            name: 'ImplementationDispatchCockpit',
+            redirect: '/management/cockpit/view'
+          },
+          {
+            path: 'notify-config',
+            name: 'ImplementationDispatchNotifyConfig',
+            component: () => import('../views/implementation/NotifyConfig.vue'),
+            meta: { title: '通知配置' }
+          },
+          {
+            path: 'edge-inspection',
+            name: 'ImplementationDispatchEdgeInspection',
+            component: () => import('../views/implementation/EdgeInspection.vue'),
+            meta: { title: '边巡边检' }
           }
         ]
       }

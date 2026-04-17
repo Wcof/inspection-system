@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
+    "build:v2": "vue-tsc && VITE_BASE_PATH=/inspection-system/v2/ vite build",
     "preview": "vite preview"
   },
   "dependencies": {

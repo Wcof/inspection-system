@@ -5,8 +5,11 @@ import { AntDesignVueResolver } from "unplugin-vue-components/resolvers"
 import path from "path"
 
 // https://vite.dev/config/
+const pagesBase = process.env.VITE_BASE_PATH
+  || (process.env.GITHUB_PAGES === "true" ? "/inspection-system/" : "/")
+
 export default defineConfig({
-  base: process.env.GITHUB_PAGES === "true" ? "/inspection-system/" : "/",
+  base: pagesBase,
   plugins: [
     vue(),
     Components({

@@ -159,26 +159,20 @@ const toggleStatus = (id: string) => {
 }
 </script>
 
-<style scoped lang="scss">
-.dispatch-rule {
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    
-    h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-  }
-  
-  .search-bar {
-    margin-bottom: 16px;
-  }
-  
-  .page-footer {
-    margin-top: 24px;
-  }
+<style scoped lang="css">.dispatch-rule .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.dispatch-rule .page-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.dispatch-rule .search-bar {
+  margin-bottom: 16px;
+}
+.dispatch-rule .page-footer {
+  margin-top: 24px;
 }
 </style>

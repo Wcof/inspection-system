@@ -33,7 +33,14 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: |
+          npm run build
+          mv dist dist-v1
+          VITE_BASE_PATH="/inspection-system/v2/" npm run build
+          mv dist dist-v2
+          mkdir -p dist/v2
+          cp -R dist-v1/. dist/
+          cp -R dist-v2/. dist/v2/
         env:
           GITHUB_PAGES: "true"
 

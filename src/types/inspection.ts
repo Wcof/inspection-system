@@ -38,7 +38,9 @@ export enum PositionSource {
 
 export enum DeviceStatus {
   ACTIVE = 'active',
-  INACTIVE = 'inactive'
+  INACTIVE = 'inactive',
+  MAINTENANCE = 'maintenance',
+  SCRAPPED = 'scrapped'
 }
 
 export enum ScheduleType {
@@ -165,6 +167,34 @@ export interface InspectionDevice {
   inspectionPointId: string
   name: string
   code: string
+  deviceNo?: string
+  deviceClassification?: string
+  specModel?: string
+  owner?: string
+  manufacturer?: string
+  expiryDate?: string
+  usageCertificateNo?: string
+  authorityCertificateNo?: string
+  commissioningDate?: string
+  lastInspectionTime?: string
+  nextInspectionTime?: string
+  expiryWarningDays?: number
+  inspectionPostName?: string
+  mapCoordinate?: string
+  areaId?: string
+  areaName?: string
+  departmentName?: string
+  storageLocation?: string
+  outDate?: string
+  factoryNo?: string
+  issueDate?: string
+  systemName?: string
+  detectionCycle?: string
+  lastInspectionConclusion?: string
+  inspectionWarningDays?: number
+  deviceCategory?: string
+  custodianPostName?: string
+  nfcId?: string
   type: string
   sequence: number
   ptzPreset?: PTZPreset
@@ -183,6 +213,34 @@ export interface InspectionDeviceFormData {
   inspectionPointId: string
   name: string
   code: string
+  deviceNo?: string
+  deviceClassification?: string
+  specModel?: string
+  owner?: string
+  manufacturer?: string
+  expiryDate?: string
+  usageCertificateNo?: string
+  authorityCertificateNo?: string
+  commissioningDate?: string
+  lastInspectionTime?: string
+  nextInspectionTime?: string
+  expiryWarningDays?: number
+  inspectionPostName?: string
+  mapCoordinate?: string
+  areaId?: string
+  areaName?: string
+  departmentName?: string
+  storageLocation?: string
+  outDate?: string
+  factoryNo?: string
+  issueDate?: string
+  systemName?: string
+  detectionCycle?: string
+  lastInspectionConclusion?: string
+  inspectionWarningDays?: number
+  deviceCategory?: string
+  custodianPostName?: string
+  nfcId?: string
   type: string
   sequence: number
   ptzPreset?: PTZPreset
