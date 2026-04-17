@@ -85,7 +85,14 @@
       <span class="legend-item" :class="{ off: !isEnabled('parking') }" @click="toggleType('parking')"><i class="dot parking"></i>停车点</span>
     </div>
 
-    <a-modal v-model:visible="fullscreenVisible" title="地图全屏" width="92%" :footer="null">
+    <a-modal
+      v-model:visible="fullscreenVisible"
+      title="地图全屏"
+      width="92%"
+      :footer="null"
+      :body-style="fullscreenBodyStyle"
+      wrap-class-name="dispatch-map-fullscreen-modal"
+    >
       <div class="map-stage fullscreen" :style="mapStageStyle" @contextmenu.prevent="handleContextCreate">
         <div class="map-mask"></div>
         <div class="map-grid"></div>
@@ -199,7 +206,17 @@ const routeLines = computed(() => {
   return points.slice(0, -1).map((from, index) => ({ id: `line-${from.id}-${points[index + 1].id}`, from, to: points[index + 1] }))
 })
 
-const mapStageStyle = computed(() => ({ backgroundImage: `url(${mapBackgroundUrl})` }))
+const mapStageStyle = computed(() => ({
+  backgroundImage: `url(${mapBackgroundUrl})`,
+  backgroundColor: '#eff4ff'
+}))
+const fullscreenBodyStyle = computed(() => ({
+  backgroundImage: `url(${mapBackgroundUrl})`,
+  backgroundPosition: 'center',
+  backgroundSize: 'cover',
+  backgroundRepeat: 'no-repeat',
+  padding: '12px'
+}))
 
 function markerClass(marker: MapMarker) {
   return `marker-${marker.markerType}`
@@ -264,12 +281,12 @@ function isEnabled(type: MarkerType) {
 }
 </script>
 
-<style scoped lang="scss">
-.map-card {
+<style scoped lang="css">.map-card {
   height: 100%;
-  :deep(.ant-card-body) { padding: 12px; }
 }
-
+.map-card :deep(.ant-card-body) {
+  padding: 12px;
+}
 .map-stage {
   position: relative;
   height: 460px;
@@ -281,15 +298,16 @@ function isEnabled(type: MarkerType) {
   background-size: cover;
   overflow: hidden;
 }
-
-.map-stage.fullscreen { height: 76vh; }
-
+.map-stage.fullscreen {
+  height: 76vh;
+  background-image: none !important;
+  background-color: transparent;
+}
 .map-mask {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(5, 8, 14, 0.22) 0%, rgba(5, 8, 14, 0.58) 100%);
+  background: linear-gradient(180deg, rgba(5, 8, 14, 0.12) 0%, rgba(5, 8, 14, 0.26) 100%);
 }
-
 .map-grid {
   position: absolute;
   inset: 0;
@@ -298,7 +316,6 @@ function isEnabled(type: MarkerType) {
     linear-gradient(90deg, rgba(107, 142, 173, 0.08) 1px, transparent 1px);
   background-size: 42px 42px;
 }
-
 .route-layer {
   position: absolute;
   inset: 0;
@@ -306,27 +323,23 @@ function isEnabled(type: MarkerType) {
   height: 100%;
   pointer-events: none;
 }
-
 .route-backbone {
   stroke: #8ca0b9;
   stroke-width: 0.28;
   stroke-dasharray: 0.6 0.6;
   opacity: 0.72;
 }
-
 .marker {
   position: absolute;
   transform: translate(-50%, -50%);
   z-index: 2;
   cursor: pointer;
 }
-
 .marker-node {
   display: inline-flex;
   align-items: flex-start;
   gap: 5px;
 }
-
 .pin {
   width: 12px;
   height: 12px;
@@ -339,29 +352,24 @@ function isEnabled(type: MarkerType) {
   margin-top: 2px;
   border: 1px solid transparent;
 }
-
 .pin.robot {
   background: rgba(59, 130, 246, 0.24);
   border-color: #3b82f6;
 }
-
 .pin.inspection {
   background: rgba(16, 185, 129, 0.24);
   border-color: #10b981;
 }
-
 .pin.charging {
   background: rgba(59, 130, 246, 0.24);
   border-color: #60a5fa;
   color: #e2e8f0;
 }
-
 .pin.parking {
   background: rgba(148, 163, 184, 0.24);
   border-color: #94a3b8;
   color: #e2e8f0;
 }
-
 .mini-text {
   font-size: 11px;
   line-height: 1.2;
@@ -369,26 +377,36 @@ function isEnabled(type: MarkerType) {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   white-space: nowrap;
 }
-
-.line { margin-bottom: 1px; }
+.line {
+  margin-bottom: 1px;
+}
 .line.strong {
   color: #f1f5f9;
   font-weight: 600;
 }
-
-.line.status.status-running { color: #10b981; }
-.line.status.status-pending { color: #f59e0b; }
-.line.status.status-completed { color: #22c55e; }
-.line.status.status-warning { color: #ef4444; }
-.line.status.status-charging { color: #60a5fa; }
-.line.status.status-idle { color: #94a3b8; }
-
+.line.status.status-running {
+  color: #10b981;
+}
+.line.status.status-pending {
+  color: #f59e0b;
+}
+.line.status.status-completed {
+  color: #22c55e;
+}
+.line.status.status-warning {
+  color: #ef4444;
+}
+.line.status.status-charging {
+  color: #60a5fa;
+}
+.line.status.status-idle {
+  color: #94a3b8;
+}
 .task-chip {
   font-size: 12px;
   color: #e2e8f0;
   white-space: nowrap;
 }
-
 .map-tools {
   position: absolute;
   right: 10px;
@@ -398,7 +416,6 @@ function isEnabled(type: MarkerType) {
   gap: 6px;
   z-index: 3;
 }
-
 .tool-btn {
   width: 28px;
   height: 28px;
@@ -408,7 +425,6 @@ function isEnabled(type: MarkerType) {
   color: #e2e8f0;
   cursor: default;
 }
-
 .legend {
   display: flex;
   gap: 12px;
@@ -416,7 +432,6 @@ function isEnabled(type: MarkerType) {
   margin-top: 10px;
   font-size: 12px;
 }
-
 .legend-item {
   display: inline-flex;
   align-items: center;
@@ -426,18 +441,25 @@ function isEnabled(type: MarkerType) {
   opacity: 1;
   transition: opacity 0.2s;
 }
-
-.legend-item.off { opacity: 0.35; }
-
+.legend-item.off {
+  opacity: 0.35;
+}
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   display: inline-block;
 }
-
-.dot.robot { background: #3b82f6; }
-.dot.inspection { background: #10b981; }
-.dot.charging { background: #60a5fa; }
-.dot.parking { background: #94a3b8; }
+.dot.robot {
+  background: #3b82f6;
+}
+.dot.inspection {
+  background: #10b981;
+}
+.dot.charging {
+  background: #60a5fa;
+}
+.dot.parking {
+  background: #94a3b8;
+}
 </style>

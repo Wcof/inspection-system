@@ -679,99 +679,81 @@ const handleImportData = () => {
 }
 </script>
 
-<style scoped lang="scss">
-.robot-list {
-  :deep(.ant-card) {
-    border-radius: 10px;
-    border-color: #f0f0f0;
-    box-shadow: none;
+<style scoped lang="css">.robot-list :deep(.ant-card) {
+  border-radius: 10px;
+  border-color: #f0f0f0;
+  box-shadow: none;
+}
+.robot-list :deep(.ant-card-body) {
+  padding: 16px;
+}
+.robot-list .search-panel {
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.robot-list .search-item {
+  margin-bottom: 8px;
+}
+.robot-list .search-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 8px;
+}
+.robot-list :deep(.ant-table) {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.robot-list :deep(.ant-table-thead > tr > th) {
+  background: #fafafa;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.robot-list :deep(.ant-table-tbody > tr > td) {
+  vertical-align: middle;
+}
+.robot-list .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.robot-list .page-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.robot-list .maintenance-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.robot-list .maintenance-row {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.robot-list .maintenance-label {
+  color: #595959;
+  font-size: 12px;
+}
+.robot-list .maintenance-text {
+  color: #262626;
+  font-size: 12px;
+  min-width: 56px;
+  text-align: right;
+}
+@media (max-width: 992px) {
+  .robot-list :deep(.ant-card-body) {
+    padding: 12px;
   }
-
-  :deep(.ant-card-body) {
-    padding: 16px;
-  }
-
-  .search-panel {
-    margin-bottom: 12px;
-    padding: 12px 12px 4px;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    background: #fafafa;
-  }
-
-  .search-item {
-    margin-bottom: 8px;
-  }
-
-  .search-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin: 4px 0 8px;
-  }
-
-  :deep(.ant-table) {
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  :deep(.ant-table-thead > tr > th) {
-    background: #fafafa;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  :deep(.ant-table-tbody > tr > td) {
-    vertical-align: middle;
-  }
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    
-    h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-  }
-
-  .maintenance-cell {
-    display: flex;
+  .robot-list .page-header {
+    gap: 12px;
+    align-items: flex-start;
     flex-direction: column;
-    gap: 6px;
-  }
-
-  .maintenance-row {
-    display: grid;
-    grid-template-columns: 30px 1fr auto;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .maintenance-label {
-    color: #595959;
-    font-size: 12px;
-  }
-
-  .maintenance-text {
-    color: #262626;
-    font-size: 12px;
-    min-width: 56px;
-    text-align: right;
-  }
-
-  @media (max-width: 992px) {
-    :deep(.ant-card-body) {
-      padding: 12px;
-    }
-
-    .page-header {
-      gap: 12px;
-      align-items: flex-start;
-      flex-direction: column;
-    }
   }
 }
 </style>

@@ -164,8 +164,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
-.inspection-route-form {
+<style scoped lang="css">.inspection-route-form {
   width: 100%;
 }
 </style>

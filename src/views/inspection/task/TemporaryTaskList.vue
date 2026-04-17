@@ -266,36 +266,30 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
-.temporary-task-list {
+<style scoped lang="css">.temporary-task-list {
   width: 100%;
-
-  :deep(.ant-card) {
-    border-radius: 10px;
-    border-color: #f0f0f0;
-    box-shadow: none;
-  }
-
-  :deep(.ant-card-body) {
-    padding: 16px;
-  }
-
-  .search-panel {
-    margin-bottom: 12px;
-    padding: 12px 12px 4px;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    background: #fafafa;
-  }
-
-  .search-item {
-    margin-bottom: 8px;
-  }
-
-  .search-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin: 4px 0 8px;
-  }
+}
+.temporary-task-list :deep(.ant-card) {
+  border-radius: 10px;
+  border-color: #f0f0f0;
+  box-shadow: none;
+}
+.temporary-task-list :deep(.ant-card-body) {
+  padding: 16px;
+}
+.temporary-task-list .search-panel {
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.temporary-task-list .search-item {
+  margin-bottom: 8px;
+}
+.temporary-task-list .search-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 8px;
 }
 </style>

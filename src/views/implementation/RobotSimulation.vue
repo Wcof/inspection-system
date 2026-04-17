@@ -403,145 +403,119 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped lang="scss">
-.robot-simulation {
-  .simulation-view {
-    position: relative;
-    width: 100%;
-    height: 400px;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-    background-color: #fafafa;
-    
-    .robot-model {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      
-      .robot-svg {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 100%;
-        height: 100%;
-      }
-      
-      .device-node {
-        position: absolute;
-        cursor: pointer;
-        transform: translate(-50%, -50%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        
-        .device-dot {
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          border: 2px solid white;
-          box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
-          
-          &.ptz-camera {
-            background-color: #52c41a;
-          }
-          
-          &.thermal {
-            background-color: #fa8c16;
-          }
-          
-          &.lidar {
-            background-color: #1890ff;
-          }
-          
-          &.ultrasonic {
-            background-color: #722ed1;
-          }
-          
-          &.wheel {
-            background-color: #13c2c2;
-          }
-          
-          &.battery {
-            background-color: #faad14;
-          }
-          
-          &.edge-computer {
-            background-color: #eb2f96;
-          }
-          
-          &.communication {
-            background-color: #2f54eb;
-          }
-          
-          &.offline {
-            background-color: #d9d9d9;
-            border-color: #bfbfbf;
-          }
-        }
-
-        .device-name {
-          margin-top: 4px;
-          padding: 1px 6px;
-          border-radius: 10px;
-          font-size: 11px;
-          line-height: 16px;
-          color: #fff;
-          white-space: nowrap;
-          background: rgba(0, 0, 0, 0.5);
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-          pointer-events: none;
-        }
-      }
-      
-      .device-info-popup {
-        position: absolute;
-        background-color: white;
-        border: 1px solid #d9d9d9;
-        border-radius: 6px;
-        padding: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        z-index: 10;
-        min-width: 200px;
-        
-        h4 {
-          margin: 0 0 8px 0;
-          color: #333;
-        }
-        
-        .device-info-item {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 4px;
-          
-          .label {
-            color: #666;
-          }
-          
-          .value {
-            color: #333;
-            font-weight: 500;
-            
-            &.status-online {
-              color: #52c41a;
-            }
-            
-            &.status-offline {
-              color: #d9d9d9;
-            }
-            
-            &.status-normal {
-              color: #52c41a;
-            }
-            
-            &.status-error {
-              color: #ff4d4f;
-            }
-          }
-        }
-      }
-    }
-  }
+<style scoped lang="css">.robot-simulation .simulation-view {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #fafafa;
+}
+.robot-simulation .simulation-view .robot-model {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.robot-simulation .simulation-view .robot-model .robot-svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+}
+.robot-simulation .simulation-view .robot-model .device-node {
+  position: absolute;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.ptz-camera {
+  background-color: #52c41a;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.thermal {
+  background-color: #fa8c16;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.lidar {
+  background-color: #1890ff;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.ultrasonic {
+  background-color: #722ed1;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.wheel {
+  background-color: #13c2c2;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.battery {
+  background-color: #faad14;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.edge-computer {
+  background-color: #eb2f96;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.communication {
+  background-color: #2f54eb;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-dot.offline {
+  background-color: #d9d9d9;
+  border-color: #bfbfbf;
+}
+.robot-simulation .simulation-view .robot-model .device-node .device-name {
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #fff;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup {
+  position: absolute;
+  background-color: white;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  min-width: 200px;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup h4 {
+  margin: 0 0 8px 0;
+  color: #333;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup .device-info-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup .device-info-item .label {
+  color: #666;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup .device-info-item .value {
+  color: #333;
+  font-weight: 500;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup .device-info-item .value.status-online {
+  color: #52c41a;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup .device-info-item .value.status-offline {
+  color: #d9d9d9;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup .device-info-item .value.status-normal {
+  color: #52c41a;
+}
+.robot-simulation .simulation-view .robot-model .device-info-popup .device-info-item .value.status-error {
+  color: #ff4d4f;
 }
 </style>

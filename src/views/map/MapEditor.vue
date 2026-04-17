@@ -219,24 +219,20 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
-.map-editor {
+<style scoped lang="css">.map-editor {
   width: 100%;
-
-  .package-meta {
-    padding: 8px 12px;
-    border: 1px solid #f0f0f0;
-    border-radius: 6px;
-    background: #fafafa;
-    line-height: 1.8;
-  }
-
-  .meta-label {
-    color: #666;
-  }
-
-  .tile-card {
-    margin-bottom: 16px;
-  }
+}
+.map-editor .package-meta {
+  padding: 8px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fafafa;
+  line-height: 1.8;
+}
+.map-editor .meta-label {
+  color: #666;
+}
+.map-editor .tile-card {
+  margin-bottom: 16px;
 }
 </style>

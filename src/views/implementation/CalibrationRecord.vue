@@ -151,38 +151,30 @@ const getStatusText = (status: string): string => {
 }
 </script>
 
-<style scoped lang="scss">
-.calibration-record {
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    
-    h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-  }
-  
-  .search-bar {
-    margin-bottom: 16px;
-    
-    :deep(.ant-form-inline) {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      gap: 8px 16px;
-    }
-    
-    .search-buttons {
-      margin-left: auto;
-      margin-bottom: 8px;
-    }
-  }
-  
-  .page-footer {
-    margin-top: 24px;
-  }
+<style scoped lang="css">.calibration-record .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.calibration-record .page-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.calibration-record .search-bar {
+  margin-bottom: 16px;
+}
+.calibration-record .search-bar :deep(.ant-form-inline) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 16px;
+}
+.calibration-record .search-bar .search-buttons {
+  margin-left: auto;
+  margin-bottom: 8px;
+}
+.calibration-record .page-footer {
+  margin-top: 24px;
 }
 </style>

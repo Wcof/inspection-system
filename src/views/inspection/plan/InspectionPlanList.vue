@@ -1,11 +1,11 @@
 <template>
   <div class="inspection-plan-list">
-    <a-page-header title="巡检计划" sub-title="管理巡检计划">
+    <a-page-header title="巡检计划" sub-title="计划层仅表达组织与执行方式，不再表达周期">
       <template #extra>
-        <a-button type="primary" @click="goToForm()">
-          <template #icon><PlusOutlined /></template>
-          新建计划
-        </a-button>
+        <a-space>
+          <a-button @click="refreshData">刷新</a-button>
+          <a-button type="primary" @click="goToForm()">新建计划</a-button>
+        </a-space>
       </template>
     </a-page-header>
 
@@ -14,21 +14,49 @@
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="名称" class="search-item">
+              <a-form-item label="计划名称" class="search-item">
                 <a-input v-model:value="searchForm.name" placeholder="请输入计划名称" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="编码" class="search-item">
+              <a-form-item label="计划编码" class="search-item">
                 <a-input v-model:value="searchForm.code" placeholder="请输入计划编码" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="周期类型" class="search-item">
-                <a-select v-model:value="searchForm.scheduleType" placeholder="请选择周期类型" allow-clear>
-                  <a-select-option value="weekly">周</a-select-option>
-                  <a-select-option value="monthly">月</a-select-option>
-                  <a-select-option value="once">一次性</a-select-option>
+              <a-form-item label="计划类型" class="search-item">
+                <a-select v-model:value="searchForm.planType" placeholder="请选择计划类型" allow-clear>
+                  <a-select-option value="manual">人工计划</a-select-option>
+                  <a-select-option value="auto">自动调度计划</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="是否存在遗漏" class="search-item">
+                <a-select v-model:value="searchForm.hasMissing" placeholder="请选择" allow-clear>
+                  <a-select-option value="yes">存在遗漏</a-select-option>
+                  <a-select-option value="no">无遗漏</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="巡检点" class="search-item">
+                <a-select v-model:value="searchForm.pointId" placeholder="按巡检点筛选" allow-clear show-search>
+                  <a-select-option v-for="point in inspectionStore.inspectionPoints" :key="point.id" :value="point.id">{{ point.name }}</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="设施设备" class="search-item">
+                <a-select v-model:value="searchForm.deviceId" placeholder="按设备筛选" allow-clear show-search>
+                  <a-select-option v-for="device in inspectionStore.inspectionDevices" :key="device.id" :value="device.id">{{ device.name }}</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="检测项" class="search-item">
+                <a-select v-model:value="searchForm.checkItemId" placeholder="按检测项筛选" allow-clear show-search>
+                  <a-select-option v-for="item in inspectionStore.inspectionDeviceCheckItems" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -41,315 +69,286 @@
                 </a-select>
               </a-form-item>
             </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="更新时间" class="search-item">
-                <a-input v-model:value="searchForm.updatedAt" placeholder="YYYY-MM-DD" allow-clear />
-              </a-form-item>
-            </a-col>
           </a-row>
           <div class="search-actions">
             <a-space>
-              <a-button type="primary" @click="handleSearch">搜索</a-button>
+              <a-button type="primary">搜索</a-button>
               <a-button @click="handleReset">重置</a-button>
             </a-space>
           </div>
         </a-form>
       </div>
-      <a-table :columns="columns" :data-source="filteredPlans" :loading="loading" row-key="id">
+
+      <a-alert
+        type="info"
+        show-icon
+        style="margin-bottom: 12px"
+        message="当前计划生成任务的生成周期为任务开始前 7 天。"
+      />
+
+      <a-table :columns="columns" :data-source="filteredPlans" :loading="loading" row-key="id" :scroll="{ x: 1560 }">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'status'">
-            <a-tag :color="getPlanStatusColor(record.status)">
-              {{ getPlanStatusText(record.status) }}
+          <template v-if="column.key === 'planType'">
+            <a-tag :color="record.planType === 'manual' ? 'blue' : 'purple'">
+              {{ record.planType === 'manual' ? '人工计划' : '自动调度计划' }}
             </a-tag>
           </template>
-          <template v-if="column.key === 'schedule'">
-            {{ getScheduleText(record.schedule) }}
+          <template v-else-if="column.key === 'taskSource'">
+            {{ record.planType === 'manual' ? '人工创建' : '自动生成' }}
           </template>
-          <template v-if="column.key === 'inspectionTime'">
-            {{ getInspectionTimeText(record) }}
-          </template>
-          <template v-if="column.key === 'pointCount'">
+          <template v-else-if="column.key === 'pointCount'">
             {{ record.inspectionPointIds?.length || 0 }}
           </template>
-          <template v-if="column.key === 'checkItemCount'">
+          <template v-else-if="column.key === 'checkItemCount'">
             {{ getCheckItemCount(record) }}
           </template>
-          <template v-if="column.key === 'scheduleTypeText'">
-            {{ getScheduleTypeText(record.schedule?.type) }}
+          <template v-else-if="column.key === 'missingCoverage'">
+            <a-tag :color="record.hasMissingCoverage ? 'red' : 'green'">
+              {{ record.hasMissingCoverage ? '存在遗漏' : '无遗漏' }}
+            </a-tag>
           </template>
-          <template v-if="column.key === 'actions'">
+          <template v-else-if="column.key === 'status'">
+            <a-tag :color="getPlanStatusColor(record.status)">{{ getPlanStatusText(record.status) }}</a-tag>
+          </template>
+          <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button type="link" size="small" @click="goToForm(record.id)">编辑</a-button>
               <a-button type="link" size="small" @click="viewTasks(record.id)">任务</a-button>
-              <a-button v-if="record.status === 'active'" type="link" size="small" @click="handlePause(record.id)">暂停</a-button>
-              <a-button v-else type="link" size="small" @click="handleActivate(record.id)">启用</a-button>
-              <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
+              <a-button type="link" size="small" @click="openCoverageModal(record)">计划检查</a-button>
+              <a-button type="link" size="small" @click="toggleStatus(record)">{{ record.status === 'active' ? '暂停' : '启用' }}</a-button>
             </a-space>
           </template>
         </template>
       </a-table>
     </a-card>
+
+    <a-modal v-model:open="coverageVisible" title="计划覆盖检查" width="820px" :footer="null">
+      <template v-if="currentCoverage">
+        <a-alert
+          :type="currentCoverage.hasMissingCoverage ? 'warning' : 'success'"
+          show-icon
+          :message="currentCoverage.hasMissingCoverage ? '检测到覆盖遗漏，可自动补充或人工补充。' : '当前计划未发现覆盖遗漏。'"
+          style="margin-bottom: 16px"
+        />
+        <a-descriptions bordered :column="2" size="small" style="margin-bottom: 12px">
+          <a-descriptions-item label="计划名称">{{ currentCoverage.name }}</a-descriptions-item>
+          <a-descriptions-item label="计划类型">{{ currentCoverage.planType === 'manual' ? '人工计划' : '自动调度计划' }}</a-descriptions-item>
+          <a-descriptions-item label="遗漏巡检点">{{ currentCoverage.missingPoints.length || 0 }}</a-descriptions-item>
+          <a-descriptions-item label="遗漏检测项">{{ currentCoverage.missingCheckItems.length || 0 }}</a-descriptions-item>
+          <a-descriptions-item label="遗漏设备">{{ currentCoverage.missingDevices.length || 0 }}</a-descriptions-item>
+          <a-descriptions-item label="结果">{{ currentCoverage.hasMissingCoverage ? '需补充' : '通过' }}</a-descriptions-item>
+        </a-descriptions>
+
+        <a-row :gutter="12">
+          <a-col :span="8">
+            <a-card size="small" title="遗漏巡检点">
+              <a-empty v-if="currentCoverage.missingPoints.length === 0" description="无" />
+              <a-tag v-for="item in currentCoverage.missingPoints" :key="item" style="margin-bottom: 8px">{{ item }}</a-tag>
+            </a-card>
+          </a-col>
+          <a-col :span="8">
+            <a-card size="small" title="遗漏检测项">
+              <a-empty v-if="currentCoverage.missingCheckItems.length === 0" description="无" />
+              <a-tag v-for="item in currentCoverage.missingCheckItems" :key="item" color="orange" style="margin-bottom: 8px">{{ item }}</a-tag>
+            </a-card>
+          </a-col>
+          <a-col :span="8">
+            <a-card size="small" title="遗漏设备">
+              <a-empty v-if="currentCoverage.missingDevices.length === 0" description="无" />
+              <a-tag v-for="item in currentCoverage.missingDevices" :key="item" color="red" style="margin-bottom: 8px">{{ item }}</a-tag>
+            </a-card>
+          </a-col>
+        </a-row>
+
+        <div class="modal-actions">
+          <a-space>
+            <a-button @click="coverageVisible = false">关闭</a-button>
+            <a-button :disabled="!currentCoverage.hasMissingCoverage" @click="manualSupplement">人工补充</a-button>
+            <a-button type="primary" :disabled="!currentCoverage.hasMissingCoverage" @click="autoSupplement">自动补充</a-button>
+          </a-space>
+        </div>
+      </template>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
-import { InspectionPlanStatus } from '@/types/inspection'
-import type { InspectionPlan } from '@/types/inspection'
-import { message, Modal } from 'ant-design-vue'
+
+type PlanRow = any
 
 const router = useRouter()
 const inspectionStore = useInspectionStore()
-
-const plans = ref<InspectionPlan[]>([])
 const loading = ref(false)
+const plans = ref<PlanRow[]>([])
+const coverageVisible = ref(false)
+const currentCoverage = ref<PlanRow | null>(null)
+
 const searchForm = reactive({
   name: '',
   code: '',
-  scheduleType: '',
-  status: '',
-  updatedAt: ''
+  planType: undefined as string | undefined,
+  hasMissing: undefined as string | undefined,
+  pointId: undefined as string | undefined,
+  deviceId: undefined as string | undefined,
+  checkItemId: undefined as string | undefined,
+  status: undefined as string | undefined
 })
 
 const columns = [
-  { title: '计划名称', dataIndex: 'name', key: 'name' },
-  { title: '编码', dataIndex: 'code', key: 'code' },
+  { title: '计划名称', dataIndex: 'name', key: 'name', width: 220 },
+  { title: '编码', dataIndex: 'code', key: 'code', width: 150 },
+  { title: '计划类型', key: 'planType', width: 140 },
+  { title: '任务来源', key: 'taskSource', width: 120 },
   { title: '巡检点数量', key: 'pointCount', width: 120 },
   { title: '检测项数量', key: 'checkItemCount', width: 120 },
-  { title: '周期类型', key: 'scheduleTypeText', width: 120 },
-  { title: '巡检周期', key: 'schedule', width: 200 },
-  { title: '巡检时间', key: 'inspectionTime', width: 180 },
+  { title: '覆盖检查', key: 'missingCoverage', width: 120 },
   { title: '状态', key: 'status', width: 100 },
   { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 180 },
-  { title: '操作', key: 'actions', width: 200 }
+  { title: '操作', key: 'actions', width: 240, fixed: 'right' }
 ]
 
-function getScheduleText(schedule: any): string {
-  if (!schedule) return ''
-  
-  switch (schedule.type) {
-    case 'weekly':
-      const days = schedule.daysOfWeek?.map((d: number) => ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d]).join('、')
-      return `${days}`
-    case 'monthly':
-      return `${schedule.daysOfMonth?.map((day: number) => `${day}号`).join('、')}`
-    case 'once':
-      return `一次性`
-    default:
-      return ''
+function enrichPlan(plan: any) {
+  const inspectionPointIds = plan.inspectionPointIds || []
+  const linkedDevices = inspectionStore.inspectionDevices.filter((device: any) => inspectionPointIds.includes(device.inspectionPointId))
+  const linkedCheckItems = inspectionStore.inspectionDeviceCheckItems.filter((item: any) => linkedDevices.some((device: any) => device.id === item.deviceId))
+  const missingPoints = inspectionStore.inspectionPoints
+    .filter((point: any) => !inspectionPointIds.includes(point.id))
+    .slice(0, 2)
+    .map((point: any) => point.name)
+  const missingDevices = linkedDevices.filter((device: any) => !inspectionStore.inspectionDeviceCheckItems.some((item: any) => item.deviceId === device.id)).map((device: any) => device.name)
+  const missingCheckItems = linkedCheckItems.filter((item: any) => !item.threshold && !item.executionWindow && !item.visionMapping).slice(0, 3).map((item: any) => item.name)
+  const planType = plan.planType || (plan.schedule ? 'manual' : 'auto')
+  return {
+    ...plan,
+    planType,
+    linkedDeviceIds: linkedDevices.map((item: any) => item.id),
+    linkedCheckItemIds: linkedCheckItems.map((item: any) => item.id),
+    hasMissingCoverage: Boolean(plan.hasMissingCoverage || missingPoints.length || missingDevices.length || missingCheckItems.length),
+    missingPoints,
+    missingDevices,
+    missingCheckItems,
+    updatedAt: plan.updatedAt ? new Date(plan.updatedAt).toLocaleString() : '-'
   }
 }
-
-function getScheduleTypeText(type?: string): string {
-  if (type === 'weekly') return '周'
-  if (type === 'monthly') return '月'
-  if (type === 'once') return '一次性'
-  return '-'
-}
-
-function getCheckItemCount(plan: InspectionPlan): number {
-  const pointIds = plan.inspectionPointIds || []
-  if (!pointIds.length) return 0
-
-  const deviceIds = new Set<string>()
-  pointIds.forEach(pointId => {
-    const devices = inspectionStore.getInspectionDevicesByInspectionPointId(pointId)
-    devices.forEach(device => deviceIds.add(device.id))
-  })
-
-  if (!deviceIds.size) return 0
-  return inspectionStore.inspectionDeviceCheckItems.filter(item => deviceIds.has(item.deviceId)).length
-}
-
-// 获取派生状态文本
-function getPlanStatusText(status: string): string {
-  if (status === 'active') return '启用'
-  if (status === 'paused') return '暂停'
-  if (status === 'inactive') return '停用'
-  return status || '-'
-}
-
-function getPlanStatusColor(status: string): string {
-  if (status === 'active') return 'green'
-  if (status === 'paused') return 'orange'
-  if (status === 'inactive') return 'default'
-  return 'default'
-}
-
-// 获取运行时间文本
-function getInspectionTimeText(plan: any): string {
-  const startText = plan.inspectionTimeStart || plan.startTime
-  const endText = plan.inspectionTimeEnd || plan.endTime
-  if (!startText || !endText) return '-'
-  const start = new Date(startText)
-  const end = new Date(endText)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-'
-  return `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}-${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
-}
-
 
 function fetchPlans() {
   loading.value = true
   try {
-    plans.value = inspectionStore.inspectionPlans
+    inspectionStore.initialize()
+    plans.value = inspectionStore.inspectionPlans.map(enrichPlan)
   } finally {
     loading.value = false
   }
 }
 
-function handleSearch() {
-  // 由 filteredPlans 计算属性过滤
+function refreshData() {
+  fetchPlans()
+  message.success('巡检计划已刷新')
 }
 
-function handleReset() {
-  searchForm.name = ''
-  searchForm.code = ''
-  searchForm.scheduleType = ''
-  searchForm.status = ''
-  searchForm.updatedAt = ''
+function getCheckItemCount(plan: PlanRow) {
+  return (plan.linkedCheckItemIds || []).length
 }
 
 const filteredPlans = computed(() => {
   const name = searchForm.name.trim().toLowerCase()
   const code = searchForm.code.trim().toLowerCase()
-  const scheduleType = searchForm.scheduleType
-  const status = searchForm.status
-  const updatedAt = searchForm.updatedAt.trim()
-  return plans.value.filter(plan => {
-    const matchesName = !name || plan.name.toLowerCase().includes(name)
-    const matchesCode = !code || plan.code.toLowerCase().includes(code)
-    const matchesScheduleType = !scheduleType || plan.schedule?.type === scheduleType
-    const matchesStatus = !status || plan.status === status
-    const updatedText = plan.updatedAt ? new Date(plan.updatedAt).toISOString().slice(0, 10) : ''
-    const matchesUpdated = !updatedAt || updatedText.includes(updatedAt)
-    return matchesName && matchesCode && matchesScheduleType && matchesStatus && matchesUpdated
+  return plans.value.filter((plan) => {
+    const matchName = !name || String(plan.name).toLowerCase().includes(name)
+    const matchCode = !code || String(plan.code).toLowerCase().includes(code)
+    const matchType = !searchForm.planType || plan.planType === searchForm.planType
+    const matchMissing = !searchForm.hasMissing || (searchForm.hasMissing === 'yes' ? plan.hasMissingCoverage : !plan.hasMissingCoverage)
+    const matchPoint = !searchForm.pointId || (plan.inspectionPointIds || []).includes(searchForm.pointId)
+    const matchDevice = !searchForm.deviceId || (plan.linkedDeviceIds || []).includes(searchForm.deviceId)
+    const matchCheckItem = !searchForm.checkItemId || (plan.linkedCheckItemIds || []).includes(searchForm.checkItemId)
+    const matchStatus = !searchForm.status || plan.status === searchForm.status
+    return matchName && matchCode && matchType && matchMissing && matchPoint && matchDevice && matchCheckItem && matchStatus
   })
 })
+
+function handleReset() {
+  searchForm.name = ''
+  searchForm.code = ''
+  searchForm.planType = undefined
+  searchForm.hasMissing = undefined
+  searchForm.pointId = undefined
+  searchForm.deviceId = undefined
+  searchForm.checkItemId = undefined
+  searchForm.status = undefined
+}
+
+function getPlanStatusText(status: string) {
+  return ({ active: '启用', paused: '暂停', inactive: '停用' } as Record<string, string>)[status] || '-'
+}
+
+function getPlanStatusColor(status: string) {
+  return ({ active: 'green', paused: 'orange', inactive: 'default' } as Record<string, string>)[status] || 'default'
+}
+
 function goToForm(id?: string) {
-  if (typeof id === 'string' && id) {
-    router.push(`/management/plan/form/${id}`)
-  } else {
-    router.push('/management/plan/form')
-  }
+  router.push(id ? `/management/plan/form/${id}` : '/management/plan/form')
 }
 
-function viewTasks(_id: string) {
-  router.push(`/management/task/list?planId=${_id}`)
+function viewTasks(id: string) {
+  router.push(`/management/task/list?planId=${id}`)
 }
 
-function handleDelete(id: string) {
-  Modal.confirm({
-    title: '确认删除',
-    content: '确定要删除这个巡检计划吗？',
-    okText: '确定',
-    cancelText: '取消',
-    onOk() {
-      inspectionStore.deleteInspectionPlan(id)
-      message.success('删除成功')
-      fetchPlans()
-    }
-  })
+function openCoverageModal(record: PlanRow) {
+  currentCoverage.value = enrichPlan(record)
+  coverageVisible.value = true
 }
 
-// 暂停计划
-function handlePause(id: string) {
-  Modal.confirm({
-    title: '确认暂停',
-    content: '确定要暂停这个巡检计划吗？',
-    okText: '确定',
-    cancelText: '取消',
-    onOk() {
-      const plan = inspectionStore.inspectionPlans.find(p => p.id === id)
-      if (plan) {
-        const updatedPlan = { ...plan, status: InspectionPlanStatus.PAUSED }
-        inspectionStore.saveInspectionPlan(updatedPlan)
-        message.success('暂停成功')
-        fetchPlans()
-      }
-    }
-  })
-}
-
-// 启用计划
-function handleActivate(id: string) {
-  Modal.confirm({
-    title: '确认启用',
-    content: '确定要启用这个巡检计划吗？',
-    okText: '确定',
-    cancelText: '取消',
-    onOk() {
-      const plan = inspectionStore.inspectionPlans.find(p => p.id === id)
-      if (plan) {
-        const updatedPlan = { ...plan, status: InspectionPlanStatus.ACTIVE }
-        inspectionStore.saveInspectionPlan(updatedPlan)
-        message.success('启用成功')
-        fetchPlans()
-      }
-    }
-  })
-}
-
-onMounted(() => {
-  inspectionStore.initialize()
+function toggleStatus(record: PlanRow) {
+  const nextStatus = record.status === 'active' ? 'paused' : 'active'
+  inspectionStore.saveInspectionPlan({ ...record, status: nextStatus, updatedAt: new Date() })
   fetchPlans()
-})
+  message.success(`计划已${nextStatus === 'active' ? '启用' : '暂停'}`)
+}
+
+function autoSupplement() {
+  if (!currentCoverage.value) return
+  const next = { ...currentCoverage.value, hasMissingCoverage: false, missingPoints: [], missingDevices: [], missingCheckItems: [], updatedAt: new Date() }
+  inspectionStore.saveInspectionPlan(next)
+  fetchPlans()
+  currentCoverage.value = next
+  message.success('已自动补充缺失内容（演示数据）')
+}
+
+function manualSupplement() {
+  if (!currentCoverage.value) return
+  coverageVisible.value = false
+  message.info('已为你打开计划编辑页，可进行人工补充')
+  goToForm(currentCoverage.value.id)
+}
+
+onMounted(fetchPlans)
 </script>
 
-<style scoped lang="scss">
-.inspection-plan-list {
+<style scoped lang="css">.inspection-plan-list {
   width: 100%;
-
-  :deep(.ant-card) {
-    border-radius: 10px;
-    border-color: #f0f0f0;
-    box-shadow: none;
-  }
-
-  :deep(.ant-card-body) {
-    padding: 16px;
-  }
-
-  .search-panel {
-    margin-bottom: 12px;
-    padding: 12px 12px 4px;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    background: #fafafa;
-  }
-
-  .search-item {
-    margin-bottom: 8px;
-  }
-
-  .search-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin: 4px 0 8px;
-  }
-
-  :deep(.ant-table) {
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  :deep(.ant-table-thead > tr > th) {
-    background: #fafafa;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  :deep(.ant-table-tbody > tr > td) {
-    vertical-align: middle;
-  }
-
-  @media (max-width: 992px) {
-    :deep(.ant-card-body) {
-      padding: 12px;
-    }
-  }
+}
+.search-panel {
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.search-item {
+  margin-bottom: 8px;
+}
+.search-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 8px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>

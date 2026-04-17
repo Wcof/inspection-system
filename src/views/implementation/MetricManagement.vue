@@ -1,49 +1,100 @@
 <template>
   <div class="metric-management">
-    <a-page-header title="检测项管理" sub-title="按分区层级管理检测项">
-      <template #extra>
-        <a-button type="primary" @click="openCreateModal">
-          <template #icon><PlusOutlined /></template>
-          新增
-        </a-button>
-      </template>
+    <a-page-header title="检测项管理" sub-title="支持检测类型、优先级、关联层级与阈值管理">
+      <template #extra><a-button type="primary" @click="openCreateModal">新增</a-button></template>
     </a-page-header>
 
     <a-layout class="metric-layout">
       <a-layout-sider width="300" class="tree-sider">
         <div class="tree-panel">
           <a-input v-model:value="treeSearchValue" placeholder="搜索分区/巡检点/设备" allow-clear style="margin-bottom: 12px" />
-          <a-tree
-            v-model:expandedKeys="expandedTreeKeys"
-            v-model:selectedKeys="selectedTreeKeys"
-            :tree-data="filteredTreeData"
-            :field-names="{ title: 'title', key: 'key', children: 'children' }"
-          />
+          <a-tree v-model:selectedKeys="selectedTreeKeys" :tree-data="filteredTreeData" default-expand-all />
         </div>
       </a-layout-sider>
 
       <a-layout-content class="list-content">
-        <div class="content-header">
-          <div class="header-left">
-            <span class="header-title">检测项列表</span>
-            <a-tag v-if="selectedPathLabel" color="blue">{{ selectedPathLabel }}</a-tag>
-            <span class="header-count">共 {{ filteredCheckItems.length }} 项</span>
-          </div>
-        </div>
+        <a-card size="small" style="margin-bottom: 12px">
+          <span class="header-title">检测项列表</span>
+          <a-tag v-if="selectedPathLabel" color="blue">{{ selectedPathLabel }}</a-tag>
+          <span class="header-count">共 {{ filteredItems.length }} 项</span>
+        </a-card>
 
-        <a-table :columns="columns" :data-source="filteredCheckItems" row-key="id" :pagination="false" :scroll="{ x: 1600 }">
+        <a-card size="small" style="margin-bottom: 12px">
+          <a-form layout="vertical" :model="searchForm" @submit.prevent>
+            <a-row :gutter="[12, 8]">
+              <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                <a-form-item label="序号" class="search-item">
+                  <a-input v-model:value="searchForm.index" allow-clear placeholder="请输入序号" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                <a-form-item label="检测项名称" class="search-item">
+                  <a-input v-model:value="searchForm.name" allow-clear placeholder="请输入检测项名称" />
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                <a-form-item label="所属分区" class="search-item">
+                  <a-select v-model:value="searchForm.areaId" allow-clear placeholder="请选择分区">
+                    <a-select-option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
+                  </a-select>
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                <a-form-item label="巡检点" class="search-item">
+                  <a-select v-model:value="searchForm.pointId" allow-clear placeholder="请选择巡检点">
+                    <a-select-option v-for="point in pointsByArea" :key="point.id" :value="point.id">{{ point.name }}</a-select-option>
+                  </a-select>
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                <a-form-item label="设施设备" class="search-item">
+                  <a-select v-model:value="searchForm.deviceId" allow-clear placeholder="请选择设备">
+                    <a-select-option v-for="device in devicesByPoint" :key="device.id" :value="device.id">{{ device.name }}</a-select-option>
+                  </a-select>
+                </a-form-item>
+              </a-col>
+              <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                <a-form-item label="优先级" class="search-item">
+                  <a-select v-model:value="searchForm.priority" allow-clear placeholder="请选择优先级">
+                    <a-select-option value="high">高</a-select-option>
+                    <a-select-option value="medium">中</a-select-option>
+                    <a-select-option value="low">低</a-select-option>
+                  </a-select>
+                </a-form-item>
+              </a-col>
+            </a-row>
+            <div class="search-actions">
+              <a-space>
+                <a-button type="primary" @click="noopSearch">搜索</a-button>
+                <a-button @click="resetSearch">重置</a-button>
+              </a-space>
+            </div>
+          </a-form>
+        </a-card>
+
+        <a-table :columns="columns" :data-source="filteredItems" row-key="id" :scroll="{ x: 1560 }">
           <template #bodyCell="{ column, record, index }">
             <template v-if="column.key === 'index'">{{ index + 1 }}</template>
-            <template v-if="column.key === 'region'">{{ getPointByDevice(record.deviceId)?.areaName || '-' }}</template>
-            <template v-if="column.key === 'point'">{{ getPointNameByDevice(record.deviceId) }}</template>
-            <template v-if="column.key === 'device'">{{ deviceNameMap[record.deviceId] || '-' }}</template>
-            <template v-if="column.key === 'priority'">
-              <a-tag :color="record.priority === 'primary' ? 'red' : 'default'">{{ record.priority === 'primary' ? '主要' : '次要' }}</a-tag>
+            <template v-else-if="column.key === 'detectionType'">
+              <a-tag :color="record.detectionType === 'gas' ? 'red' : record.detectionType === 'liquid' ? 'blue' : 'gold'">
+                {{ detectionTypeText(record.detectionType) }}
+              </a-tag>
             </template>
-            <template v-if="column.key === 'checkCycle'">{{ getCheckCycleText(record) }}</template>
-            <template v-if="column.key === 'checkWindow'">{{ getCheckWindowText(record) }}</template>
-            <template v-if="column.key === 'actions'">
-              <a-space size="small">
+            <template v-else-if="column.key === 'region'">{{ getPoint(record.deviceId)?.areaName || '-' }}</template>
+            <template v-else-if="column.key === 'point'">{{ getPoint(record.deviceId)?.name || '-' }}</template>
+            <template v-else-if="column.key === 'device'">{{ getDeviceName(record.deviceId) }}</template>
+            <template v-else-if="column.key === 'priority'">
+              <a-tag :color="priorityColor(record.priorityLevel || inferPriority(record))">{{ priorityText(record.priorityLevel || inferPriority(record)) }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'cycle'">{{ getCycleText(record) }}</template>
+            <template v-else-if="column.key === 'window'">{{ getWindowText(record) }}</template>
+            <template v-else-if="column.key === 'threshold'">{{ getThresholdText(record) }}</template>
+            <template v-else-if="column.key === 'reference'">
+              <img v-if="record.referenceImageUrl" :src="record.referenceImageUrl" class="thumb" alt="reference" />
+              <span v-else>-</span>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <a-space>
                 <a-button type="link" @click="openEditModal(record)">编辑</a-button>
                 <a-button type="link" danger @click="handleDelete(record.id)">删除</a-button>
               </a-space>
@@ -53,29 +104,13 @@
       </a-layout-content>
     </a-layout>
 
-    <a-modal
-      v-model:open="editModalVisible"
-      :title="editMode === 'create' ? '新增检测项' : '编辑检测项'"
-      @ok="handleSave"
-      @cancel="editModalVisible = false"
-      ok-text="保存"
-      cancel-text="取消"
-      width="760px"
-    >
+    <a-modal v-model:open="editVisible" :title="editMode === 'create' ? '新增检测项' : '编辑检测项'" width="760px">
       <a-form layout="vertical">
-        <div v-if="editForm.deviceId" class="ptz-preview-section">
-          <div class="ptz-preview-title">参考图</div>
-          <div class="ptz-preview-frame">
-            <img :src="ptzMockImage" alt="参考图" />
-            <div class="ptz-roi-box">ROI</div>
-          </div>
-        </div>
-
         <a-row :gutter="12">
           <a-col :span="8">
             <a-form-item label="关联分区" required>
               <a-select v-model:value="editForm.areaId" placeholder="请选择分区" @change="onAreaChange">
-                <a-select-option v-for="region in allRegions" :key="region.id" :value="region.id">{{ region.name }}</a-select-option>
+                <a-select-option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
@@ -94,45 +129,34 @@
             </a-form-item>
           </a-col>
         </a-row>
-
         <a-row :gutter="12">
-          <a-col :span="12">
-            <a-form-item label="检测项名称" required>
-              <a-input v-model:value="editForm.name" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="检测项编码" required>
-              <a-input v-model:value="editForm.code" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-
-        <a-row :gutter="12">
+          <a-col :span="8"><a-form-item label="检测项名称" required><a-input v-model:value="editForm.name" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item label="检测项编码" required><a-input v-model:value="editForm.code" /></a-form-item></a-col>
           <a-col :span="8">
-            <a-form-item label="类型">
-              <a-select v-model:value="editForm.unit">
-                <a-select-option value="温度">温度</a-select-option>
-                <a-select-option value="外观">外观</a-select-option>
-                <a-select-option value="压力">压力</a-select-option>
-                <a-select-option value="液位">液位</a-select-option>
-                <a-select-option value="状态">状态</a-select-option>
+            <a-form-item label="检测类型" required>
+              <a-select v-model:value="editForm.detectionType">
+                <a-select-option value="gas">气体</a-select-option>
+                <a-select-option value="liquid">液体</a-select-option>
+                <a-select-option value="appearance">外观</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
+        </a-row>
+        <a-row :gutter="12">
           <a-col :span="8">
             <a-form-item label="优先级">
-              <a-select v-model:value="editForm.priority">
-                <a-select-option value="primary">主要</a-select-option>
-                <a-select-option value="secondary">次要</a-select-option>
+              <a-select v-model:value="editForm.priorityLevel">
+                <a-select-option value="high">高</a-select-option>
+                <a-select-option value="medium">中</a-select-option>
+                <a-select-option value="low">低</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
           <a-col :span="8">
             <a-form-item label="巡检周期">
               <a-input-group compact>
-                <a-input-number v-model:value="editForm.cycleValue" :min="1" style="width: 58%" />
-                <a-select v-model:value="editForm.cycleUnit" style="width: 42%">
+                <a-input-number v-model:value="editForm.cycleValue" :min="1" style="width: 50%" />
+                <a-select v-model:value="editForm.cycleUnit" style="width: 50%">
                   <a-select-option value="hour">小时</a-select-option>
                   <a-select-option value="day">天</a-select-option>
                   <a-select-option value="week">周</a-select-option>
@@ -140,514 +164,480 @@
               </a-input-group>
             </a-form-item>
           </a-col>
+          <a-col :span="8"><a-form-item label="巡检窗口"><a-input v-model:value="editForm.windowText" placeholder="例如 08:00 - 18:00" /></a-form-item></a-col>
         </a-row>
-
         <a-row :gutter="12">
           <a-col :span="12">
-            <a-form-item label="巡检窗口">
-              <a-time-picker v-model:value="editForm.windowStart" format="HH:mm" style="width: 48%" />
-              <span style="display:inline-block;width:4%;text-align:center;">-</span>
-              <a-time-picker v-model:value="editForm.windowEnd" format="HH:mm" style="width: 48%" />
+            <a-form-item label="告警阈值">
+              <a-input-number v-if="editForm.detectionType !== 'appearance'" v-model:value="editForm.thresholdValue" style="width: 100%" />
+              <a-input v-else value="-" disabled />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="参考图">
+              <div class="reference-image-field">
+                <a-upload
+                  v-if="!editForm.referenceImageUrl"
+                  :show-upload-list="false"
+                  :before-upload="() => false"
+                  @change="handleReferenceImageChange"
+                >
+                  <a-button>上传参考图</a-button>
+                </a-upload>
+                <div v-else class="reference-preview-wrap">
+                  <img :src="editForm.referenceImageUrl" class="preview-image" alt="参考图预览" />
+                  <a-space>
+                    <a-upload :show-upload-list="false" :before-upload="() => false" @change="handleReferenceImageChange">
+                      <a-button size="small">重新上传</a-button>
+                    </a-upload>
+                    <a-button size="small" @click="clearReferenceImage">清除</a-button>
+                  </a-space>
+                </div>
+              </div>
             </a-form-item>
           </a-col>
         </a-row>
       </a-form>
+      <template #footer>
+        <a-space>
+          <a-button @click="handleCancel">取消</a-button>
+          <a-button type="primary" @click="handleSave">保存</a-button>
+          <a-button type="primary" ghost @click="handleSaveAndGoCockpit">保存并前往驾驶舱</a-button>
+        </a-space>
+      </template>
     </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import dayjs from 'dayjs'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Modal, message } from 'ant-design-vue'
-import { PlusOutlined } from '@ant-design/icons-vue'
 import { useInspectionStore } from '@/stores/inspection'
-import {
-  CalibrationStatus,
-  DeviceStatus,
-  InspectionPointType,
-  PositionSource,
-  type InspectionDevice,
-  type InspectionDeviceCheckItem,
-  type InspectionPoint
-} from '@/types/inspection'
 
 const inspectionStore = useInspectionStore()
-const inspectionPoints = ref<InspectionPoint[]>([])
-const devices = ref<InspectionDevice[]>([])
-const checkItems = ref<InspectionDeviceCheckItem[]>([])
-const ptzMockImage = new URL('../../车间.png', import.meta.url).href
-
+const router = useRouter()
 const treeSearchValue = ref('')
-const expandedTreeKeys = ref<string[]>(['all'])
 const selectedTreeKeys = ref<string[]>(['all'])
-const selectedTreeKey = computed(() => selectedTreeKeys.value[0] || 'all')
-
-const editModalVisible = ref(false)
+const editVisible = ref(false)
 const editMode = ref<'create' | 'edit'>('create')
 const editingId = ref('')
-const editForm = reactive({
+
+const searchForm = reactive({
+  index: '',
+  name: '',
+  areaId: '',
+  pointId: '',
+  deviceId: '',
+  priority: ''
+})
+
+const editForm = reactive<any>({
   areaId: '',
   pointId: '',
   deviceId: '',
   name: '',
   code: '',
-  unit: '温度',
-  priority: 'secondary' as 'primary' | 'secondary',
+  detectionType: 'gas',
+  priorityLevel: 'medium',
   cycleValue: 1,
-  cycleUnit: 'day' as 'hour' | 'day' | 'week',
-  windowStart: dayjs('08:00', 'HH:mm'),
-  windowEnd: dayjs('18:00', 'HH:mm')
+  cycleUnit: 'day',
+  windowText: '08:00 - 18:00',
+  thresholdValue: undefined,
+  referenceImageUrl: ''
 })
 
-const mapRegionMap = computed(() => {
-  const map: Record<string, { id: string; name: string }> = {}
-  inspectionStore.inspectionMaps.forEach((m) => {
-    ;(m.regions || []).forEach((r) => {
-      map[r.id] = { id: r.id, name: r.name }
-    })
+const areas = computed(() => {
+  const map = new Map<string, any>()
+  inspectionStore.inspectionPoints.forEach((point: any) => {
+    if (point.areaId) map.set(point.areaId, { id: point.areaId, name: point.areaName || point.areaId })
   })
-  return map
+  return Array.from(map.values())
 })
 
-const allRegions = computed(() => Object.values(mapRegionMap.value))
-
-const treeData = computed(() => {
-  const regionNodes = allRegions.value.map((region) => {
-    const regionPoints = inspectionPoints.value.filter((p) => p.areaId === region.id)
-    return {
-      title: region.name,
-      key: `region:${region.id}`,
-      children: regionPoints.map((point) => ({
+const treeData = computed(() => [{
+  title: '全部',
+  key: 'all',
+  children: areas.value.map((area: any) => ({
+    title: area.name,
+    key: `area:${area.id}`,
+    children: inspectionStore.inspectionPoints
+      .filter((point: any) => point.areaId === area.id)
+      .map((point: any) => ({
         title: point.name,
         key: `point:${point.id}`,
-        children: devices.value
-          .filter((d) => d.inspectionPointId === point.id)
-          .map((device) => ({ title: device.name, key: `device:${device.id}` }))
+        children: inspectionStore.inspectionDevices
+          .filter((device: any) => device.inspectionPointId === point.id)
+          .map((device: any) => ({ title: device.name, key: `device:${device.id}` }))
       }))
-    }
-  })
-  return [{ title: '全部', key: 'all', children: regionNodes }]
-})
+  }))
+}])
 
-const filteredTreeData = computed(() => {
-  if (!treeSearchValue.value.trim()) return treeData.value
-  const q = treeSearchValue.value.trim().toLowerCase()
-  const regionNodes = (treeData.value[0].children || []).filter((region: any) =>
-    JSON.stringify(region).toLowerCase().includes(q)
-  )
-  return [{ title: '全部', key: 'all', children: regionNodes }]
-})
+function filterTree(nodes: any[], keyword: string): any[] {
+  if (!keyword) return nodes
+  return nodes
+    .map((node) => {
+      const children = filterTree(node.children || [], keyword)
+      const matched = String(node.title || '').toLowerCase().includes(keyword)
+      return matched || children.length ? { ...node, children } : null
+    })
+    .filter(Boolean) as any[]
+}
 
-const deviceNameMap = computed<Record<string, string>>(() => {
-  const map: Record<string, string> = {}
-  devices.value.forEach((d) => {
-    map[d.id] = d.name
-  })
-  return map
-})
+const filteredTreeData = computed(() => filterTree(treeData.value, treeSearchValue.value.trim().toLowerCase()))
+const selectedTreeKey = computed(() => selectedTreeKeys.value[0] || 'all')
 
-const selectedPathLabel = computed(() => {
-  if (selectedTreeKey.value === 'all') return ''
-  if (selectedTreeKey.value.startsWith('device:')) return deviceNameMap.value[selectedTreeKey.value.replace('device:', '')] || ''
-  if (selectedTreeKey.value.startsWith('point:')) return inspectionPoints.value.find((p) => p.id === selectedTreeKey.value.replace('point:', ''))?.name || ''
-  if (selectedTreeKey.value.startsWith('region:')) return mapRegionMap.value[selectedTreeKey.value.replace('region:', '')]?.name || ''
-  return ''
-})
+function resolveTreeLabel(key: string) {
+  if (key === 'all') return ''
+  const [type, id] = key.split(':')
+  if (type === 'area') return areas.value.find((item: any) => item.id === id)?.name || key
+  if (type === 'point') return inspectionStore.inspectionPoints.find((item: any) => item.id === id)?.name || key
+  if (type === 'device') return inspectionStore.inspectionDevices.find((item: any) => item.id === id)?.name || key
+  return key
+}
+
+const selectedPathLabel = computed(() => resolveTreeLabel(selectedTreeKey.value))
+const selectablePoints = computed(() => inspectionStore.inspectionPoints.filter((point: any) => !editForm.areaId || point.areaId === editForm.areaId))
+const selectableDevices = computed(() => inspectionStore.inspectionDevices.filter((device: any) => !editForm.pointId || device.inspectionPointId === editForm.pointId))
+const pointsByArea = computed(() => inspectionStore.inspectionPoints.filter(point => !searchForm.areaId || point.areaId === searchForm.areaId))
+const devicesByPoint = computed(() => inspectionStore.inspectionDevices.filter(device => !searchForm.pointId || device.inspectionPointId === searchForm.pointId))
 
 const columns = [
   { title: '序号', key: 'index', width: 70 },
-  { title: '检测项名称', dataIndex: 'name', width: 140 },
-  { title: '编码', dataIndex: 'code', width: 140 },
-  { title: '关联分区', key: 'region', width: 120 },
-  { title: '关联巡检点', key: 'point', width: 140 },
-  { title: '关联设施设备', key: 'device', width: 140 },
-  { title: '优先级', key: 'priority', width: 90 },
-  { title: '巡检周期', key: 'checkCycle', width: 120 },
-  { title: '巡检窗口', key: 'checkWindow', width: 150 },
-  { title: '操作', key: 'actions', width: 130, fixed: 'right' }
+  { title: '检测项名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: '检测类型', key: 'detectionType', width: 110 },
+  { title: '所属分区', key: 'region', width: 140 },
+  { title: '巡检点', key: 'point', width: 160 },
+  { title: '设施设备', key: 'device', width: 160 },
+  { title: '优先级', key: 'priority', width: 100 },
+  { title: '巡检周期', key: 'cycle', width: 120 },
+  { title: '巡检窗口', key: 'window', width: 160 },
+  { title: '告警阈值', key: 'threshold', width: 140 },
+  { title: '参考图', key: 'reference', width: 110 },
+  { title: '操作', key: 'actions', width: 120 }
 ]
 
-const filteredCheckItems = computed(() => {
-  if (selectedTreeKey.value === 'all') return checkItems.value
-  if (selectedTreeKey.value.startsWith('device:')) {
-    const deviceId = selectedTreeKey.value.replace('device:', '')
-    return checkItems.value.filter((i) => i.deviceId === deviceId)
-  }
-  if (selectedTreeKey.value.startsWith('point:')) {
-    const pointId = selectedTreeKey.value.replace('point:', '')
-    const deviceIds = devices.value.filter((d) => d.inspectionPointId === pointId).map((d) => d.id)
-    return checkItems.value.filter((i) => deviceIds.includes(i.deviceId))
-  }
-  if (selectedTreeKey.value.startsWith('region:')) {
-    const regionId = selectedTreeKey.value.replace('region:', '')
-    const pointIds = inspectionPoints.value.filter((p) => p.areaId === regionId).map((p) => p.id)
-    const deviceIds = devices.value.filter((d) => pointIds.includes(d.inspectionPointId)).map((d) => d.id)
-    return checkItems.value.filter((i) => deviceIds.includes(i.deviceId))
-  }
-  return checkItems.value
+function inferDetectionType(name: string): 'gas' | 'liquid' | 'appearance' {
+  if (name.includes('气') || name.includes('氧') || name.includes('硫化氢') || name.includes('一氧化碳')) return 'gas'
+  if (name.includes('液') || name.includes('液位')) return 'liquid'
+  return 'appearance'
+}
+
+function detectionTypeText(type: string) {
+  if (type === 'gas') return '气体'
+  if (type === 'liquid') return '液体'
+  return '外观'
+}
+
+function inferPriority(record: any): 'high' | 'medium' | 'low' {
+  if (record.priority === 'primary') return 'high'
+  return 'medium'
+}
+
+function priorityText(value: 'high' | 'medium' | 'low') {
+  if (value === 'high') return '高'
+  if (value === 'low') return '低'
+  return '中'
+}
+
+function priorityColor(value: 'high' | 'medium' | 'low') {
+  if (value === 'high') return 'red'
+  if (value === 'low') return 'default'
+  return 'blue'
+}
+
+const filteredItems = computed(() => {
+  const base = inspectionStore.inspectionDeviceCheckItems
+    .map((item, idx) => ({
+      ...item,
+      _index: idx + 1,
+      detectionType: (item as any).detectionType || inferDetectionType(item.name),
+      priorityLevel: (item as any).priorityLevel || inferPriority(item)
+    }))
+    .filter((item: any) => {
+      const device = inspectionStore.inspectionDevices.find((d: any) => d.id === item.deviceId) as any
+      const point = inspectionStore.inspectionPoints.find((p: any) => p.id === device?.inspectionPointId) as any
+      if (selectedTreeKey.value === 'all') return true
+      if (selectedTreeKey.value.startsWith('device:')) return item.deviceId === selectedTreeKey.value.replace('device:', '')
+      if (selectedTreeKey.value.startsWith('point:')) return device?.inspectionPointId === selectedTreeKey.value.replace('point:', '')
+      if (selectedTreeKey.value.startsWith('area:')) return point?.areaId === selectedTreeKey.value.replace('area:', '')
+      return true
+    })
+
+  return base.filter((item: any) => {
+    const device = inspectionStore.inspectionDevices.find((d: any) => d.id === item.deviceId) as any
+    const point = inspectionStore.inspectionPoints.find((p: any) => p.id === device?.inspectionPointId) as any
+
+    const matchIndex = !searchForm.index || String(item._index).includes(searchForm.index.trim())
+    const matchName = !searchForm.name || item.name.toLowerCase().includes(searchForm.name.trim().toLowerCase())
+    const matchArea = !searchForm.areaId || point?.areaId === searchForm.areaId
+    const matchPoint = !searchForm.pointId || point?.id === searchForm.pointId
+    const matchDevice = !searchForm.deviceId || item.deviceId === searchForm.deviceId
+    const matchPriority = !searchForm.priority || item.priorityLevel === searchForm.priority
+
+    return matchIndex && matchName && matchArea && matchPoint && matchDevice && matchPriority
+  })
 })
 
-const selectablePoints = computed(() => inspectionPoints.value.filter((p) => p.areaId === editForm.areaId))
-const selectableDevices = computed(() => devices.value.filter((d) => d.inspectionPointId === editForm.pointId))
-
-function getPointByDevice(deviceId: string) {
-  const device = devices.value.find((d) => d.id === deviceId)
-  return inspectionPoints.value.find((p) => p.id === device?.inspectionPointId)
+function getDeviceName(deviceId: string) {
+  return inspectionStore.inspectionDevices.find((device: any) => device.id === deviceId)?.name || '-'
 }
 
-function getPointNameByDevice(deviceId: string) {
-  return getPointByDevice(deviceId)?.name || '-'
+function getPoint(deviceId: string) {
+  const device = inspectionStore.inspectionDevices.find((item: any) => item.id === deviceId)
+  return inspectionStore.inspectionPoints.find((point: any) => point.id === device?.inspectionPointId) as any
 }
 
-function getCheckCycleText(item: InspectionDeviceCheckItem) {
-  const cycle = item.inspectionFrequency || devices.value.find((d) => d.id === item.deviceId)?.inspectionFrequency
-  if (!cycle) return '-'
-  const unitText = { hour: '小时', day: '天', week: '周' }[cycle.unit] || cycle.unit
-  return `每${cycle.value}${unitText}`
+function getCycleText(record: any) {
+  return record.inspectionFrequency
+    ? `${record.inspectionFrequency.value}${record.inspectionFrequency.unit === 'day' ? '天' : record.inspectionFrequency.unit === 'week' ? '周' : '小时'}`
+    : '-'
 }
 
-function getCheckWindowText(item: InspectionDeviceCheckItem) {
-  const window = item.executionWindow || devices.value.find((d) => d.id === item.deviceId)?.executionWindow
-  if (!window) return '-'
-  return `${window.startTime}-${window.endTime}`
+function getWindowText(record: any) {
+  return record.executionWindow ? `${record.executionWindow.startTime} - ${record.executionWindow.endTime}` : '-'
+}
+
+function getThresholdText(record: any) {
+  if (record.detectionType === 'appearance') return '-'
+  const warning = record.threshold?.warning
+  const max = record.threshold?.max
+  if (warning === undefined && max === undefined) return '-'
+  return `${warning ?? '-'} / ${max ?? '-'}`
+}
+
+function parseWindow(text: string) {
+  const [startTime, endTime] = String(text || '').split('-').map((item) => item.trim())
+  return { startTime: startTime || '08:00', endTime: endTime || '18:00' }
+}
+
+function mapPriority(level: 'high' | 'medium' | 'low') {
+  return level === 'high' ? 'primary' : 'secondary'
+}
+
+function noopSearch() {
+  // 触发 computed 过滤
+}
+
+function resetSearch() {
+  searchForm.index = ''
+  searchForm.name = ''
+  searchForm.areaId = ''
+  searchForm.pointId = ''
+  searchForm.deviceId = ''
+  searchForm.priority = ''
+}
+
+function resetForm() {
+  editForm.areaId = ''
+  editForm.pointId = ''
+  editForm.deviceId = ''
+  editForm.name = ''
+  editForm.code = ''
+  editForm.detectionType = 'gas'
+  editForm.priorityLevel = 'medium'
+  editForm.cycleValue = 1
+  editForm.cycleUnit = 'day'
+  editForm.windowText = '08:00 - 18:00'
+  editForm.thresholdValue = undefined
+  editForm.referenceImageUrl = ''
 }
 
 function openCreateModal() {
   editMode.value = 'create'
   editingId.value = ''
-  prefillHierarchyByTree()
-  editForm.name = ''
-  editForm.code = ''
-  editForm.unit = '温度'
-  editForm.priority = 'secondary'
-  editForm.cycleValue = 1
-  editForm.cycleUnit = 'day'
-  editForm.windowStart = dayjs('08:00', 'HH:mm')
-  editForm.windowEnd = dayjs('18:00', 'HH:mm')
-  editModalVisible.value = true
+  prefillByTree()
+  editVisible.value = true
 }
 
-function openEditModal(record: InspectionDeviceCheckItem) {
+function prefillByTree() {
+  resetForm()
+  if (selectedTreeKey.value.startsWith('area:')) {
+    editForm.areaId = selectedTreeKey.value.replace('area:', '')
+  }
+  if (selectedTreeKey.value.startsWith('point:')) {
+    const pointId = selectedTreeKey.value.replace('point:', '')
+    const point = inspectionStore.inspectionPoints.find((item: any) => item.id === pointId) as any
+    editForm.pointId = pointId
+    editForm.areaId = point?.areaId || ''
+  }
+  if (selectedTreeKey.value.startsWith('device:')) {
+    const deviceId = selectedTreeKey.value.replace('device:', '')
+    const device = inspectionStore.inspectionDevices.find((item: any) => item.id === deviceId) as any
+    const point = inspectionStore.inspectionPoints.find((item: any) => item.id === device?.inspectionPointId) as any
+    editForm.deviceId = deviceId
+    editForm.pointId = point?.id || ''
+    editForm.areaId = point?.areaId || ''
+  }
+}
+
+function openEditModal(record: any) {
   editMode.value = 'edit'
   editingId.value = record.id
-  const point = getPointByDevice(record.deviceId)
+  const point = getPoint(record.deviceId)
   editForm.areaId = point?.areaId || ''
   editForm.pointId = point?.id || ''
   editForm.deviceId = record.deviceId
   editForm.name = record.name
   editForm.code = record.code
-  editForm.unit = record.unit || '温度'
-  editForm.priority = record.priority || 'secondary'
-  const cycle = record.inspectionFrequency || { value: 1, unit: 'day' as const }
-  editForm.cycleValue = cycle.value
-  editForm.cycleUnit = cycle.unit
-  const window = record.executionWindow || { startTime: '08:00', endTime: '18:00' }
-  editForm.windowStart = dayjs(window.startTime, 'HH:mm')
-  editForm.windowEnd = dayjs(window.endTime, 'HH:mm')
-  editModalVisible.value = true
-}
-
-function prefillHierarchyByTree() {
-  if (selectedTreeKey.value.startsWith('region:')) {
-    editForm.areaId = selectedTreeKey.value.replace('region:', '')
-    editForm.pointId = inspectionPoints.value.find((p) => p.areaId === editForm.areaId)?.id || ''
-    editForm.deviceId = devices.value.find((d) => d.inspectionPointId === editForm.pointId)?.id || ''
-  } else if (selectedTreeKey.value.startsWith('point:')) {
-    editForm.pointId = selectedTreeKey.value.replace('point:', '')
-    const point = inspectionPoints.value.find((p) => p.id === editForm.pointId)
-    editForm.areaId = point?.areaId || ''
-    editForm.deviceId = devices.value.find((d) => d.inspectionPointId === editForm.pointId)?.id || ''
-  } else if (selectedTreeKey.value.startsWith('device:')) {
-    editForm.deviceId = selectedTreeKey.value.replace('device:', '')
-    const point = getPointByDevice(editForm.deviceId)
-    editForm.pointId = point?.id || ''
-    editForm.areaId = point?.areaId || ''
-  } else {
-    editForm.areaId = allRegions.value[0]?.id || ''
-    editForm.pointId = inspectionPoints.value.find((p) => p.areaId === editForm.areaId)?.id || ''
-    editForm.deviceId = devices.value.find((d) => d.inspectionPointId === editForm.pointId)?.id || ''
-  }
+  editForm.detectionType = record.detectionType || inferDetectionType(record.name)
+  editForm.priorityLevel = record.priorityLevel || inferPriority(record)
+  editForm.cycleValue = record.inspectionFrequency?.value || 1
+  editForm.cycleUnit = record.inspectionFrequency?.unit || 'day'
+  editForm.windowText = record.executionWindow ? `${record.executionWindow.startTime} - ${record.executionWindow.endTime}` : '08:00 - 18:00'
+  editForm.thresholdValue = record.threshold?.warning || record.threshold?.max
+  editForm.referenceImageUrl = record.referenceImageUrl || record.visionMapping?.customImageUrl || ''
+  editVisible.value = true
 }
 
 function onAreaChange() {
-  editForm.pointId = selectablePoints.value[0]?.id || ''
-  onPointChange()
+  editForm.pointId = ''
+  editForm.deviceId = ''
 }
 
 function onPointChange() {
-  editForm.deviceId = selectableDevices.value[0]?.id || ''
+  editForm.deviceId = ''
 }
 
-function saveItem() {
-  const now = new Date()
+function saveCurrentEdit(): boolean {
+  if (!editForm.areaId || !editForm.pointId || !editForm.deviceId || !editForm.name || !editForm.code) {
+    message.error('请完整填写分区、巡检点、设备、名称和编码')
+    return false
+  }
+
   inspectionStore.saveInspectionDeviceCheckItem({
-    id: editMode.value === 'edit' ? editingId.value : undefined,
+    id: editingId.value || `check-${Date.now()}`,
     deviceId: editForm.deviceId,
     name: editForm.name,
     code: editForm.code,
-    checkType: 'vision',
-    unit: editForm.unit,
-    priority: editForm.priority,
+    checkType: 'threshold',
+    detectionType: editForm.detectionType,
+    priorityLevel: editForm.priorityLevel,
+    priority: mapPriority(editForm.priorityLevel),
     inspectionFrequency: { value: editForm.cycleValue, unit: editForm.cycleUnit },
-    executionWindow: {
-      startTime: editForm.windowStart.format('HH:mm'),
-      endTime: editForm.windowEnd.format('HH:mm')
-    },
-    threshold: {},
-    createdAt: now,
-    updatedAt: now
+    executionWindow: parseWindow(editForm.windowText),
+    unit: editForm.detectionType === 'gas' ? 'ppm' : editForm.detectionType === 'liquid' ? 'm' : '-',
+    threshold: editForm.detectionType === 'appearance' ? {} : { warning: editForm.thresholdValue, max: editForm.thresholdValue },
+    referenceImageUrl: editForm.referenceImageUrl,
+    visionMapping: editForm.referenceImageUrl
+      ? { sourceType: 'manual', customImageUrl: editForm.referenceImageUrl, recognitionMode: 'ai' }
+      : undefined,
+    createdAt: new Date(),
+    updatedAt: new Date()
   } as any)
-  message.success('保存成功')
-  editModalVisible.value = false
-  fetchData()
+
+  return true
 }
 
 function handleSave() {
-  if (!editForm.areaId || !editForm.pointId || !editForm.deviceId || !editForm.name || !editForm.code) {
-    message.error('请填写完整信息')
-    return
+  const saved = saveCurrentEdit()
+  if (!saved) return
+  editVisible.value = false
+  message.success('检测项已保存')
+}
+
+function handleSaveAndGoCockpit() {
+  const saved = saveCurrentEdit()
+  if (!saved) return
+  editVisible.value = false
+  message.success('检测项已保存，正在前往驾驶舱')
+  router.push('/management/cockpit/view')
+}
+
+function handleCancel() {
+  editVisible.value = false
+}
+
+function clearReferenceImage() {
+  editForm.referenceImageUrl = ''
+}
+
+function handleReferenceImageChange(info: any) {
+  const file = info?.file?.originFileObj
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    editForm.referenceImageUrl = String(reader.result || '')
   }
-  const device = devices.value.find((d) => d.id === editForm.deviceId)
-  const differsCycle = device?.inspectionFrequency && (device.inspectionFrequency.value !== editForm.cycleValue || device.inspectionFrequency.unit !== editForm.cycleUnit)
-  const differsWindow = device?.executionWindow && (device.executionWindow.startTime !== editForm.windowStart.format('HH:mm') || device.executionWindow.endTime !== editForm.windowEnd.format('HH:mm'))
-  if (differsCycle || differsWindow) {
-    Modal.confirm({
-      title: '检测项配置与设备默认配置存在差异',
-      content: '当前检测项巡检周期/巡检窗口与所属设备不一致，是否确认保存？',
-      okText: '确认保存',
-      cancelText: '取消',
-      onOk: saveItem
-    })
-    return
-  }
-  saveItem()
+  reader.readAsDataURL(file)
 }
 
 function handleDelete(id: string) {
   Modal.confirm({
-    title: '确认删除',
-    content: '确定要删除该检测项吗？',
-    okText: '确定',
-    cancelText: '取消',
-    onOk() {
+    title: '确认删除检测项？',
+    onOk: () => {
       inspectionStore.deleteInspectionDeviceCheckItem(id)
-      fetchData()
-      message.success('删除成功')
+      message.success('已删除')
     }
   })
 }
 
-function ensureTreeMockData() {
-  inspectionStore.fetchAllInspectionMaps()
-  inspectionStore.fetchAllInspectionPoints()
-  inspectionStore.fetchAllInspectionDevices()
-  inspectionStore.fetchAllInspectionDeviceCheckItems()
-
-  const maps = inspectionStore.inspectionMaps
-  const now = new Date()
-
-  maps.forEach((map) => {
-    ;(map.regions || []).forEach((region, idx) => {
-      const existedPoint = inspectionStore.inspectionPoints.find((point) => point.areaId === region.id)
-      const pointId = existedPoint?.id || `mock-point-${region.id}`
-      if (!existedPoint) {
-        inspectionStore.saveInspectionPoint({
-          id: pointId,
-          name: `${region.name}巡检点`,
-          code: `IP-${region.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6) || idx + 1}`,
-          pointType: InspectionPointType.FIXED,
-          description: `[巡检点] ${region.name}默认巡检点`,
-          mapId: map.id,
-          areaId: region.id,
-          areaName: region.name,
-          location: {
-            longitude: (map.geographicCoordinates?.longitude || 121.4737) + (idx + 1) * 0.0001,
-            latitude: (map.geographicCoordinates?.latitude || 31.2304) + (idx + 1) * 0.0001,
-            altitude: 0
-          },
-          mapPosition: {
-            x: Math.round(region.x + Math.max(30, region.width / 2)),
-            y: Math.round(region.y + Math.max(30, region.height / 2)),
-            yaw: 0
-          },
-          sequence: idx + 1,
-          calibrationStatus: CalibrationStatus.PENDING,
-          stayDurationSec: 30,
-          monitorPoints: [],
-          isCritical: false,
-          exceptionStrategy: { onFailure: 'skip', retryCount: 2, skipToNext: true } as any,
-          positionSource: PositionSource.MAP_PICK,
-          lastMapPickAt: now,
-          updatedBy: '系统管理员',
-          createdAt: now,
-          updatedAt: now
-        } as InspectionPoint)
-      }
-
-      const existedDevice = inspectionStore.inspectionDevices.find((device) => device.inspectionPointId === pointId)
-      const deviceId = existedDevice?.id || `mock-device-${region.id}`
-      if (!existedDevice) {
-        inspectionStore.saveInspectionDevice({
-          id: deviceId,
-          inspectionPointId: pointId,
-          name: `${region.name}温度计`,
-          code: `DEV-${region.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6) || idx + 1}`,
-          type: '温度计',
-          sequence: 1,
-          ptzPreset: { x: 12 + idx, y: 8 + idx, z: 1.5 },
-          referenceImageUrl:
-            'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=industrial%20meter%20inspection&image_size=square',
-          status: DeviceStatus.ACTIVE,
-          checkItems: [],
-          createdAt: now,
-          updatedAt: now
-        } as InspectionDevice)
-      }
-
-      const existedCheckItem = inspectionStore.inspectionDeviceCheckItems.find((item) => item.deviceId === deviceId)
-      if (!existedCheckItem) {
-        inspectionStore.saveInspectionDeviceCheckItem({
-          id: `mock-check-${region.id}`,
-          deviceId,
-          name: '温度',
-          code: `CHECK-${region.id.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6) || idx + 1}`,
-          checkType: 'vision',
-          priority: 'primary',
-          inspectionFrequency: { value: 4, unit: 'hour' },
-          executionWindow: { startTime: '08:00', endTime: '18:00' },
-          unit: '温度',
-          threshold: { min: 0, max: 100 },
-          visionMapping: { sourceType: 'system', recognitionMode: 'ocr', customImageUrl: '' },
-          createdAt: now,
-          updatedAt: now
-        } as any)
-      }
-    })
-  })
-}
-
-function fetchData() {
-  inspectionStore.fetchAllInspectionMaps()
-  inspectionStore.fetchAllInspectionPoints()
-  inspectionStore.fetchAllInspectionDevices()
-  inspectionStore.fetchAllInspectionDeviceCheckItems()
-  inspectionPoints.value = inspectionStore.inspectionPoints
-  devices.value = inspectionStore.inspectionDevices
-  checkItems.value = inspectionStore.inspectionDeviceCheckItems
-}
-
-onMounted(() => {
-  inspectionStore.initialize()
-  ensureTreeMockData()
-  fetchData()
-})
+onMounted(() => inspectionStore.initialize())
 </script>
 
-<style scoped lang="scss">
-.metric-management {
-  width: 100%;
-  height: 100%;
+<style scoped lang="css">
+.metric-layout {
+  margin-top: 16px;
+  gap: 16px;
+  background: transparent;
+}
 
-  .metric-layout {
-    margin-top: 16px;
-    min-height: 620px;
-    background: #fff;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-  }
+.tree-sider {
+  background: transparent;
+}
 
-  .tree-sider {
-    background: #fcfcfc;
-    border-right: 1px solid #f0f0f0;
-  }
+.tree-panel {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+}
 
-  .tree-panel {
-    padding: 16px;
-    height: 100%;
-    overflow: auto;
-  }
+.list-content {
+  min-width: 0;
+}
 
-  .list-content {
-    padding: 0 16px 16px;
-    background: #fff;
-  }
+.header-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-right: 8px;
+}
 
-  .content-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 0;
-    border-bottom: 1px solid #f0f0f0;
-    margin-bottom: 16px;
-  }
+.header-count {
+  color: #666;
+}
 
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.search-item {
+  margin-bottom: 8px;
+}
 
-  .header-title {
-    font-size: 16px;
-    font-weight: 600;
-  }
+.search-actions {
+  display: flex;
+  justify-content: flex-end;
+}
 
-  .header-count {
-    color: #8c8c8c;
-    font-size: 12px;
-  }
+.thumb,
+.preview-image {
+  width: 72px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
+}
 
-  .ptz-preview-section {
-    margin-bottom: 12px;
-    padding: 8px;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    background: #fafafa;
-  }
+.preview-image {
+  margin-top: 12px;
+  width: 180px;
+  height: 110px;
+}
 
-  .ptz-preview-title {
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: #595959;
-  }
+.reference-image-field {
+  min-height: 40px;
+}
 
-  .ptz-preview-frame {
-    position: relative;
-    width: 320px;
-    max-width: 100%;
-    height: 150px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid #d9d9d9;
-    background: #0f141b;
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0.92;
-    }
-  }
-
-  .ptz-roi-box {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 120px;
-    height: 80px;
-    transform: translate(-50%, -50%);
-    border: 2px solid #52c41a;
-    border-radius: 4px;
-    color: #52c41a;
-    font-size: 12px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding: 4px 6px;
-    background: rgba(82, 196, 26, 0.08);
-    box-shadow: 0 0 0 1px rgba(82, 196, 26, 0.25) inset;
-  }
+.reference-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 </style>

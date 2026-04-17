@@ -265,139 +265,111 @@ const handleCancel = () => {
 }
 </script>
 
-<style scoped lang="scss">
-.robot-form {
+<style scoped lang="css">.robot-form {
   max-width: 1120px;
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    
-    h2 {
-      margin: 0;
-      font-size: 22px;
-      font-weight: 600;
-      color: #1f1f1f;
-    }
-  }
-
-  :deep(.ant-card) {
-    border-radius: 12px;
-    border: 1px solid #f0f0f0;
-    box-shadow: 0 8px 24px rgba(31, 35, 41, 0.04);
-  }
-
-  :deep(.ant-card-body) {
-    padding: 20px 22px 16px;
-  }
-
-  :deep(.ant-form-item-label > label) {
-    font-weight: 500;
-    color: #262626;
-  }
-
-  :deep(.ant-input),
-  :deep(.ant-input-number),
-  :deep(.ant-select-selector) {
-    border-radius: 8px;
-  }
-
-  :deep(.ant-input-number) {
+}
+.robot-form .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.robot-form .page-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #1f1f1f;
+}
+.robot-form :deep(.ant-card) {
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  box-shadow: 0 8px 24px rgba(31, 35, 41, 0.04);
+}
+.robot-form :deep(.ant-card-body) {
+  padding: 20px 22px 16px;
+}
+.robot-form :deep(.ant-form-item-label > label) {
+  font-weight: 500;
+  color: #262626;
+}
+.robot-form :deep(.ant-input), .robot-form :deep(.ant-input-number), .robot-form :deep(.ant-select-selector) {
+  border-radius: 8px;
+}
+.robot-form :deep(.ant-input-number) {
+  width: 100%;
+}
+.robot-form .advanced-config-collapse {
+  margin-top: 4px;
+  background: transparent;
+}
+.robot-form .advanced-config-collapse :deep(.ant-collapse-item) {
+  border: 1px solid #e6f0ff;
+  border-radius: 10px !important;
+  overflow: hidden;
+  background: #f8fbff;
+}
+.robot-form .advanced-config-collapse :deep(.ant-collapse-item) .ant-collapse-header {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  padding: 13px 16px !important;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 1px solid #e6f0ff;
+}
+.robot-form .advanced-config-collapse :deep(.ant-collapse-item) .ant-collapse-header .ant-collapse-arrow {
+  color: #1890ff;
+  font-size: 14px;
+}
+.robot-form .advanced-config-collapse :deep(.ant-collapse-item) .ant-collapse-content {
+  border-top: none;
+  background: transparent;
+}
+.robot-form .advanced-config-collapse :deep(.ant-collapse-item) .ant-collapse-content .ant-collapse-content-box {
+  padding: 12px;
+}
+.robot-form .config-section {
+  margin-bottom: 14px;
+  padding: 14px 14px 8px;
+  border: 1px solid #edf2f7;
+  border-radius: 10px;
+  background: #ffffff;
+}
+.robot-form .config-section:last-child {
+  margin-bottom: 0;
+}
+.robot-form .config-section .section-title {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eaf4ff;
+  color: #175cd3;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.robot-form .unit-text {
+  margin-left: 6px;
+  color: #8c8c8c;
+  font-size: 12px;
+}
+.robot-form :deep(.ant-form-item) {
+  margin-bottom: 14px;
+}
+.robot-form :deep(.ant-divider) {
+  margin: 18px 0 14px !important;
+}
+@media (max-width: 992px) {
+  .robot-form :deep(.ant-form) .ant-col-12, .robot-form :deep(.ant-form) .ant-col-8 {
     width: 100%;
+    max-width: 100%;
+    flex: 0 0 100%;
   }
-
-  .advanced-config-collapse {
-    margin-top: 4px;
-    background: transparent;
-    
-    :deep(.ant-collapse-item) {
-      border: 1px solid #e6f0ff;
-      border-radius: 10px !important;
-      overflow: hidden;
-      background: #f8fbff;
-      
-      .ant-collapse-header {
-        background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-        padding: 13px 16px !important;
-        font-weight: 600;
-        color: #1f2937;
-        border-bottom: 1px solid #e6f0ff;
-        
-        .ant-collapse-arrow {
-          color: #1890ff;
-          font-size: 14px;
-        }
-      }
-      
-      .ant-collapse-content {
-        border-top: none;
-        background: transparent;
-        
-        .ant-collapse-content-box {
-          padding: 12px;
-        }
-      }
-    }
+  .robot-form :deep(.ant-card-body) {
+    padding: 14px 14px 10px;
   }
-
-  .config-section {
-    margin-bottom: 14px;
-    padding: 14px 14px 8px;
-    border: 1px solid #edf2f7;
-    border-radius: 10px;
-    background: #ffffff;
-    
-    &:last-child {
-      margin-bottom: 0;
-    }
-    
-    .section-title {
-      display: inline-flex;
-      align-items: center;
-      height: 30px;
-      padding: 0 10px;
-      border-radius: 999px;
-      background: #eaf4ff;
-      color: #175cd3;
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-  }
-
-  .unit-text {
-    margin-left: 6px;
-    color: #8c8c8c;
-    font-size: 12px;
-  }
-
-  :deep(.ant-form-item) {
-    margin-bottom: 14px;
-  }
-
-  :deep(.ant-divider) {
-    margin: 18px 0 14px !important;
-  }
-
-  @media (max-width: 992px) {
-    :deep(.ant-form) {
-      .ant-col-12,
-      .ant-col-8 {
-        width: 100%;
-        max-width: 100%;
-        flex: 0 0 100%;
-      }
-    }
-
-    :deep(.ant-card-body) {
-      padding: 14px 14px 10px;
-    }
-
-    .config-section {
-      padding: 12px 12px 6px;
-    }
+  .robot-form .config-section {
+    padding: 12px 12px 6px;
   }
 }
 </style>

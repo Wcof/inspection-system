@@ -1,311 +1,395 @@
 <template>
   <div class="point-manage">
-    <a-page-header title="点位管理" sub-title="在地图上新增和删除点位标记" @back="goBack">
-      <template #extra>
-        <a-select v-model:value="activeMapId" style="width: 280px" placeholder="请选择地图">
-          <a-select-option v-for="map in maps" :key="map.id" :value="map.id">
-            {{ map.name }}
-          </a-select-option>
-        </a-select>
-      </template>
-    </a-page-header>
+    <a-page-header title="点位设置" sub-title="地图位置与点位属性统一管理" />
 
-    <a-card style="margin-top: 16px">
-      <a-row :gutter="16">
-        <a-col :span="16">
-          <div class="map-panel">
-            <div class="map-panel-head">
-              <a-space>
-                <a-radio-group v-model:value="mapViewMode" button-style="solid">
-                  <a-radio-button value="2d">2D</a-radio-button>
-                  <a-radio-button value="3d">3D</a-radio-button>
-                </a-radio-group>
-                <span class="helper-text">
-                  <template v-if="addMode">新增标记模式：点击地图空白处完成新增</template>
-                  <template v-else-if="deleteMode">删除标记模式：点击标记可快速删除</template>
-                  <template v-else>普通模式：点选标记可高亮对应列表项</template>
-                </span>
-              </a-space>
-            </div>
+    <div class="layout-grid">
+      <a-card class="map-card" title="位置管理">
+        <template #extra>
+          <a-space v-if="mode !== 'moving'">
+            <a-button type="primary" @click="enterAddMode">新增点位</a-button>
+            <a-button @click="enterMoveMode">移动点位</a-button>
+          </a-space>
+          <a-space v-else>
+            <a-button type="primary" @click="confirmMove">确认</a-button>
+            <a-button @click="cancelMove">取消</a-button>
+          </a-space>
+        </template>
 
-            <div
-              ref="mapStageRef"
-              class="map-stage"
-              :class="{ 'mode-3d': mapViewMode === '3d', adding: addMode, deleting: deleteMode }"
-              @click="handleMapClick"
-            >
-              <img
-                v-if="activeMap?.imageUrl"
-                :src="activeMap.imageUrl"
-                alt="地图预览"
-                class="map-image"
-              />
-              <div v-else class="map-placeholder">
-                <span>{{ activeMap?.name || '未选择地图' }}</span>
-              </div>
-
-              <button
-                v-for="(point, idx) in pointRows"
-                :key="point.id"
-                class="map-marker"
-                :class="{ selected: selectedPointIds.includes(point.id), deleting: deleteMode }"
-                :style="getMarkerStyle(point)"
-                @click.stop="handleMarkerClick(point)"
-              >
-                {{ idx + 1 }}
-              </button>
-            </div>
+        <div class="map-stage" :style="mapStageStyle" @click="handleStageClick">
+          <div class="map-mask" />
+          <div class="map-tip">
+            <template v-if="mode === 'adding'">新增模式：在地图中点击位置后填写点位信息。</template>
+            <template v-else-if="mode === 'moving'">移动模式：先点击一个点位，再点击地图新位置。</template>
+            <template v-else>查看模式：可点击点位高亮，或切换到新增/移动模式。</template>
           </div>
-        </a-col>
 
-        <a-col :span="8">
-          <div class="list-panel">
-            <div class="list-toolbar">
-              <a-space>
-                <a-button :type="addMode ? 'primary' : 'default'" @click="toggleAddMode">
-                  新增标记
-                </a-button>
-                <a-button :type="deleteMode ? 'primary' : 'default'" danger @click="toggleDeleteMode">
-                  删除标记
-                </a-button>
-                <a-button danger :disabled="selectedPointIds.length === 0" @click="handleDeleteSelected">
-                  删除选中
-                </a-button>
-              </a-space>
-            </div>
+          <div
+            v-for="point in points"
+            :key="point.id"
+            class="marker"
+            :class="{
+              active: point.id === selectedPointId,
+              moving: mode === 'moving' && point.id === activeMovePointId
+            }"
+            :style="{ left: `${point.mapX}%`, top: `${point.mapY}%` }"
+            @click.stop="handlePointClick(point)"
+          >
+            <span class="marker-dot">{{ getShortType(point.bizType) }}</span>
+            <span class="marker-text">{{ point.name }}</span>
+          </div>
+        </div>
+      </a-card>
 
-            <a-table
-              :columns="columns"
-              :data-source="pointRows"
-              row-key="id"
-              size="small"
-              :pagination="false"
-              :scroll="{ y: 500 }"
-              :row-selection="rowSelection"
-            >
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'pointType'">
-                  <a-tag :color="record.bizType === '停车点' ? 'gold' : record.bizType === '充电点' ? 'green' : 'blue'">
-                    {{ record.bizType }}
-                  </a-tag>
-                </template>
-                <template v-if="column.key === 'location'">
-                  {{ record.locationText }}
-                </template>
-                <template v-if="column.key === 'preview'">
-                  <img v-if="record.previewImageUrl" :src="record.previewImageUrl" style="width: 56px; height: 56px; object-fit: cover; border-radius: 4px" />
-                  <span v-else>-</span>
-                </template>
-                <template v-if="column.key === 'updatedBy'">
-                  {{ record.updatedBy || '-' }}
-                </template>
+      <a-card title="属性管理列表">
+        <a-table :columns="columns" :data-source="points" row-key="id" :pagination="false" :scroll="{ y: 520 }">
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'pointType'">
+              <template v-if="editingId === record.id">
+                <a-select v-model:value="inlineEdit.type" style="width: 120px">
+                  <a-select-option value="inspection">巡检点</a-select-option>
+                  <a-select-option value="charging">充电点</a-select-option>
+                  <a-select-option value="parking">停车点</a-select-option>
+                </a-select>
               </template>
-            </a-table>
-          </div>
-        </a-col>
-      </a-row>
-    </a-card>
+              <a-tag v-else>{{ pointTypeText(record.bizType) }}</a-tag>
+            </template>
 
-    <a-modal
-      v-model:open="createPointVisible"
-      title="新增点位"
-      @ok="handleConfirmCreatePoint"
-      @cancel="handleCancelCreatePoint"
-      ok-text="确认新增"
-      cancel-text="取消"
-    >
+            <template v-else-if="column.key === 'name'">
+              <template v-if="editingId === record.id">
+                <a-input v-model:value="inlineEdit.name" />
+              </template>
+              <template v-else>{{ record.name }}</template>
+            </template>
+
+            <template v-else-if="column.key === 'location'">
+              {{ record.mapX.toFixed(2) }}, {{ record.mapY.toFixed(2) }}
+            </template>
+
+            <template v-else-if="column.key === 'actions'">
+              <a-space>
+                <template v-if="editingId === record.id">
+                  <a-button type="link" size="small" @click="saveInlineEdit(record)">保存</a-button>
+                  <a-button type="link" size="small" @click="cancelInlineEdit">取消</a-button>
+                </template>
+                <template v-else>
+                  <a-button type="link" size="small" @click="openInlineEdit(record)">编辑</a-button>
+                  <a-button type="link" size="small" danger @click="deletePoint(record)">删除</a-button>
+                </template>
+              </a-space>
+            </template>
+          </template>
+        </a-table>
+      </a-card>
+    </div>
+
+    <a-modal v-model:open="addModalVisible" title="新增点位" @ok="createPoint" @cancel="cancelAdd">
       <a-form layout="vertical">
         <a-form-item label="点位名称" required>
-          <a-input v-model:value="createPointForm.name" placeholder="请输入点位名称" />
+          <a-input v-model:value="addForm.name" placeholder="请输入点位名称" />
         </a-form-item>
         <a-form-item label="点位类型" required>
-          <a-select v-model:value="createPointForm.bizType" placeholder="请选择点位类型">
-            <a-select-option v-for="type in pointBizTypeOptions" :key="type" :value="type">
-              {{ type }}
-            </a-select-option>
+          <a-select v-model:value="addForm.type">
+            <a-select-option value="inspection">巡检点</a-select-option>
+            <a-select-option value="charging">充电点</a-select-option>
+            <a-select-option value="parking">停车点</a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="所属区域" required>
-          <a-select v-model:value="createPointForm.areaId" placeholder="请选择所属区域">
-            <a-select-option v-for="region in activeRegions" :key="region.id" :value="region.id">
-              {{ region.name }}
-            </a-select-option>
+        <a-form-item label="所属区域">
+          <a-select v-model:value="addForm.areaId" allow-clear placeholder="请选择区域">
+            <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
           </a-select>
         </a-form-item>
-        <a-alert type="info" show-icon>
-          <template #message>已定位坐标：X={{ pendingPoint.x }}，Y={{ pendingPoint.y }}</template>
-        </a-alert>
+        <a-form-item label="地图坐标">
+          <a-input :value="`${addForm.mapX.toFixed(2)}, ${addForm.mapY.toFixed(2)}`" disabled />
+        </a-form-item>
       </a-form>
     </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { Modal, message } from 'ant-design-vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { message, Modal } from 'ant-design-vue'
+import { useRoute } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
-import { CalibrationStatus, InspectionPointType, PositionSource, type InspectionPoint } from '@/types/inspection'
-import { ExceptionStrategy } from '@/types/robot'
+import { CalibrationStatus, InspectionPointType, PositionSource } from '@/types/inspection'
+import { ExceptionStrategy } from '@/types'
+import type { InspectionPoint, MapRegion } from '@/types/inspection'
 
-const router = useRouter()
-const route = useRoute()
+type BizPointType = 'inspection' | 'charging' | 'parking'
+type Mode = 'normal' | 'adding' | 'moving'
+
+interface PointRow {
+  id: string
+  name: string
+  code: string
+  mapId: string
+  mapX: number
+  mapY: number
+  areaId?: string
+  areaName?: string
+  bizType: BizPointType
+  raw: InspectionPoint
+}
+
 const inspectionStore = useInspectionStore()
+const route = useRoute()
+const currentMapId = computed(() => String(route.query.mapId || 'map-001'))
 
-const mapStageRef = ref<HTMLElement | null>(null)
-const activeMapId = ref('')
-const mapViewMode = ref<'2d' | '3d'>('2d')
-const addMode = ref(false)
-const deleteMode = ref(false)
-const selectedPointIds = ref<string[]>([])
-const createPointVisible = ref(false)
-const pendingPoint = ref({ x: 0, y: 0 })
-const pointBizTypeOptions = ['巡检点', '停车点', '充电点'] as const
-type PointBizType = typeof pointBizTypeOptions[number]
-const createPointForm = ref<{ name: string; bizType: PointBizType; areaId: string }>({
+const points = ref<PointRow[]>([])
+const mode = ref<Mode>('normal')
+const selectedPointId = ref('')
+const activeMovePointId = ref('')
+
+const editingId = ref('')
+const inlineEdit = reactive({ name: '', type: 'inspection' as BizPointType })
+
+const addModalVisible = ref(false)
+const addForm = reactive({
   name: '',
-  bizType: '巡检点',
-  areaId: ''
+  type: 'inspection' as BizPointType,
+  areaId: '',
+  mapX: 0,
+  mapY: 0
 })
 
-const maps = computed(() => inspectionStore.inspectionMaps)
-const activeMap = computed(() => maps.value.find(m => m.id === activeMapId.value))
-const points = computed(() => inspectionStore.inspectionPoints.filter(p => p.mapId === activeMapId.value))
-const activeRegions = computed(() => activeMap.value?.regions || [])
-
-const pointRows = computed(() =>
-  points.value
-    .slice()
-    .sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
-    .map((point) => ({
-      ...point,
-      bizType: getPointBizType(point),
-      locationText: `${point.location.longitude.toFixed(6)}, ${point.location.latitude.toFixed(6)}`,
-      updatedAtText: point.updatedAt ? new Date(point.updatedAt).toLocaleString() : '-',
-      calibrationTimeText: point.calibratedAt ? new Date(point.calibratedAt).toLocaleString() : '-',
-      checkItemCount: getPointCheckItemCount(point.id),
-      deviceCount: getPointDeviceCount(point.id)
-    }))
-)
+const moveDraft = ref<Record<string, { x: number; y: number }>>({})
+const mapBackgroundUrl = new URL('../../地图.png', import.meta.url).href
 
 const columns = [
-  { title: '巡检名称', dataIndex: 'name', key: 'name', width: 150 },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
-  { title: '点位类型', key: 'pointType', width: 100 },
-  { title: '点位经纬度', key: 'location' },
-  { title: '巡检项数量', dataIndex: 'checkItemCount', key: 'checkItemCount', width: 100 },
-  { title: '设施设备数量', dataIndex: 'deviceCount', key: 'deviceCount', width: 120 },
-  { title: '现场预览图', key: 'preview', width: 100 },
-  { title: '校准时间', dataIndex: 'calibrationTimeText', key: 'calibrationTimeText', width: 170 },
-  { title: '更新时间', dataIndex: 'updatedAtText', key: 'updatedAtText', width: 170 },
-  { title: '更新人', key: 'updatedBy', width: 100 }
+  { title: '点位名称', dataIndex: 'name', key: 'name' },
+  { title: '点位编码', dataIndex: 'code', key: 'code', width: 160 },
+  { title: '点位类型', key: 'pointType', width: 140 },
+  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 150 },
+  { title: '地图坐标', key: 'location', width: 170 },
+  { title: '操作', key: 'actions', width: 140 }
 ]
 
-const rowSelection = computed(() => ({
-  selectedRowKeys: selectedPointIds.value,
-  onChange: (keys: string[]) => {
-    selectedPointIds.value = keys
-  }
+const currentMap = computed(() => inspectionStore.inspectionMaps.find(map => map.id === currentMapId.value))
+const areaOptions = computed(() => currentMap.value?.regions || [])
+
+const mapStageStyle = computed(() => ({
+  backgroundImage: `url(${mapBackgroundUrl})`,
+  backgroundColor: '#eef3ff'
 }))
 
-function goBack() {
-  router.push('/implementation/map/list')
+function normalizeMapCoordinate(value?: number) {
+  const raw = Number(value || 0)
+  if (raw <= 100) return clamp(raw)
+  if (raw <= 1000) return clamp(raw / 10)
+  return clamp(raw / 20)
 }
 
-function toggleAddMode() {
-  addMode.value = !addMode.value
-  if (addMode.value) {
-    deleteMode.value = false
+function clamp(value: number) {
+  return Math.max(0, Math.min(100, Number(value.toFixed(2))))
+}
+
+function getBizTypeFromDescription(description?: string): BizPointType {
+  const tag = String(description || '').match(/^\[(巡检点|停车点|充电点)\]/)?.[1]
+  if (tag === '充电点') return 'charging'
+  if (tag === '停车点') return 'parking'
+  return 'inspection'
+}
+
+function getDescriptionByBizType(type: BizPointType, name: string) {
+  if (type === 'charging') return `[充电点] ${name}`
+  if (type === 'parking') return `[停车点] ${name}`
+  return `[巡检点] ${name}`
+}
+
+function pointTypeText(type: BizPointType) {
+  return type === 'charging' ? '充电点' : type === 'parking' ? '停车点' : '巡检点'
+}
+
+function getShortType(type: BizPointType) {
+  return type === 'charging' ? '充' : type === 'parking' ? '停' : '检'
+}
+
+function normalizeRegion(region: MapRegion) {
+  if (region.x <= 100 && region.y <= 100 && region.width <= 100 && region.height <= 100) {
+    return region
   }
-}
-
-function toggleDeleteMode() {
-  deleteMode.value = !deleteMode.value
-  if (deleteMode.value) {
-    addMode.value = false
-  }
-}
-
-function getMarkerStyle(point: InspectionPoint) {
-  const x = point.mapPosition?.x ?? 0
-  const y = point.mapPosition?.y ?? 0
   return {
-    left: `${x}px`,
-    top: `${y}px`
+    ...region,
+    x: region.x / 8,
+    y: region.y / 6,
+    width: region.width / 8,
+    height: region.height / 6
   }
 }
 
-function handleMapClick(event: MouseEvent) {
-  if (!addMode.value || !activeMapId.value || !mapStageRef.value) return
-
-  const rect = mapStageRef.value.getBoundingClientRect()
-  const x = Math.max(12, Math.min(rect.width - 12, event.clientX - rect.left))
-  const y = Math.max(12, Math.min(rect.height - 12, event.clientY - rect.top))
-  pendingPoint.value = { x: Math.round(x), y: Math.round(y) }
-  const nextIndex = pointRows.value.length + 1
-  createPointForm.value = {
-    name: `点位-${nextIndex}`,
-    bizType: '巡检点',
-    areaId: activeRegions.value[0]?.id || ''
-  }
-  createPointVisible.value = true
+function detectAreaByPoint(x: number, y: number) {
+  const hit = areaOptions.value.find((region) => {
+    const normalized = normalizeRegion(region)
+    return x >= normalized.x && x <= normalized.x + normalized.width && y >= normalized.y && y <= normalized.y + normalized.height
+  })
+  return hit || null
 }
 
-function getPointBizType(point: InspectionPoint): PointBizType {
-  const matched = point.description?.match(/^\[(巡检点|停车点|充电点)\]\s*/)
-  if (matched?.[1] && pointBizTypeOptions.includes(matched[1] as PointBizType)) {
-    return matched[1] as PointBizType
+function loadPoints() {
+  inspectionStore.initialize()
+  const all = inspectionStore.inspectionPoints.filter(point => point.mapId === currentMapId.value)
+  points.value = all.map((point) => ({
+    id: point.id,
+    name: point.name,
+    code: point.code,
+    mapId: point.mapId,
+    mapX: normalizeMapCoordinate(point.mapPosition?.x),
+    mapY: normalizeMapCoordinate(point.mapPosition?.y),
+    areaId: point.areaId,
+    areaName: point.areaName || areaOptions.value.find(region => region.id === point.areaId)?.name || '',
+    bizType: getBizTypeFromDescription(point.description),
+    raw: point
+  }))
+  if (!selectedPointId.value && points.value[0]) {
+    selectedPointId.value = points.value[0].id
   }
-  return '巡检点'
 }
 
-function getPointCodePrefix(type: PointBizType) {
-  if (type === '停车点') return 'PK'
-  if (type === '充电点') return 'CH'
-  return 'IP'
-}
-
-function handleConfirmCreatePoint() {
-  if (!activeMapId.value) {
-    message.error('请先选择地图')
-    return
-  }
-  if (!createPointForm.value.name.trim()) {
-    message.error('请填写点位名称')
-    return
-  }
-  if (!createPointForm.value.areaId) {
-    message.error('请选择所属区域')
-    return
-  }
-
-  const x = pendingPoint.value.x
-  const y = pendingPoint.value.y
-  const now = new Date()
-  const nextIndex = pointRows.value.length + 1
-
-  const baseLat = activeMap.value?.geographicCoordinates?.latitude || 31.2304
-  const baseLng = activeMap.value?.geographicCoordinates?.longitude || 121.4737
-  const codePrefix = getPointCodePrefix(createPointForm.value.bizType)
-  const area = activeRegions.value.find(r => r.id === createPointForm.value.areaId)
-
+function buildAndSavePoint(row: PointRow, patch: Partial<PointRow>) {
+  const next = { ...row, ...patch }
+  const area = areaOptions.value.find(item => item.id === next.areaId)
   inspectionStore.saveInspectionPoint({
-    id: `point-${Date.now()}`,
-    name: createPointForm.value.name.trim(),
-    code: `${codePrefix}-${String(Date.now()).slice(-6)}`,
+    ...row.raw,
+    name: next.name,
+    code: next.code,
+    mapId: next.mapId,
     pointType: InspectionPointType.FIXED,
-    description: `[${createPointForm.value.bizType}] ${activeMap.value?.name || '地图'}新增点位`,
-    areaId: createPointForm.value.areaId,
+    description: getDescriptionByBizType(next.bizType, next.name),
+    areaId: next.areaId,
+    areaName: area?.name || next.areaName || '',
+    mapPosition: { x: next.mapX, y: next.mapY, yaw: row.raw.mapPosition?.yaw || 0 },
+    positionSource: PositionSource.MANUAL_ADJUST,
+    updatedAt: new Date()
+  })
+}
+
+function openInlineEdit(record: PointRow) {
+  editingId.value = record.id
+  inlineEdit.name = record.name
+  inlineEdit.type = record.bizType
+}
+
+function saveInlineEdit(record: PointRow) {
+  const name = inlineEdit.name.trim()
+  if (!name) {
+    message.warning('请填写点位名称')
+    return
+  }
+  buildAndSavePoint(record, { name, bizType: inlineEdit.type })
+  editingId.value = ''
+  message.success('点位属性已更新')
+  loadPoints()
+}
+
+function cancelInlineEdit() {
+  editingId.value = ''
+}
+
+function deletePoint(record: PointRow) {
+  Modal.confirm({
+    title: '确认删除该点位？',
+    content: `点位 ${record.name} 删除后不可恢复。`,
+    okText: '确认删除',
+    okButtonProps: { danger: true },
+    cancelText: '取消',
+    onOk() {
+      inspectionStore.deleteInspectionPoint(record.id)
+      message.success('已删除点位')
+      loadPoints()
+    }
+  })
+}
+
+function getClickPosition(event: MouseEvent) {
+  const stage = event.currentTarget as HTMLElement
+  const rect = stage.getBoundingClientRect()
+  const x = clamp(((event.clientX - rect.left) / rect.width) * 100)
+  const y = clamp(((event.clientY - rect.top) / rect.height) * 100)
+  return { x, y }
+}
+
+function enterAddMode() {
+  mode.value = 'adding'
+  activeMovePointId.value = ''
+  message.info('已进入新增模式，请在地图点击位置')
+}
+
+function enterMoveMode() {
+  mode.value = 'moving'
+  activeMovePointId.value = ''
+  moveDraft.value = {}
+  message.info('已进入移动模式，请先点击一个点位再点击地图新位置')
+}
+
+function handlePointClick(point: PointRow) {
+  selectedPointId.value = point.id
+  if (mode.value === 'moving') {
+    activeMovePointId.value = point.id
+    if (!moveDraft.value[point.id]) {
+      moveDraft.value[point.id] = { x: point.mapX, y: point.mapY }
+    }
+  }
+}
+
+function handleStageClick(event: MouseEvent) {
+  const position = getClickPosition(event)
+
+  if (mode.value === 'adding') {
+    addForm.name = ''
+    addForm.type = 'inspection'
+    addForm.mapX = position.x
+    addForm.mapY = position.y
+    const area = detectAreaByPoint(position.x, position.y)
+    addForm.areaId = area?.id || ''
+    addModalVisible.value = true
+    return
+  }
+
+  if (mode.value === 'moving') {
+    if (!activeMovePointId.value) {
+      message.warning('请先点击一个点位')
+      return
+    }
+    moveDraft.value[activeMovePointId.value] = { x: position.x, y: position.y }
+    points.value = points.value.map((point) =>
+      point.id === activeMovePointId.value
+        ? { ...point, mapX: position.x, mapY: position.y }
+        : point
+    )
+  }
+}
+
+function cancelAdd() {
+  addModalVisible.value = false
+  if (mode.value === 'adding') {
+    mode.value = 'normal'
+  }
+}
+
+function createPoint() {
+  const name = addForm.name.trim()
+  if (!name) {
+    message.warning('请填写点位名称')
+    return
+  }
+  const area = areaOptions.value.find(item => item.id === addForm.areaId)
+  const newPoint: InspectionPoint = {
+    id: `point-${Date.now()}`,
+    name,
+    code: `IP-${Math.floor(Math.random() * 900 + 100)}`,
+    pointType: InspectionPointType.FIXED,
+    description: getDescriptionByBizType(addForm.type, name),
+    mapId: currentMapId.value,
+    areaId: addForm.areaId || undefined,
     areaName: area?.name || '',
-    previewImageUrl: `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent(`${createPointForm.value.name} industrial site inspection`)}&image_size=square`,
-    mapId: activeMapId.value,
     location: {
-      longitude: Number((baseLng + x / 100000).toFixed(6)),
-      latitude: Number((baseLat + y / 100000).toFixed(6)),
+      longitude: Number((120 + addForm.mapX / 1000).toFixed(6)),
+      latitude: Number((30 + addForm.mapY / 1000).toFixed(6)),
       altitude: 0
     },
-    mapPosition: { x: Math.round(x), y: Math.round(y), yaw: 0 },
-    sequence: nextIndex,
+    mapPosition: { x: addForm.mapX, y: addForm.mapY, yaw: 0 },
+    sequence: points.value.length + 1,
     calibrationStatus: CalibrationStatus.PENDING,
     stayDurationSec: 30,
     monitorPoints: [],
@@ -316,173 +400,132 @@ function handleConfirmCreatePoint() {
       skipToNext: true
     },
     positionSource: PositionSource.MAP_PICK,
-    lastMapPickAt: now,
-    createdAt: now,
-    updatedAt: now,
-    updatedBy: '系统管理员'
-  })
-  createPointVisible.value = false
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+
+  inspectionStore.saveInspectionPoint(newPoint)
+  addModalVisible.value = false
+  mode.value = 'normal'
   message.success('点位新增成功')
+  loadPoints()
 }
 
-function getPointDeviceCount(pointId: string) {
-  return inspectionStore.inspectionDevices.filter(device => device.inspectionPointId === pointId).length
-}
-
-function getPointCheckItemCount(pointId: string) {
-  const deviceIds = inspectionStore.inspectionDevices
-    .filter(device => device.inspectionPointId === pointId)
-    .map(device => device.id)
-  return inspectionStore.inspectionDeviceCheckItems.filter(item => deviceIds.includes(item.deviceId)).length
-}
-
-function handleCancelCreatePoint() {
-  createPointVisible.value = false
-}
-
-function handleMarkerClick(point: InspectionPoint) {
-  if (deleteMode.value) {
-    Modal.confirm({
-      title: '确认删除',
-      content: `确定删除点位 ${point.name} 吗？`,
-      okText: '确定',
-      cancelText: '取消',
-      onOk() {
-        inspectionStore.deleteInspectionPoint(point.id)
-        selectedPointIds.value = selectedPointIds.value.filter(id => id !== point.id)
-        message.success('删除成功')
-      }
-    })
+function confirmMove() {
+  const draftIds = Object.keys(moveDraft.value)
+  if (!draftIds.length) {
+    message.warning('尚未移动任何点位')
     return
   }
-  selectedPointIds.value = [point.id]
-}
 
-function handleDeleteSelected() {
-  if (selectedPointIds.value.length === 0) return
-  Modal.confirm({
-    title: '确认批量删除',
-    content: `确定删除选中的 ${selectedPointIds.value.length} 个点位吗？`,
-    okText: '确定',
-    cancelText: '取消',
-    onOk() {
-      selectedPointIds.value.forEach(id => inspectionStore.deleteInspectionPoint(id))
-      selectedPointIds.value = []
-      message.success('批量删除成功')
-    }
+  draftIds.forEach((id) => {
+    const row = points.value.find(point => point.id === id)
+    const draft = moveDraft.value[id]
+    if (!row || !draft) return
+    buildAndSavePoint(row, { mapX: draft.x, mapY: draft.y })
   })
+
+  mode.value = 'normal'
+  activeMovePointId.value = ''
+  moveDraft.value = {}
+  message.success('点位位置已更新')
+  loadPoints()
 }
 
-onMounted(() => {
-  inspectionStore.initialize()
-  inspectionStore.fetchAllInspectionDevices()
-  inspectionStore.fetchAllInspectionDeviceCheckItems()
-  activeMapId.value = (route.query.mapId as string) || inspectionStore.inspectionMaps[0]?.id || ''
-})
+function cancelMove() {
+  mode.value = 'normal'
+  activeMovePointId.value = ''
+  moveDraft.value = {}
+  loadPoints()
+}
+
+onMounted(loadPoints)
 </script>
 
-<style scoped lang="scss">
-.point-manage {
-  width: 100%;
+<style scoped lang="css">
+.layout-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
 
-  .map-panel,
-  .list-panel {
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    background: #fff;
-    overflow: hidden;
-  }
+.map-card {
+  min-width: 0;
+}
 
-  .map-panel-head,
-  .list-toolbar {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f0f0f0;
-    background: #fafafa;
-  }
+.map-stage {
+  position: relative;
+  min-height: 620px;
+  border-radius: 12px;
+  border: 1px solid #b4c9ff;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  overflow: hidden;
+}
 
-  .helper-text {
-    color: #8c8c8c;
-  }
+.map-mask {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 12, 26, 0.12) 0%, rgba(4, 12, 26, 0.26) 100%);
+}
 
-  .map-stage {
-    position: relative;
-    height: 620px;
-    overflow: hidden;
-    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-    cursor: default;
-  }
+.map-tip {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 2;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.9);
+}
 
-  .map-stage.adding {
-    cursor: crosshair;
-  }
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 3;
+}
 
-  .map-stage.mode-3d {
-    transform: perspective(1300px) rotateX(12deg);
-    transform-origin: center center;
-  }
+.marker-dot {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  background: #2f54eb;
+  color: #fff;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(47, 84, 235, 0.22);
+}
 
-  .map-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    user-select: none;
-    pointer-events: none;
-  }
+.marker.active .marker-dot {
+  background: #1677ff;
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.2);
+}
 
-  .map-placeholder {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #475569;
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: 1px;
-  }
+.marker.moving .marker-dot {
+  background: #f59e0b;
+}
 
-  .map-marker {
-    position: absolute;
-    width: 28px;
-    height: 28px;
-    border: 2px solid #fff;
-    border-radius: 50%;
-    background: #1677ff;
-    color: #fff;
-    font-weight: 600;
-    cursor: pointer;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
-    z-index: 3;
-  }
+.marker-text {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d9d9d9;
+  font-size: 12px;
+}
 
-  .map-marker.selected {
-    background: #22c55e;
-  }
-
-  .map-marker.deleting {
-    background: #ef4444;
-  }
-
-  .list-panel {
-    display: flex;
-    flex-direction: column;
-    height: 680px;
-  }
-
-  :deep(.list-panel .ant-table-wrapper) {
-    flex: 1;
-    min-height: 0;
-  }
-
-  :deep(.list-panel .ant-table) {
-    border: none;
-    border-radius: 0;
-  }
-
-  :deep(.list-panel .ant-table-thead > tr > th) {
-    background: #fafafa;
-    white-space: nowrap;
+@media (max-width: 1200px) {
+  .layout-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

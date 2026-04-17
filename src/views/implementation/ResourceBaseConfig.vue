@@ -241,45 +241,38 @@ function handleReset() {
 }
 </script>
 
-<style scoped lang="scss">
-.resource-base-config {
+<style scoped lang="css">.resource-base-config {
   width: 100%;
-
-  .resource-card {
-    border-radius: 10px;
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    row-gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .toolbar-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .toolbar-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #262626;
-  }
-
-  .table-wrap {
-    overflow-x: auto;
-  }
-
-  .footer-actions {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid #f0f0f0;
-    display: flex;
-    justify-content: flex-end;
-  }
+}
+.resource-base-config .resource-card {
+  border-radius: 10px;
+}
+.resource-base-config .toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 12px;
+  margin-bottom: 12px;
+}
+.resource-base-config .toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.resource-base-config .toolbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #262626;
+}
+.resource-base-config .table-wrap {
+  overflow-x: auto;
+}
+.resource-base-config .footer-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

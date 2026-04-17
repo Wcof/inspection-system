@@ -1,10 +1,10 @@
 <template>
   <div class="inspection-point-list">
-    <a-page-header title="巡检点管理" sub-title="管理巡检点信息">
+    <a-page-header title="点位管理" sub-title="管理点位信息">
       <template #extra>
-        <a-button type="primary" @click="goToForm">
+        <a-button type="primary" @click="goToForm()">
           <a-icon type="plus" />
-          新建巡检点
+          新增巡检点
         </a-button>
       </template>
     </a-page-header>
@@ -15,12 +15,12 @@
           <a-row :gutter="[16, 8]">
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="名称" class="search-item">
-                <a-input v-model:value="searchForm.name" placeholder="请输入巡检点名称" allow-clear />
+                <a-input v-model:value="searchForm.name" placeholder="请输入点位名称" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="编码" class="search-item">
-                <a-input v-model:value="searchForm.code" placeholder="请输入巡检点编码" allow-clear />
+                <a-input v-model:value="searchForm.code" placeholder="请输入点位编码" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
@@ -264,7 +264,7 @@ function goToForm(id?: string) {
   if (id) {
     router.push(`/implementation/point/form/${id}`)
   } else {
-    router.push('/implementation/point/form')
+    router.push('/implementation/map/point-manage?mapId=map-001')
   }
 }
 
@@ -407,6 +407,7 @@ function getPointCheckItemCount(pointId: string) {
 
 function goToCockpit() {
   message.success('已跳转驾驶舱，正在执行校准')
+  router.push('/management/cockpit/view')
 }
 
 function formatDate(date?: Date | string) {
@@ -424,72 +425,58 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
-.inspection-point-list {
+<style scoped lang="css">.inspection-point-list {
   width: 100%;
-
-  :deep(.ant-card) {
-    border-radius: 10px;
-    border-color: #f0f0f0;
-    box-shadow: none;
-  }
-
-  :deep(.ant-card-body) {
-    padding: 16px;
-  }
-
-  .search-panel {
-    margin-bottom: 12px;
-    padding: 12px 12px 4px;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    background: #fafafa;
-  }
-
-  .search-item {
-    margin-bottom: 8px;
-  }
-
-  .search-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin: 4px 0 8px;
-  }
-
-  :deep(.ant-table) {
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  :deep(.ant-table-thead > tr > th) {
-    background: #fafafa;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  :deep(.ant-table-tbody > tr > td) {
-    vertical-align: middle;
-  }
-
-  @media (max-width: 992px) {
-    :deep(.ant-card-body) {
-      padding: 12px;
-    }
+}
+.inspection-point-list :deep(.ant-card) {
+  border-radius: 10px;
+  border-color: #f0f0f0;
+  box-shadow: none;
+}
+.inspection-point-list :deep(.ant-card-body) {
+  padding: 16px;
+}
+.inspection-point-list .search-panel {
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.inspection-point-list .search-item {
+  margin-bottom: 8px;
+}
+.inspection-point-list .search-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 8px;
+}
+.inspection-point-list :deep(.ant-table) {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.inspection-point-list :deep(.ant-table-thead > tr > th) {
+  background: #fafafa;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.inspection-point-list :deep(.ant-table-tbody > tr > td) {
+  vertical-align: middle;
+}
+@media (max-width: 992px) {
+  .inspection-point-list :deep(.ant-card-body) {
+    padding: 12px;
   }
 }
-
-.calibration-modal {
-  .loading-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 200px;
-  }
-  
-  .modal-actions {
-    margin-top: 20px;
-    text-align: right;
-  }
+.calibration-modal .loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+.calibration-modal .modal-actions {
+  margin-top: 20px;
+  text-align: right;
 }
 </style>
