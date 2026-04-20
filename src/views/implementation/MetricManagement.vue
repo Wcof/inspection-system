@@ -134,7 +134,7 @@
           <a-col :span="8"><a-form-item label="检测项编码" required><a-input v-model:value="editForm.code" /></a-form-item></a-col>
           <a-col :span="8">
             <a-form-item label="检测类型" required>
-              <a-select v-model:value="editForm.detectionType">
+              <a-select v-model:value="editForm.detectionType" @change="onDetectionTypeChange">
                 <a-select-option value="gas">气体</a-select-option>
                 <a-select-option value="liquid">液体</a-select-option>
                 <a-select-option value="appearance">外观</a-select-option>
@@ -167,13 +167,21 @@
           <a-col :span="8"><a-form-item label="巡检窗口"><a-input v-model:value="editForm.windowText" placeholder="例如 08:00 - 18:00" /></a-form-item></a-col>
         </a-row>
         <a-row :gutter="12">
-          <a-col :span="12">
+          <a-col :span="8">
             <a-form-item label="告警阈值">
               <a-input-number v-if="editForm.detectionType !== 'appearance'" v-model:value="editForm.thresholdValue" style="width: 100%" />
               <a-input v-else value="-" disabled />
             </a-form-item>
           </a-col>
-          <a-col :span="12">
+          <a-col :span="8">
+            <a-form-item label="告警单位">
+              <a-select v-if="editForm.detectionType !== 'appearance'" v-model:value="editForm.thresholdUnit" placeholder="请选择告警单位">
+                <a-select-option v-for="unit in thresholdUnitOptions" :key="unit.value" :value="unit.value">{{ unit.label }}</a-select-option>
+              </a-select>
+              <a-input v-else value="-" disabled />
+            </a-form-item>
+          </a-col>
+          <a-col :span="8">
             <a-form-item label="参考图">
               <div class="reference-image-field">
                 <a-upload
@@ -244,8 +252,18 @@ const editForm = reactive<any>({
   cycleUnit: 'day',
   windowText: '08:00 - 18:00',
   thresholdValue: undefined,
+  thresholdUnit: 'ppm',
   referenceImageUrl: ''
 })
+
+const thresholdUnitOptions = [
+  { value: '°C', label: '°C' },
+  { value: 'MPa', label: 'MPa' },
+  { value: 'ppm', label: 'ppm' },
+  { value: '%LEL', label: '%LEL' },
+  { value: '%', label: '%' },
+  { value: 'm', label: 'm' }
+]
 
 const areas = computed(() => {
   const map = new Map<string, any>()
@@ -403,7 +421,8 @@ function getThresholdText(record: any) {
   const warning = record.threshold?.warning
   const max = record.threshold?.max
   if (warning === undefined && max === undefined) return '-'
-  return `${warning ?? '-'} / ${max ?? '-'}`
+  const unit = record.unit || ''
+  return `${warning ?? '-'} / ${max ?? '-'}${unit ? ` ${unit}` : ''}`
 }
 
 function parseWindow(text: string) {
@@ -440,6 +459,7 @@ function resetForm() {
   editForm.cycleUnit = 'day'
   editForm.windowText = '08:00 - 18:00'
   editForm.thresholdValue = undefined
+  editForm.thresholdUnit = 'ppm'
   editForm.referenceImageUrl = ''
 }
 
@@ -486,8 +506,29 @@ function openEditModal(record: any) {
   editForm.cycleUnit = record.inspectionFrequency?.unit || 'day'
   editForm.windowText = record.executionWindow ? `${record.executionWindow.startTime} - ${record.executionWindow.endTime}` : '08:00 - 18:00'
   editForm.thresholdValue = record.threshold?.warning || record.threshold?.max
+  editForm.thresholdUnit = record.unit || defaultThresholdUnit(editForm.detectionType)
   editForm.referenceImageUrl = record.referenceImageUrl || record.visionMapping?.customImageUrl || ''
   editVisible.value = true
+}
+
+function defaultThresholdUnit(detectionType: string) {
+  if (detectionType === 'gas') return 'ppm'
+  if (detectionType === 'liquid') return 'm'
+  return '-'
+}
+
+function onDetectionTypeChange(value: string) {
+  if (value === 'appearance') {
+    editForm.thresholdValue = undefined
+    editForm.thresholdUnit = '-'
+    return
+  }
+  if (editForm.thresholdValue === undefined || editForm.thresholdValue === null) {
+    editForm.thresholdValue = 50
+  }
+  if (!editForm.thresholdUnit || editForm.thresholdUnit === '-') {
+    editForm.thresholdUnit = defaultThresholdUnit(value)
+  }
 }
 
 function onAreaChange() {
@@ -516,7 +557,7 @@ function saveCurrentEdit(): boolean {
     priority: mapPriority(editForm.priorityLevel),
     inspectionFrequency: { value: editForm.cycleValue, unit: editForm.cycleUnit },
     executionWindow: parseWindow(editForm.windowText),
-    unit: editForm.detectionType === 'gas' ? 'ppm' : editForm.detectionType === 'liquid' ? 'm' : '-',
+    unit: editForm.detectionType === 'appearance' ? '-' : editForm.thresholdUnit,
     threshold: editForm.detectionType === 'appearance' ? {} : { warning: editForm.thresholdValue, max: editForm.thresholdValue },
     referenceImageUrl: editForm.referenceImageUrl,
     visionMapping: editForm.referenceImageUrl

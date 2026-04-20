@@ -112,7 +112,7 @@
         </a-form-item>
 
         <a-card size="small" title="检测项配置">
-          <a-table :columns="itemColumns" :data-source="checkItems" row-key="localKey" :pagination="false" :scroll="{ x: 1100 }">
+          <a-table :columns="itemColumns" :data-source="checkItems" row-key="localKey" :pagination="false" :scroll="{ x: 1240 }">
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'name'">
                 <a-input v-model:value="record.name" placeholder="检测项名称" />
@@ -147,6 +147,12 @@
               <template v-else-if="column.key === 'threshold'">
                 <template v-if="record.detectionType === 'appearance'">-</template>
                 <a-input-number v-else v-model:value="record.thresholdValue" style="width: 100%" :min="0" />
+              </template>
+              <template v-else-if="column.key === 'thresholdUnit'">
+                <template v-if="record.detectionType === 'appearance'">-</template>
+                <a-select v-else v-model:value="record.thresholdUnit" style="width: 100%" placeholder="请选择告警单位">
+                  <a-select-option v-for="unit in thresholdUnitOptions" :key="unit.value" :value="unit.value">{{ unit.label }}</a-select-option>
+                </a-select>
               </template>
               <template v-else-if="column.key === 'actions'">
                 <a-space>
@@ -188,6 +194,7 @@ interface DeviceCheckItemRow {
   cycleUnit: 'hour' | 'day' | 'week'
   windowText: string
   thresholdValue?: number
+  thresholdUnit: string
 }
 
 const route = useRoute()
@@ -237,6 +244,14 @@ const form = reactive<any>({
 })
 
 const checkItems = ref<DeviceCheckItemRow[]>([])
+const thresholdUnitOptions = [
+  { value: '°C', label: '°C' },
+  { value: 'MPa', label: 'MPa' },
+  { value: 'ppm', label: 'ppm' },
+  { value: '%LEL', label: '%LEL' },
+  { value: '%', label: '%' },
+  { value: 'm', label: 'm' }
+]
 
 const itemColumns = [
   { title: '检测项名称', key: 'name', width: 180 },
@@ -245,6 +260,7 @@ const itemColumns = [
   { title: '巡检周期', key: 'cycle', width: 170 },
   { title: '巡检窗口', key: 'window', width: 170 },
   { title: '告警阈值', key: 'threshold', width: 130 },
+  { title: '告警单位', key: 'thresholdUnit', width: 130 },
   { title: '操作', key: 'actions', width: 220 }
 ]
 
@@ -263,6 +279,12 @@ function inferDetectionType(name: string): 'gas' | 'liquid' | 'appearance' {
   return 'appearance'
 }
 
+function defaultThresholdUnit(detectionType: DeviceCheckItemRow['detectionType']) {
+  if (detectionType === 'gas') return 'ppm'
+  if (detectionType === 'liquid') return 'm'
+  return '-'
+}
+
 function loadDetail() {
   inspectionStore.initialize()
   if (!isEdit.value) {
@@ -275,7 +297,8 @@ function loadDetail() {
         cycleValue: 1,
         cycleUnit: 'day',
         windowText: '08:00 - 18:00',
-        thresholdValue: 50
+        thresholdValue: 50,
+        thresholdUnit: 'ppm'
       }
     ]
     return
@@ -333,7 +356,8 @@ function loadDetail() {
       cycleValue: item.inspectionFrequency?.value || detail.inspectionFrequency?.value || 1,
       cycleUnit: item.inspectionFrequency?.unit || detail.inspectionFrequency?.unit || 'day',
       windowText: item.executionWindow ? `${item.executionWindow.startTime} - ${item.executionWindow.endTime}` : (detail.executionWindow ? `${detail.executionWindow.startTime} - ${detail.executionWindow.endTime}` : '08:00 - 18:00'),
-      thresholdValue: item.threshold?.warning || item.threshold?.max
+      thresholdValue: item.threshold?.warning || item.threshold?.max,
+      thresholdUnit: item.unit || defaultThresholdUnit(((item.detectionType as any) || inferDetectionType(item.name)))
     }))
 }
 
@@ -356,7 +380,8 @@ function addItem() {
     cycleValue: 1,
     cycleUnit: 'day',
     windowText: '08:00 - 18:00',
-    thresholdValue: 50
+    thresholdValue: 50,
+    thresholdUnit: 'ppm'
   })
 }
 
@@ -374,8 +399,14 @@ function moveItem(index: number, offset: number) {
 function onTypeChange(record: DeviceCheckItemRow) {
   if (record.detectionType === 'appearance') {
     record.thresholdValue = undefined
+    record.thresholdUnit = '-'
   } else if (record.thresholdValue === undefined) {
     record.thresholdValue = 50
+    if (!record.thresholdUnit || record.thresholdUnit === '-') {
+      record.thresholdUnit = defaultThresholdUnit(record.detectionType)
+    }
+  } else if (!record.thresholdUnit || record.thresholdUnit === '-') {
+    record.thresholdUnit = defaultThresholdUnit(record.detectionType)
   }
 }
 
@@ -471,7 +502,7 @@ function handleSave() {
       priority: mapPriority(item.priority),
       inspectionFrequency: { value: item.cycleValue, unit: item.cycleUnit },
       executionWindow: parseWindow(item.windowText),
-      unit: item.detectionType === 'gas' ? 'ppm' : item.detectionType === 'liquid' ? 'm' : '-',
+      unit: item.detectionType === 'appearance' ? '-' : item.thresholdUnit,
       threshold: item.detectionType === 'appearance' ? {} : { warning: item.thresholdValue, max: item.thresholdValue },
       visionMapping: payload.referenceImageUrl
         ? { sourceType: 'manual', customImageUrl: payload.referenceImageUrl, recognitionMode: 'ai' }

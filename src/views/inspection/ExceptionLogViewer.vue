@@ -28,7 +28,24 @@
                 </a-select>
               </a-form-item>
             </a-col>
+            <a-col :xs="24" :sm="24" :md="16" :lg="12">
+              <a-form-item label="告警时间" class="search-item">
+                <a-range-picker
+                  v-model:value="searchForm.timeRange"
+                  show-time
+                  format="YYYY-MM-DD HH:mm:ss"
+                  style="width: 100%"
+                  :placeholder="['开始时间', '结束时间']"
+                />
+              </a-form-item>
+            </a-col>
           </a-row>
+          <div class="search-actions">
+            <a-space>
+              <a-button type="primary" @click="handleSearch">搜索</a-button>
+              <a-button @click="handleReset">重置</a-button>
+            </a-space>
+          </div>
         </a-form>
       </div>
 
@@ -74,7 +91,26 @@ type AlertType = 'facility' | 'gas' | 'safety'
 type AlertStatus = 'pending' | 'handled' | 'cleared'
 interface AlertItem { id: string; name: string; type: AlertType; source: string; summary: string; area: string; time: string; status: AlertStatus; imageUrl?: string; handleComment?: string }
 
-const searchForm = reactive({ name: '', type: undefined as AlertType | undefined, status: undefined as AlertStatus | undefined })
+interface AlertSearchForm {
+  name: string
+  type: AlertType | undefined
+  status: AlertStatus | undefined
+  timeRange: [any, any] | undefined
+}
+
+const searchForm = reactive<AlertSearchForm>({
+  name: '',
+  type: undefined,
+  status: undefined,
+  timeRange: undefined
+})
+
+const appliedSearch = reactive<AlertSearchForm>({
+  name: '',
+  type: undefined,
+  status: undefined,
+  timeRange: undefined
+})
 const alerts = ref<AlertItem[]>([
   { id: 'alert-001', name: '配电柜温升异常', type: 'facility', source: '任务 TASK-2026-001', summary: '温度 86℃，超过阈值上限 80℃', area: 'A区配电房', time: '2026-04-17 09:20:00', status: 'pending', imageUrl: 'https://picsum.photos/seed/alert-1/120/70' },
   { id: 'alert-002', name: '甲烷浓度超阈值', type: 'gas', source: '任务 TASK-2026-002', summary: '浓度 34%LEL，处于告警区间', area: 'B区管廊', time: '2026-04-17 09:35:00', status: 'pending', imageUrl: 'https://picsum.photos/seed/alert-2/120/70' },
@@ -96,12 +132,43 @@ const columns = [
 const handleVisible = ref(false)
 const selectedAlert = ref<AlertItem | null>(null)
 const handleComment = ref('')
-const filteredAlerts = computed(() => alerts.value.filter((alert) => (!searchForm.name || alert.name.includes(searchForm.name)) && (!searchForm.type || alert.type === searchForm.type) && (!searchForm.status || alert.status === searchForm.status)))
+const filteredAlerts = computed(() =>
+  alerts.value.filter((alert) => {
+    const matchName = !appliedSearch.name || alert.name.includes(appliedSearch.name)
+    const matchType = !appliedSearch.type || alert.type === appliedSearch.type
+    const matchStatus = !appliedSearch.status || alert.status === appliedSearch.status
+    const matchTime = isAlertTimeInRange(alert.time, appliedSearch.timeRange)
+    return matchName && matchType && matchStatus && matchTime
+  })
+)
 
 function getTypeText(type: AlertType) { return ({ facility: '设施设备异常', gas: '气体异常', safety: '安全行为异常' } as Record<AlertType, string>)[type] }
 function getTypeColor(type: AlertType) { return ({ facility: 'processing', gas: 'orange', safety: 'purple' } as Record<AlertType, string>)[type] }
 function getStatusText(status: AlertStatus) { return ({ pending: '待处理', handled: '已处理', cleared: '已消警' } as Record<AlertStatus, string>)[status] }
 function getStatusColor(status: AlertStatus) { return ({ pending: 'red', handled: 'green', cleared: 'default' } as Record<AlertStatus, string>)[status] }
+function handleSearch() {
+  appliedSearch.name = searchForm.name.trim()
+  appliedSearch.type = searchForm.type
+  appliedSearch.status = searchForm.status
+  appliedSearch.timeRange = searchForm.timeRange ? [...searchForm.timeRange] as [any, any] : undefined
+}
+function handleReset() {
+  searchForm.name = ''
+  searchForm.type = undefined
+  searchForm.status = undefined
+  searchForm.timeRange = undefined
+  appliedSearch.name = ''
+  appliedSearch.type = undefined
+  appliedSearch.status = undefined
+  appliedSearch.timeRange = undefined
+}
+function isAlertTimeInRange(alertTime: string, timeRange?: [any, any]) {
+  if (!timeRange || !timeRange[0] || !timeRange[1]) return true
+  const alertAt = new Date(alertTime.replace(/-/g, '/')).getTime()
+  const startAt = typeof timeRange[0].valueOf === 'function' ? timeRange[0].valueOf() : new Date(timeRange[0]).getTime()
+  const endAt = typeof timeRange[1].valueOf === 'function' ? timeRange[1].valueOf() : new Date(timeRange[1]).getTime()
+  return alertAt >= startAt && alertAt <= endAt
+}
 function jumpToSource(alert: AlertItem) { message.info(`跳转至来源详情：${alert.source}`) }
 function openHandleModal(alert: AlertItem) { selectedAlert.value = alert; handleComment.value = alert.handleComment || ''; handleVisible.value = true }
 function submitHandle() { if (!selectedAlert.value) return; if (!handleComment.value.trim()) return message.error('请填写处理意见'); selectedAlert.value.status = 'handled'; selectedAlert.value.handleComment = handleComment.value.trim(); handleVisible.value = false; message.success('处置意见已提交') }
@@ -120,6 +187,11 @@ function clearAlert(alert: AlertItem) { Modal.confirm({ title: '确认消警', c
 }
 .search-item {
   margin-bottom: 8px;
+}
+.search-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 8px 4px 0;
 }
 .thumb {
   width: 72px;
