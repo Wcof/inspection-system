@@ -22,7 +22,11 @@
           <a-table :columns="pointColumns" :data-source="inspectionPointRows" row-key="id" :pagination="false">
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'index'">{{ index + 1 }}</template>
+              <template v-else-if="column.key === 'inspectionStatus'">
+                <a-tag :color="getPointStatusColor(record.inspectionStatus)">{{ record.inspectionStatus }}</a-tag>
+              </template>
               <template v-else-if="column.key === 'inspectionItemCount'">{{ record.inspectionItemCount }}</template>
+              <template v-else-if="column.key === 'missedItemCount'">{{ record.missedItemCount }}</template>
               <template v-else-if="column.key === 'timeRange'">{{ record.timeRange }}</template>
             </template>
           </a-table>
@@ -37,6 +41,7 @@
               <template v-else-if="column.key === 'result'">
                 <a-tag :color="record.result === '正常' ? 'green' : 'red'">{{ record.result }}</a-tag>
               </template>
+              <template v-else-if="column.key === 'detectionData'">{{ record.detectionData }}</template>
               <template v-else-if="column.key === 'inspectTime'">{{ record.inspectTime }}</template>
               <template v-else-if="column.key === 'opticalShot'">
                 <img :src="record.opticalShot" alt="光学截图" class="shot-thumb" />
@@ -75,7 +80,10 @@ const pointColumns = [
   { title: '序号', key: 'index', width: 80 },
   { title: '巡检点名称', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code', width: 160 },
+  { title: '所属分区', dataIndex: 'areaName', key: 'areaName', width: 140 },
+  { title: '巡检状态', key: 'inspectionStatus', width: 120 },
   { title: '检测项数量', key: 'inspectionItemCount', width: 120 },
+  { title: '漏检项数量', key: 'missedItemCount', width: 120 },
   { title: '时间范围', key: 'timeRange', width: 260 }
 ]
 
@@ -84,6 +92,7 @@ const deviceColumns = [
   { title: '所在巡检点', dataIndex: 'pointNames', key: 'pointNames', width: 220 },
   { title: '状态', key: 'status', width: 110 },
   { title: '检测结果', key: 'result', width: 110 },
+  { title: '检测数据', key: 'detectionData', width: 220 },
   { title: '监测时间', key: 'inspectTime', width: 190 },
   { title: '光学截图', key: 'opticalShot', width: 120 },
   { title: '热成像截图', key: 'thermalShot', width: 120 },
@@ -97,6 +106,50 @@ function getStatusText(status?: string) {
 
 function getStatusColor(status?: string) {
   return ({ pending: 'default', running: 'blue', completed: 'green', paused: 'orange', cancelled: 'default', failed: 'red' } as Record<string, string>)[status || ''] || 'default'
+}
+
+function getPointStatusColor(status: string) {
+  return ({ '已检': 'green', '待检': 'default', '检测中': 'blue' } as Record<string, string>)[status] || 'default'
+}
+
+function getPointInspectionStatus(index: number) {
+  if (!task.value) return '待检'
+  if (task.value.status === 'completed') return '已检'
+  if (task.value.status === 'running') {
+    const currentIndex = Math.max(0, Number(task.value.currentInspectionPointIndex || 0))
+    if (index < currentIndex) return '已检'
+    if (index === currentIndex) return '检测中'
+    return '待检'
+  }
+  if (task.value.status === 'failed' || task.value.status === 'cancelled') {
+    const currentIndex = Math.max(0, Number(task.value.currentInspectionPointIndex || 0))
+    return index < currentIndex ? '已检' : '待检'
+  }
+  return '待检'
+}
+
+function getMissedItemCount(pointId: string, itemCount: number, inspectionStatus: string) {
+  if (inspectionStatus === '待检' || itemCount === 0) return 0
+  const pointNo = Number(String(pointId).match(/\d+$/)?.[0] || 0)
+  return pointNo % (itemCount + 1)
+}
+
+function getDetectionValue(item: any, deviceNo: number) {
+  const unit = String(item.unit || '')
+  const name = String(item.name || '')
+  if (name.includes('温度') || unit.includes('℃') || unit.includes('°C')) {
+    return `${12 + (deviceNo % 9)}°C`
+  }
+  if (name.includes('压力') || unit.includes('MPa')) {
+    return `${(0.8 + (deviceNo % 6) * 0.3).toFixed(1)}MPa`
+  }
+  if (name.includes('液位') || unit === 'm') {
+    return `${(2 + (deviceNo % 5) * 0.6).toFixed(1)}m`
+  }
+  if (unit) {
+    return `${(5 + (deviceNo % 7)).toFixed(1)}${unit}`
+  }
+  return `${5 + (deviceNo % 7)}`
 }
 
 function getRobotName(robotId?: string) {
@@ -133,9 +186,13 @@ const inspectionPointRows = computed(() => {
     const pointEnd = new Date(pointStart.getTime() + 8 * 60 * 1000)
     const devices = inspectionStore.inspectionDevices.filter((device: any) => device.inspectionPointId === point.id)
     const itemCount = inspectionStore.inspectionDeviceCheckItems.filter((item: any) => devices.some((device: any) => device.id === item.deviceId)).length
+    const inspectionStatus = getPointInspectionStatus(index)
     return {
       ...point,
+      areaName: point.areaName || '-',
+      inspectionStatus,
       inspectionItemCount: itemCount,
+      missedItemCount: getMissedItemCount(point.id, itemCount, inspectionStatus),
       timeRange: `${pointStart.toLocaleString()} ~ ${pointEnd.toLocaleString()}`
     }
   })
@@ -161,6 +218,7 @@ const deviceRows = computed(() => {
         pointNames: [],
         status: isChecked ? '已检测' : '待检测',
         result,
+        detectionData: '-',
         inspectTime,
         opticalShot: opticalImage,
         thermalShot: thermalImage,
@@ -170,6 +228,9 @@ const deviceRows = computed(() => {
       }
       current.pointNames.push(point.name)
       current.checkItems = items.map((item: any) => item.name).join('、') || '-'
+      current.detectionData = isChecked
+        ? (items.map((item: any) => `${item.name} ${getDetectionValue(item, deviceNo)}`).join('；') || '-')
+        : '-'
       current.primaryCount = items.filter((item: any) => item.priority === 'primary').length
       current.secondaryCount = items.filter((item: any) => (item.priority || 'secondary') !== 'primary').length
       deviceMap.set(device.id, current)

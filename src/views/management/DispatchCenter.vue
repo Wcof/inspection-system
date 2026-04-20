@@ -85,7 +85,22 @@
 
       <a-card size="small" title="待人工确认项" style="margin-top: 12px">
         <a-empty v-if="coverageResult.pendingManual.length === 0" description="无待人工确认项" />
-        <a-table v-else :columns="manualColumns" :data-source="coverageResult.pendingManual" row-key="id" size="small" :pagination="false" />
+        <a-table v-else :columns="manualColumns" :data-source="coverageResult.pendingManual" row-key="id" size="small" :pagination="false">
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'manualStatus'">
+              <a-tag :color="getManualStatusColor(record.manualStatus)">{{ getManualStatusText(record.manualStatus) }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'assignedRobot'">
+              {{ record.assignedRobotName || '-' }}
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <a-space>
+                <a-button size="small" @click="openReplaceRobot(record)" :disabled="record.manualStatus === 'resolved'">替换机器人</a-button>
+                <a-button size="small" type="primary" ghost @click="autoAdjustPendingManual(record)" :disabled="record.manualStatus === 'resolved'">自动调整</a-button>
+              </a-space>
+            </template>
+          </template>
+        </a-table>
       </a-card>
 
       <div class="modal-actions">
@@ -94,6 +109,31 @@
           <a-button :disabled="!coverageResult.hasMissing" @click="manualSupplementCoverage">人工补充任务</a-button>
           <a-button type="primary" :disabled="!coverageResult.hasMissing" @click="autoSupplementCoverage">一键自动补充</a-button>
         </a-space>
+      </div>
+    </a-modal>
+
+    <a-modal
+      v-model:open="replaceRobotVisible"
+      title="替换机器人"
+      ok-text="确认替换"
+      cancel-text="取消"
+      :ok-button-props="{ disabled: !selectedRobotId }"
+      @ok="confirmReplaceRobot"
+    >
+      <a-alert
+        show-icon
+        type="info"
+        style="margin-bottom: 12px"
+        :message="`待处理项：${replaceTarget?.name || '-'}（${replaceTarget?.type || '-'}）`"
+      />
+      <a-select
+        v-model:value="selectedRobotId"
+        style="width: 100%"
+        placeholder="请选择执行机器人"
+        :options="replaceRobotOptions"
+      />
+      <div style="margin-top: 8px; color: #666; font-size: 12px">
+        系统按“空闲优先、负载优先”推荐，默认选择推荐机器人。
       </div>
     </a-modal>
   </div>
@@ -114,7 +154,16 @@ import type { MapMarker } from './dispatch-center/DispatchMapPanel.vue'
 import type { TemporaryDispatchForm, ConflictTaskItem } from './dispatch-center/TemporaryDispatchModal.vue'
 
 interface RobotState { id: string; name: string; status: 'idle' | 'running' | 'charging' }
-interface PendingManualItem { id: string; name: string; type: string; suggestion: string }
+type PendingManualStatus = 'pending' | 'processing' | 'resolved'
+interface PendingManualItem {
+  id: string
+  name: string
+  type: string
+  suggestion: string
+  assignedRobotId?: string
+  assignedRobotName?: string
+  manualStatus: PendingManualStatus
+}
 
 const control = reactive<DispatchControlState>({ autoDispatchEnabled: true, allowAutoCreate: true, allowQueueJump: true, mode: 'auto', pointKeyword: '' })
 const temporaryVisible = ref(false)
@@ -126,15 +175,21 @@ const coverageResult = reactive<{ hasMissing: boolean; missingPoints: string[]; 
   missingItems: ['温度表计识别', '风机振动读数'],
   missingDevices: ['配电柜A15'],
   pendingManual: [
-    { id: 'manual-1', name: '危化区临时复检', type: '临时任务', suggestion: '建议人工确认后插入执行队列' },
-    { id: 'manual-2', name: '办公区计划顺延', type: '计划任务', suggestion: '建议延后执行并通知值班长' }
+    { id: 'manual-1', name: '危化区临时复检', type: '临时任务', suggestion: '建议人工确认后插入执行队列', manualStatus: 'pending' },
+    { id: 'manual-2', name: '办公区计划顺延', type: '计划任务', suggestion: '建议延后执行并通知值班长', manualStatus: 'pending' }
   ]
 })
 const manualColumns = [
   { title: '名称', dataIndex: 'name', key: 'name' },
   { title: '类型', dataIndex: 'type', key: 'type', width: 120 },
-  { title: '建议', dataIndex: 'suggestion', key: 'suggestion' }
+  { title: '建议', dataIndex: 'suggestion', key: 'suggestion' },
+  { title: '执行机器人', key: 'assignedRobot', width: 140 },
+  { title: '处理状态', key: 'manualStatus', width: 120 },
+  { title: '操作', key: 'actions', width: 220 }
 ]
+const replaceRobotVisible = ref(false)
+const replaceTarget = ref<PendingManualItem | null>(null)
+const selectedRobotId = ref<string>()
 
 const robots = ref<RobotState[]>([
   { id: 'robot-001', name: '机器人A001', status: 'running' },
@@ -178,6 +233,31 @@ const inspectionPointOptions = computed(() => mapMarkers.value.filter((m) => m.m
 const chargingPointOptions = computed(() => mapMarkers.value.filter((m) => m.markerType === 'charging').map((m) => ({ value: m.id, label: m.label })))
 const parkingPointOptions = computed(() => mapMarkers.value.filter((m) => m.markerType === 'parking').map((m) => ({ value: m.id, label: m.label })))
 const conflictCandidates = computed<ConflictTaskItem[]>(() => [...runningTasks.value, ...pendingTasks.value].map((task) => ({ id: task.id, name: task.name, robotId: robotOptions.value.find((item) => item.label === task.robotName)?.value || task.robotName, robotName: task.robotName, scheduledAt: task.scheduledAt || task.startedAt || '-', status: task.status === 'running' ? 'running' : 'pending', typeLabel: task.typeLabel })))
+const robotLoadMap = computed(() => {
+  const map = new Map<string, number>()
+  tasks.value.forEach((task) => {
+    if (!['running', 'pending', 'auto_pending', 'conflict'].includes(task.status)) return
+    const robot = robots.value.find((item) => item.name === task.robotName)
+    if (!robot) return
+    map.set(robot.id, (map.get(robot.id) || 0) + 1)
+  })
+  return map
+})
+const replaceRobotOptions = computed(() => {
+  const score = (status: RobotState['status']) => (status === 'idle' ? 0 : status === 'charging' ? 1 : 2)
+  return [...robots.value]
+    .sort((a, b) => {
+      const sa = score(a.status)
+      const sb = score(b.status)
+      if (sa !== sb) return sa - sb
+      return (robotLoadMap.value.get(a.id) || 0) - (robotLoadMap.value.get(b.id) || 0)
+    })
+    .map((robot) => ({
+      value: robot.id,
+      label: `${robot.name}（${getRobotStatusText(robot.status)} / 负载${robotLoadMap.value.get(robot.id) || 0}）`
+    }))
+})
+const recommendedRobotId = computed(() => replaceRobotOptions.value[0]?.value as string | undefined)
 
 const summary = computed<DispatchSummary>(() => ({
   timeRange: control.pointKeyword ? `今日 / 15:42:02 / 关键字：${control.pointKeyword}` : '今日 / 15:42:02',
@@ -207,6 +287,80 @@ function openTemporaryFromMap(payload: any) {
 function refreshData() { message.success('调度数据已刷新') }
 function showCoverageCheck() { coverageVisible.value = true }
 function handleTaskAction(payload: { type: string; task: DispatchTask }) { message.info(`已触发操作：${payload.type} / ${payload.task.name}`) }
+function getRobotStatusText(status: RobotState['status']) {
+  return ({ idle: '空闲', running: '执行中', charging: '充电中' } as Record<RobotState['status'], string>)[status]
+}
+function getManualStatusText(status: PendingManualStatus) {
+  return ({ pending: '待处理', processing: '处理中', resolved: '已完成' } as Record<PendingManualStatus, string>)[status]
+}
+function getManualStatusColor(status: PendingManualStatus) {
+  return ({ pending: 'default', processing: 'processing', resolved: 'green' } as Record<PendingManualStatus, string>)[status]
+}
+function openReplaceRobot(item: PendingManualItem) {
+  replaceTarget.value = item
+  selectedRobotId.value = item.assignedRobotId || recommendedRobotId.value
+  replaceRobotVisible.value = true
+}
+function confirmReplaceRobot() {
+  if (!replaceTarget.value || !selectedRobotId.value) return
+  const robot = robots.value.find((item) => item.id === selectedRobotId.value)
+  if (!robot) return
+  replaceTarget.value.assignedRobotId = robot.id
+  replaceTarget.value.assignedRobotName = robot.name
+  if (replaceTarget.value.manualStatus === 'pending') replaceTarget.value.manualStatus = 'processing'
+  records.value.unshift({
+    id: `record-${Date.now()}`,
+    time: new Date().toLocaleTimeString(),
+    event: `待人工确认项替换机器人：${replaceTarget.value.name} -> ${robot.name}`,
+    taskName: replaceTarget.value.name,
+    resultStatus: 'pending',
+    source: 'manual'
+  })
+  replaceRobotVisible.value = false
+  message.success('已完成机器人替换')
+}
+function autoAdjustPendingManual(item: PendingManualItem) {
+  const robotId = item.assignedRobotId || recommendedRobotId.value
+  if (!robotId) return message.error('无可用机器人，请先手动选择机器人')
+  const robot = robots.value.find((it) => it.id === robotId)
+  if (!robot) return message.error('机器人不存在')
+  item.assignedRobotId = robot.id
+  item.assignedRobotName = robot.name
+  item.manualStatus = 'resolved'
+
+  if (item.type === '临时任务') {
+    tasks.value.unshift({
+      id: `auto-manual-${Date.now()}`,
+      name: `自动调整-${item.name}`,
+      type: 'auto',
+      typeLabel: '自动调度',
+      status: 'auto_pending',
+      robotName: robot.name,
+      priority: 'high',
+      priorityLabel: '高',
+      createdAt: new Date().toLocaleTimeString(),
+      reason: `待人工确认项自动调整：${item.name}`,
+      affectedTaskName: pendingTasks.value[0]?.name
+    })
+  } else {
+    const targetPlanTask = tasks.value.find((task) => task.type === 'plan' && task.status === 'pending')
+    if (targetPlanTask) {
+      targetPlanTask.robotName = robot.name
+      targetPlanTask.changeFlag = true
+      targetPlanTask.changeReason = `自动调整：${item.name}，执行机器人调整为 ${robot.name}`
+    }
+  }
+
+  records.value.unshift({
+    id: `record-${Date.now()}`,
+    time: new Date().toLocaleTimeString(),
+    event: `待人工确认项自动调整：${item.name}（${robot.name}）`,
+    taskName: item.name,
+    resultStatus: 'done',
+    source: 'auto'
+  })
+  message.success('已完成自动调整')
+}
 function autoSupplementCoverage() {
   const taskName = `自动补充-${coverageResult.missingDevices[0] || coverageResult.missingPoints[0] || '漏检任务'}`
   tasks.value.unshift({
