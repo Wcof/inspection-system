@@ -17,13 +17,13 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'plan',
         name: 'ManagementPlan',
-        meta: { title: '巡检计划' },
+        meta: { title: '执行规划' },
         children: [
           {
             path: 'list',
             name: 'ManagementPlanList',
             component: () => import('../views/inspection/plan/InspectionPlanList.vue'),
-            meta: { title: '巡检计划' }
+            meta: { title: '执行规划' }
           },
           {
             path: 'form/:id?',
@@ -123,6 +123,18 @@ const routes: RouteRecordRaw[] = [
             name: 'ManagementExceptionList',
             component: () => import('../views/inspection/ExceptionLogViewer.vue'),
             meta: { title: '异常列表' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ManagementExceptionDetail',
+            component: () => import('../views/management/exception/ExceptionDetail.vue'),
+            meta: { title: '异常详情' }
+          },
+          {
+            path: 'handle/:id',
+            name: 'ManagementExceptionHandle',
+            component: () => import('../views/management/exception/ExceptionHandle.vue'),
+            meta: { title: '异常处理' }
           }
         ]
       },
@@ -182,7 +194,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'map',
         name: 'ImplementationMap',
-        meta: { title: '地图管理' },
+        meta: { title: '地图空间' },
         children: [
           {
             path: 'list',
@@ -244,13 +256,13 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'point',
         name: 'ImplementationPoint',
-        meta: { title: '点位管理' },
+        meta: { title: '点位采集' },
         children: [
           {
             path: 'list',
             name: 'ImplementationPointList',
             component: () => import('../views/inspection/InspectionPointList.vue'),
-            meta: { title: '点位管理' }
+            meta: { title: '点位采集' }
           },
           {
             path: 'form/:id?',
@@ -276,13 +288,13 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'device',
         name: 'ImplementationDevice',
-        meta: { title: '设施设备管理' },
+        meta: { title: '资产检测' },
         children: [
           {
             path: 'list',
             name: 'ImplementationDeviceList',
             component: () => import('../views/inspection/device/FacilityDeviceList.vue'),
-            meta: { title: '设施设备管理' }
+            meta: { title: '资产对象' }
           },
           {
             path: 'form/:id?',
