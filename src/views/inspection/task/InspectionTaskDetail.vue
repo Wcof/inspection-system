@@ -338,7 +338,20 @@ const deviceRows = computed(() => {
 const collectionActionRows = computed(() => {
   const opticalImage = new URL('../../../设备.png', import.meta.url).href
   const thermalImage = new URL('../../../车间.png', import.meta.url).href
-  const statuses: CollectionQualityStatus[] = ['normal', 'warning', 'alarm', 'blocked', 'bad_angle', 'reflection', 'target_missing', 'not_arrived', 'unreadable']
+  const statuses: CollectionQualityStatus[] = [
+    'normal',
+    'warning',
+    'alarm',
+    'critical_alarm',
+    'skipped',
+    'not_arrived',
+    'blocked',
+    'bad_angle',
+    'blurred',
+    'reflection',
+    'target_missing',
+    'unreadable'
+  ]
   const taskStart = task.value ? getTaskStart(task.value) : new Date()
   const rows: Array<{
     id: string

@@ -105,7 +105,10 @@
               <a-button type="link" size="small" @click="openOperationModal(record, 'confirm')" :disabled="record.status !== 'pending_confirm'">确认</a-button>
               <a-button type="link" size="small" @click="openOperationModal(record, 'clear')" :disabled="!canClear(record.status)">消警</a-button>
               <a-button type="link" size="small" @click="openOperationModal(record, 'hazard')" :disabled="!canCreateHazard(record.status)">转隐患</a-button>
+              <a-button type="link" size="small" @click="openOperationModal(record, 'rectify')" :disabled="!canRectify(record.status)">整改</a-button>
+              <a-button type="link" size="small" @click="openOperationModal(record, 'review')" :disabled="!canReview(record.status)">复核</a-button>
               <a-button type="link" size="small" @click="openOperationModal(record, 'close')" :disabled="!canClose(record.status)">闭环</a-button>
+              <a-button type="link" size="small" @click="openOperationModal(record, 'archive')" :disabled="!canArchive(record.status)">归档</a-button>
             </a-space>
           </template>
         </template>
@@ -116,7 +119,7 @@
       <a-form layout="vertical">
         <a-form-item label="告警名称"><a-input :value="selectedAlert?.name" disabled /></a-form-item>
         <a-form-item label="当前状态"><a-input :value="selectedAlert ? getStatusText(selectedAlert.status) : ''" disabled /></a-form-item>
-        <a-form-item label="处置意见" required><a-textarea v-model:value="handleComment" :rows="4" placeholder="请输入确认依据、消警原因、隐患说明或闭环结论" /></a-form-item>
+        <a-form-item label="处置意见" required><a-textarea v-model:value="handleComment" :rows="4" placeholder="请输入确认依据、消警原因、隐患说明、整改记录、复核意见、闭环或归档结论" /></a-form-item>
         <a-form-item label="第三方 EHS 同步">
           <a-switch v-model:checked="syncToEhs" checked-children="同步" un-checked-children="不同步" />
         </a-form-item>
@@ -133,7 +136,7 @@ type AlertType = 'facility' | 'gas' | 'safety' | 'monitor_failure' | 'uninspecta
 type AlertStatus = 'pending_confirm' | 'confirmed' | 'cleared' | 'hazard_created' | 'rectifying' | 'pending_review' | 'closed' | 'archived'
 type RiskLevel = 'notice' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
 type EhsSyncStatus = 'none' | 'pending' | 'synced'
-type OperationType = 'confirm' | 'clear' | 'hazard' | 'close'
+type OperationType = 'confirm' | 'clear' | 'hazard' | 'rectify' | 'review' | 'close' | 'archive'
 interface AlertItem {
   id: string
   name: string
@@ -191,7 +194,7 @@ const columns = [
   { title: '告警时间', dataIndex: 'time', key: 'time', width: 180 },
   { title: '状态', key: 'status', width: 110 },
   { title: 'EHS同步', key: 'ehsSync', width: 110 },
-  { title: '操作', key: 'actions', width: 260, fixed: 'right' }
+  { title: '操作', key: 'actions', width: 420, fixed: 'right' }
 ]
 
 const handleVisible = ref(false)
@@ -200,7 +203,15 @@ const selectedOperation = ref<OperationType>('confirm')
 const handleComment = ref('')
 const syncToEhs = ref(false)
 const selectedRowKeys = ref<string[]>([])
-const operationTitle = computed(() => ({ confirm: '人工确认异常', clear: '误判/消警', hazard: '转隐患', close: '闭环处理' } as Record<OperationType, string>)[selectedOperation.value])
+const operationTitle = computed(() => ({
+  confirm: '人工确认异常',
+  clear: '误判/消警',
+  hazard: '转隐患',
+  rectify: '进入整改',
+  review: '提交复核',
+  close: '闭环处理',
+  archive: '归档异常'
+} as Record<OperationType, string>)[selectedOperation.value])
 const filteredAlerts = computed(() =>
   alerts.value.filter((alert) => {
     const matchName = !appliedSearch.name || alert.name.includes(appliedSearch.name)
@@ -248,7 +259,10 @@ function isAlertTimeInRange(alertTime: string, timeRange?: [any, any]) {
 function jumpToSource(alert: AlertItem) { message.info(`跳转至来源详情：${alert.source}`) }
 function canClear(status: AlertStatus) { return ['pending_confirm', 'confirmed', 'pending_review'].includes(status) }
 function canCreateHazard(status: AlertStatus) { return ['confirmed', 'pending_review'].includes(status) }
+function canRectify(status: AlertStatus) { return ['hazard_created'].includes(status) }
+function canReview(status: AlertStatus) { return ['rectifying'].includes(status) }
 function canClose(status: AlertStatus) { return ['rectifying', 'pending_review', 'hazard_created'].includes(status) }
+function canArchive(status: AlertStatus) { return ['closed'].includes(status) }
 function openOperationModal(alert: AlertItem, operation: OperationType) {
   selectedAlert.value = alert
   selectedOperation.value = operation
@@ -260,6 +274,9 @@ function getNextStatus(operation: OperationType): AlertStatus {
   if (operation === 'confirm') return 'confirmed'
   if (operation === 'clear') return 'cleared'
   if (operation === 'hazard') return 'hazard_created'
+  if (operation === 'rectify') return 'rectifying'
+  if (operation === 'review') return 'pending_review'
+  if (operation === 'archive') return 'archived'
   return 'closed'
 }
 function submitHandle() {

@@ -204,7 +204,7 @@
                 <a-input v-model:value="record.windowText" placeholder="08:00 - 18:00" />
               </template>
               <template v-else-if="column.key === 'threshold'">
-                <template v-if="record.detectionType === 'appearance'">-</template>
+                <template v-if="isNonNumericDetection(record.detectionType)">-</template>
                 <a-input-number v-else v-model:value="record.thresholdValue" style="width: 100%" :min="0" />
               </template>
               <template v-else-if="column.key === 'thresholdUnit'">
