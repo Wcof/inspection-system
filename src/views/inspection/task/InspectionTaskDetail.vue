@@ -56,6 +56,47 @@
             </template>
           </a-table>
         </a-tab-pane>
+        <a-tab-pane key="evidence" tab="采集动作与证据链">
+          <a-alert
+            type="info"
+            show-icon
+            message="不可检、未到达、目标缺失不计入有效覆盖，只进入漏检/复核口径。"
+            style="margin-bottom: 12px"
+          />
+          <a-table :columns="evidenceColumns" :data-source="collectionActionRows" row-key="id" :pagination="{ pageSize: 8 }" :scroll="{ x: 1680 }">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'qualityStatus'">
+                <a-tag :color="getQualityStatusColor(record.qualityStatus)">{{ getQualityStatusText(record.qualityStatus) }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'evidence'">
+                <a-space>
+                  <img :src="record.evidence.opticalImageUrl" alt="光学图" class="shot-thumb" />
+                  <img :src="record.evidence.thermalImageUrl" alt="热成像图" class="shot-thumb" />
+                </a-space>
+              </template>
+              <template v-else-if="column.key === 'robotPose'">
+                {{ record.evidence.robotPose }}
+              </template>
+              <template v-else-if="column.key === 'recognizedValue'">
+                {{ record.evidence.recognizedValue }}
+              </template>
+              <template v-else-if="column.key === 'confidence'">
+                {{ Math.round(record.evidence.confidence * 100) }}%
+              </template>
+              <template v-else-if="column.key === 'ruleVersion'">
+                {{ record.evidence.ruleVersion }}
+              </template>
+              <template v-else-if="column.key === 'manualReview'">
+                {{ record.evidence.manualReviewConclusion }}
+              </template>
+              <template v-else-if="column.key === 'coverage'">
+                <a-tag :color="isEffectiveCoverage(record.qualityStatus) ? 'green' : 'orange'">
+                  {{ isEffectiveCoverage(record.qualityStatus) ? '计入覆盖' : '不计覆盖' }}
+                </a-tag>
+              </template>
+            </template>
+          </a-table>
+        </a-tab-pane>
       </a-tabs>
     </a-card>
   </div>
@@ -66,6 +107,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
 import { useRobotStore } from '@/stores/robot'
+import type { CollectionQualityStatus, EvidenceChain } from '@/types/inspection'
 
 const router = useRouter()
 const route = useRoute()
@@ -100,6 +142,22 @@ const deviceColumns = [
   { title: '优先级分布', key: 'prioritySummary', width: 180 }
 ]
 
+const evidenceColumns = [
+  { title: '巡检点', dataIndex: 'pointName', key: 'pointName', width: 160 },
+  { title: '停车点', dataIndex: 'parkingPoint', key: 'parkingPoint', width: 180 },
+  { title: '采集动作', dataIndex: 'collectionAction', key: 'collectionAction', width: 180 },
+  { title: '检测目标', dataIndex: 'targetObject', key: 'targetObject', width: 160 },
+  { title: '结果状态', key: 'qualityStatus', width: 130 },
+  { title: '覆盖口径', key: 'coverage', width: 110 },
+  { title: '证据', key: 'evidence', width: 160 },
+  { title: '采样时间', dataIndex: ['evidence', 'sampledAt'], key: 'sampledAt', width: 190 },
+  { title: '机器人位姿', key: 'robotPose', width: 180 },
+  { title: '识别值', key: 'recognizedValue', width: 140 },
+  { title: '置信度', key: 'confidence', width: 100 },
+  { title: '规则版本', key: 'ruleVersion', width: 110 },
+  { title: '人工复核', key: 'manualReview', width: 180 }
+]
+
 function getStatusText(status?: string) {
   return ({ pending: '待执行', running: '执行中', completed: '已完成', paused: '已暂停', cancelled: '已取消', failed: '失败' } as Record<string, string>)[status || ''] || '-'
 }
@@ -109,7 +167,7 @@ function getStatusColor(status?: string) {
 }
 
 function getPointStatusColor(status: string) {
-  return ({ '已检': 'green', '待检': 'default', '检测中': 'blue' } as Record<string, string>)[status] || 'default'
+  return ({ '已检': 'green', '待检': 'default', '检测中': 'blue', '存在不可检': 'orange' } as Record<string, string>)[status] || 'default'
 }
 
 function getPointInspectionStatus(index: number) {
@@ -132,6 +190,44 @@ function getMissedItemCount(pointId: string, itemCount: number, inspectionStatus
   if (inspectionStatus === '待检' || itemCount === 0) return 0
   const pointNo = Number(String(pointId).match(/\d+$/)?.[0] || 0)
   return pointNo % (itemCount + 1)
+}
+
+function getQualityStatusText(status: CollectionQualityStatus) {
+  return ({
+    normal: '正常',
+    warning: '预警',
+    alarm: '告警',
+    critical_alarm: '严重告警',
+    skipped: '跳过',
+    not_arrived: '未到达',
+    blocked: '被遮挡',
+    bad_angle: '视角不足',
+    blurred: '模糊',
+    reflection: '反光',
+    target_missing: '目标缺失',
+    unreadable: '无法读取'
+  } as Record<CollectionQualityStatus, string>)[status]
+}
+
+function getQualityStatusColor(status: CollectionQualityStatus) {
+  return ({
+    normal: 'green',
+    warning: 'gold',
+    alarm: 'orange',
+    critical_alarm: 'red',
+    skipped: 'default',
+    not_arrived: 'volcano',
+    blocked: 'orange',
+    bad_angle: 'purple',
+    blurred: 'cyan',
+    reflection: 'blue',
+    target_missing: 'magenta',
+    unreadable: 'red'
+  } as Record<CollectionQualityStatus, string>)[status]
+}
+
+function isEffectiveCoverage(status: CollectionQualityStatus) {
+  return ['normal', 'warning', 'alarm', 'critical_alarm'].includes(status)
 }
 
 function getDetectionValue(item: any, deviceNo: number) {
@@ -237,6 +333,55 @@ const deviceRows = computed(() => {
     })
   })
   return Array.from(deviceMap.values()).map((row: any) => ({ ...row, pointNames: row.pointNames.join('、') }))
+})
+
+const collectionActionRows = computed(() => {
+  const opticalImage = new URL('../../../设备.png', import.meta.url).href
+  const thermalImage = new URL('../../../车间.png', import.meta.url).href
+  const statuses: CollectionQualityStatus[] = ['normal', 'warning', 'alarm', 'blocked', 'bad_angle', 'reflection', 'target_missing', 'not_arrived', 'unreadable']
+  const taskStart = task.value ? getTaskStart(task.value) : new Date()
+  const rows: Array<{
+    id: string
+    pointName: string
+    parkingPoint: string
+    collectionAction: string
+    targetObject: string
+    qualityStatus: CollectionQualityStatus
+    evidence: EvidenceChain
+  }> = []
+
+  inspectionPoints.value.forEach((point: any, pointIndex: number) => {
+    const devices = inspectionStore.inspectionDevices.filter((device: any) => device.inspectionPointId === point.id)
+    devices.forEach((device: any, deviceIndex: number) => {
+      const items = inspectionStore.inspectionDeviceCheckItems.filter((item: any) => item.deviceId === device.id)
+      const resolvedItems = items.length ? items : [{ id: `${device.id}-default`, name: '默认外观检测', unit: '-' }]
+      resolvedItems.forEach((item: any, itemIndex: number) => {
+        const seed = pointIndex + deviceIndex + itemIndex
+        const status = statuses[seed % statuses.length]
+        const sampledAt = new Date(taskStart.getTime() + (seed + 1) * 5 * 60 * 1000).toLocaleString()
+        rows.push({
+          id: `${point.id}-${device.id}-${item.id}`,
+          pointName: point.name,
+          parkingPoint: `${point.name}-${seed % 2 === 0 ? '正前方停车点' : '侧向停车点'}`,
+          collectionAction: `${seed % 2 === 0 ? '正拍' : '侧拍'}-${item.name}`,
+          targetObject: item.targetObject || device.name,
+          qualityStatus: status,
+          evidence: {
+            opticalImageUrl: opticalImage,
+            thermalImageUrl: thermalImage,
+            sampledAt,
+            robotPose: `X${120 + seed * 3}, Y${86 + seed * 2}, Yaw${(seed * 18) % 360}°`,
+            recognizedValue: isEffectiveCoverage(status) ? getDetectionValue(item, seed + 1) : getQualityStatusText(status),
+            confidence: isEffectiveCoverage(status) ? Math.max(0.72, 0.96 - seed * 0.03) : Math.max(0.38, 0.62 - seed * 0.02),
+            ruleVersion: `R-${new Date().getFullYear()}.04.${(seed % 4) + 1}`,
+            manualReviewConclusion: isEffectiveCoverage(status) ? '待抽检' : '需人工复核'
+          }
+        })
+      })
+    })
+  })
+
+  return rows
 })
 
 function goBack() {
