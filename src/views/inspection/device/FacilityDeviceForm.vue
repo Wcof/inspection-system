@@ -69,34 +69,9 @@
         </a-row>
 
         <a-row :gutter="16">
-          <a-col :span="8"><a-form-item label="检测周期"><a-input v-model:value="form.detectionCycle" placeholder="例如 每30天" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="最近检测结论"><a-select v-model:value="form.lastInspectionConclusion"><a-select-option value="合格">合格</a-select-option><a-select-option value="不合格">不合格</a-select-option><a-select-option value="待检">待检</a-select-option></a-select></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="设备编码"><a-input v-model:value="form.code" placeholder="默认同设备编号" /></a-form-item></a-col>
-        </a-row>
-
-        <a-row :gutter="16">
           <a-col :span="8"><a-form-item label="失效预警天数"><a-input-number v-model:value="form.expiryWarningDays" :min="0" style="width: 100%" /></a-form-item></a-col>
           <a-col :span="8"><a-form-item label="检测预警天数"><a-input-number v-model:value="form.inspectionWarningDays" :min="0" style="width: 100%" /></a-form-item></a-col>
-        </a-row>
-
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="巡检周期">
-              <a-input-group compact>
-                <a-input-number v-model:value="form.checkCycleValue" :min="1" style="width: 48%" />
-                <a-select v-model:value="form.checkCycleUnit" style="width: 52%">
-                  <a-select-option value="hour">小时</a-select-option>
-                  <a-select-option value="day">天</a-select-option>
-                  <a-select-option value="week">周</a-select-option>
-                </a-select>
-              </a-input-group>
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="巡检窗口">
-              <a-input v-model:value="form.windowText" placeholder="例如 08:00 - 18:00" />
-            </a-form-item>
-          </a-col>
+          <a-col :span="8"><a-form-item label="设备编码"><a-input v-model:value="form.code" placeholder="默认同设备编号" /></a-form-item></a-col>
         </a-row>
 
         <a-form-item label="参考图（单张）">
@@ -323,7 +298,6 @@ const form = reactive<any>({
   factoryNo: '',
   issueDate: '',
   systemName: '',
-  detectionCycle: '',
   lastInspectionConclusion: '',
   inspectionWarningDays: 15,
   deviceCategory: '',
@@ -331,10 +305,7 @@ const form = reactive<any>({
   nfcId: '',
   inspectionPointId: '',
   referenceImageUrl: '',
-  status: 'active',
-  checkCycleValue: 1,
-  checkCycleUnit: 'day',
-  windowText: '08:00 - 18:00'
+  status: 'active'
 })
 
 const checkItems = ref<DeviceCheckItemRow[]>([])
@@ -458,7 +429,6 @@ function loadDetail() {
   form.factoryNo = detail.factoryNo || ''
   form.issueDate = detail.issueDate || ''
   form.systemName = detail.systemName || ''
-  form.detectionCycle = detail.detectionCycle || ''
   form.lastInspectionConclusion = detail.lastInspectionConclusion || ''
   form.inspectionWarningDays = detail.inspectionWarningDays ?? 15
   form.deviceCategory = detail.deviceCategory || ''
@@ -466,10 +436,18 @@ function loadDetail() {
   form.nfcId = detail.nfcId || ''
   form.referenceImageUrl = detail.referenceImageUrl || ''
   form.status = detail.status || 'active'
-  form.checkCycleValue = detail.inspectionFrequency?.value || 1
-  form.checkCycleUnit = detail.inspectionFrequency?.unit || 'day'
-  form.windowText = detail.executionWindow ? `${detail.executionWindow.startTime} - ${detail.executionWindow.endTime}` : '08:00 - 18:00'
-  seedAssetModel(detail.id)
+  if (detail.assetComponents?.length || detail.connectionObjects?.length) {
+    assetComponents.value = (detail.assetComponents || []).map((item: any, index: number) => ({
+      ...item,
+      localKey: item.localKey || `${item.id || 'component'}-${index}`
+    }))
+    connectionObjects.value = (detail.connectionObjects || []).map((item: any, index: number) => ({
+      ...item,
+      localKey: item.localKey || `${item.id || 'connection'}-${index}`
+    }))
+  } else {
+    seedAssetModel(detail.id)
+  }
 
   checkItems.value = inspectionStore.inspectionDeviceCheckItems
     .filter((item: any) => item.deviceId === detail.id)
@@ -481,9 +459,9 @@ function loadDetail() {
       targetObject: item.targetObject || inferTargetObject(item.name, item.detectionType),
       detectionType: (item.detectionType as any) || inferDetectionType(item.name),
       priority: item.priorityLevel || (item.priority === 'primary' ? 'high' : 'medium'),
-      cycleValue: item.inspectionFrequency?.value || detail.inspectionFrequency?.value || 1,
-      cycleUnit: item.inspectionFrequency?.unit || detail.inspectionFrequency?.unit || 'day',
-      windowText: item.executionWindow ? `${item.executionWindow.startTime} - ${item.executionWindow.endTime}` : (detail.executionWindow ? `${detail.executionWindow.startTime} - ${detail.executionWindow.endTime}` : '08:00 - 18:00'),
+      cycleValue: item.inspectionFrequency?.value || 1,
+      cycleUnit: item.inspectionFrequency?.unit || 'day',
+      windowText: item.executionWindow ? `${item.executionWindow.startTime} - ${item.executionWindow.endTime}` : '08:00 - 18:00',
       thresholdValue: item.threshold?.warning || item.threshold?.max,
       thresholdUnit: item.unit || defaultThresholdUnit(((item.detectionType as any) || inferDetectionType(item.name))),
       collectableCondition: item.collectableCondition || '按采集位条件执行'
@@ -642,7 +620,6 @@ function handleSave() {
     factoryNo: form.factoryNo,
     issueDate: form.issueDate,
     systemName: form.systemName,
-    detectionCycle: form.detectionCycle,
     lastInspectionConclusion: form.lastInspectionConclusion,
     inspectionWarningDays: form.inspectionWarningDays,
     deviceCategory: form.deviceCategory,
@@ -652,10 +629,8 @@ function handleSave() {
     sequence: 1,
     referenceImageUrl: form.referenceImageUrl || defaultDeviceImage,
     status: form.status,
-    inspectionFrequency: { value: form.checkCycleValue, unit: form.checkCycleUnit },
-    executionWindow: parseWindow(form.windowText),
-    assetComponents: assetComponents.value,
-    connectionObjects: connectionObjects.value,
+    assetComponents: assetComponents.value.map(({ localKey, ...item }) => item),
+    connectionObjects: connectionObjects.value.map(({ localKey, ...item }) => item),
     createdAt: new Date(),
     updatedAt: new Date()
   }

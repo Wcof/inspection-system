@@ -267,6 +267,8 @@ export interface InspectionDevice {
   referenceImageVersion?: string
   status: DeviceStatus
   checkItems: InspectionDeviceCheckItem[]
+  assetComponents?: InspectedAssetComponent[]
+  connectionObjects?: ConnectionObject[]
   inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -311,6 +313,8 @@ export interface InspectionDeviceFormData {
   ptzPreset?: PTZPreset
   referenceImageUrl?: string
   status?: DeviceStatus
+  assetComponents?: InspectedAssetComponent[]
+  connectionObjects?: ConnectionObject[]
   inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -323,6 +327,10 @@ export interface InspectionDeviceCheckItem {
   code: string
   checkType?: 'threshold' | 'vision'
   priority?: 'primary' | 'secondary'
+  subjectType?: DetectionSubjectType
+  targetObject?: string
+  detectionType?: DetectionCapabilityType
+  collectableCondition?: string
   inspectionFrequency?: { value: number; unit: 'hour' | 'day' | 'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -549,6 +557,8 @@ export interface InspectionPoint {
   areaId?: string
   areaName?: string
   previewImageUrl?: string
+  workAreaName?: string
+  parkingPoints?: ParkingPoint[]
   calibratedAt?: Date
   updatedBy?: string
   createdAt: Date
@@ -580,6 +590,8 @@ export interface InspectionPointFormData {
   areaId?: string
   areaName?: string
   previewImageUrl?: string
+  workAreaName?: string
+  parkingPoints?: ParkingPoint[]
   calibratedAt?: Date
   updatedBy?: string
 }

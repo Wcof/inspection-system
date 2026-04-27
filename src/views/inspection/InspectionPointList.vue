@@ -280,10 +280,22 @@ function fetchPoints() {
   loading.value = true
   try {
     inspectionStore.fetchAllInspectionPoints()
-    points.value = inspectionStore.inspectionPoints.filter(isInspectionBizPoint)
+    points.value = inspectionStore.inspectionPoints.filter(isInspectionBizPoint).map(ensureSpatialPoint)
   } finally {
     loading.value = false
   }
+}
+
+function ensureSpatialPoint(point: InspectionPoint): InspectionPoint {
+  if (point.parkingPoints?.length) return point
+  const spatialModel = buildSpatialModel(point)
+  const updatedPoint: InspectionPoint = {
+    ...point,
+    workAreaName: spatialModel.workArea,
+    parkingPoints: spatialModel.parkingPoints
+  }
+  inspectionStore.saveInspectionPoint(updatedPoint)
+  return updatedPoint
 }
 
 const areaOptions = computed(() => {
@@ -313,6 +325,16 @@ const listRows = computed(() =>
 )
 
 function getSpatialModel(point: InspectionPoint): { workArea: string; parkingPoints: ParkingPoint[] } {
+  if (point.parkingPoints?.length) {
+    return {
+      workArea: point.workAreaName || point.areaName || '未配置装置区',
+      parkingPoints: point.parkingPoints
+    }
+  }
+  return buildSpatialModel(point)
+}
+
+function buildSpatialModel(point: InspectionPoint): { workArea: string; parkingPoints: ParkingPoint[] } {
   const pointNo = Number(String(point.id).replace(/\D/g, '')) || 1
   const baseX = Number(point.mapPosition?.x || 120)
   const baseY = Number(point.mapPosition?.y || 120)
