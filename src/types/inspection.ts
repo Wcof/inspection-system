@@ -55,6 +55,71 @@ export interface MapPosition {
   yaw?: number
 }
 
+export type CollectionMethod = 'optical' | 'thermal' | 'gas' | 'safety' | 'multi_spectrum'
+
+export interface ParkingPointConstraint {
+  reachable: boolean
+  reverseRequired: boolean
+  turnAroundRequired: boolean
+  narrowRoad: boolean
+  slope: boolean
+  bridgeRequired: boolean
+  detourRequired: boolean
+}
+
+export interface CollectionPose {
+  id: string
+  parkingPointId: string
+  targetName: string
+  targetType: 'asset' | 'component' | 'connection' | 'area_environment' | 'safety_behavior'
+  direction: 'front' | 'side' | 'oblique' | 'near' | 'overview'
+  distanceMeter: number
+  ptzYaw: number
+  ptzPitch: number
+  focalLength: string
+  method: CollectionMethod
+  collectableCondition: string
+}
+
+export interface ParkingPoint {
+  id: string
+  inspectionPointId: string
+  name: string
+  position: MapPosition
+  constraint: ParkingPointConstraint
+  collectionPoses: CollectionPose[]
+}
+
+export interface InspectedAssetComponent {
+  id: string
+  assetId: string
+  name: string
+  type: 'valve' | 'meter' | 'flange' | 'motor' | 'pipe' | 'other'
+}
+
+export interface ConnectionObject {
+  id: string
+  name: string
+  endpointA: string
+  endpointB: string
+  detectionFocus: string
+}
+
+export type DetectionSubjectType = 'asset' | 'component' | 'connection' | 'area_environment' | 'safety_behavior'
+export type DetectionCapabilityType = 'meter_reading' | 'valve_status' | 'flange_tightness' | 'temperature' | 'gas' | 'safety_behavior' | 'area_environment'
+export type CollectionQualityStatus = 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'skipped' | 'not_arrived' | 'blocked' | 'bad_angle' | 'blurred' | 'reflection' | 'target_missing' | 'unreadable'
+
+export interface EvidenceChain {
+  opticalImageUrl?: string
+  thermalImageUrl?: string
+  sampledAt: string
+  robotPose: string
+  recognizedValue: string
+  confidence: number
+  ruleVersion: string
+  manualReviewConclusion: string
+}
+
 export interface PTZPreset {
   x: number
   y: number

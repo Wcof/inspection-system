@@ -63,6 +63,45 @@
         </a-form>
       </div>
       <a-table :columns="columns" :data-source="filteredPoints" :loading="loading" row-key="id">
+        <template #expandedRowRender="{ record }">
+          <div class="spatial-detail">
+            <div class="spatial-summary">
+              <a-tag color="blue">装置区：{{ getSpatialModel(record).workArea }}</a-tag>
+              <a-tag color="green">停车点 {{ getSpatialModel(record).parkingPoints.length }}</a-tag>
+              <a-tag color="purple">采集位 {{ getCollectionPoseCount(record) }}</a-tag>
+            </div>
+            <a-row :gutter="[12, 12]">
+              <a-col v-for="parking in getSpatialModel(record).parkingPoints" :key="parking.id" :xs="24" :lg="12">
+                <div class="parking-card">
+                  <div class="parking-title">
+                    <span>{{ parking.name }}</span>
+                    <a-tag :color="parking.constraint.reachable ? 'green' : 'red'">
+                      {{ parking.constraint.reachable ? '可达' : '不可达' }}
+                    </a-tag>
+                  </div>
+                  <a-descriptions size="small" :column="2" bordered>
+                    <a-descriptions-item label="坐标">{{ parking.position.x }}, {{ parking.position.y }}</a-descriptions-item>
+                    <a-descriptions-item label="朝向">{{ parking.position.yaw }}°</a-descriptions-item>
+                    <a-descriptions-item label="倒车">{{ yesNo(parking.constraint.reverseRequired) }}</a-descriptions-item>
+                    <a-descriptions-item label="原地掉头">{{ yesNo(parking.constraint.turnAroundRequired) }}</a-descriptions-item>
+                    <a-descriptions-item label="窄路">{{ yesNo(parking.constraint.narrowRoad) }}</a-descriptions-item>
+                    <a-descriptions-item label="坡道">{{ yesNo(parking.constraint.slope) }}</a-descriptions-item>
+                    <a-descriptions-item label="便桥">{{ yesNo(parking.constraint.bridgeRequired) }}</a-descriptions-item>
+                    <a-descriptions-item label="绕行">{{ yesNo(parking.constraint.detourRequired) }}</a-descriptions-item>
+                  </a-descriptions>
+                  <div class="pose-list">
+                    <div v-for="pose in parking.collectionPoses" :key="pose.id" class="pose-item">
+                      <b>{{ pose.targetName }}</b>
+                      <span>{{ getDirectionText(pose.direction) }} / {{ getMethodText(pose.method) }} / {{ pose.distanceMeter }}m</span>
+                      <span>云台 {{ pose.ptzYaw }}° / {{ pose.ptzPitch }}°，焦距 {{ pose.focalLength }}</span>
+                      <span>可采条件：{{ pose.collectableCondition }}</span>
+                    </div>
+                  </div>
+                </div>
+              </a-col>
+            </a-row>
+          </div>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'calibrationStatus'">
             <a-tag :color="record.calibrationStatus === 'calibrated' ? 'green' : 'orange'">
@@ -96,6 +135,15 @@
           </template>
           <template v-if="column.key === 'deviceCount'">
             {{ getPointDeviceCount(record.id) }}
+          </template>
+          <template v-if="column.key === 'workArea'">
+            {{ getSpatialModel(record).workArea }}
+          </template>
+          <template v-if="column.key === 'parkingPointCount'">
+            {{ getSpatialModel(record).parkingPoints.length }}
+          </template>
+          <template v-if="column.key === 'collectionPoseCount'">
+            {{ getCollectionPoseCount(record) }}
           </template>
           <template v-if="column.key === 'calibratedAt'">
             {{ formatDate(record.calibratedAt) || '-' }}
@@ -172,6 +220,7 @@ import { useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
 import { useRobotStore } from '@/stores/robot'
 import type { InspectionPoint } from '@/types/inspection'
+import type { CollectionMethod, CollectionPose, ParkingPoint } from '@/types/inspection'
 import { CalibrationStatus } from '@/types/inspection'
 import { message, Modal } from 'ant-design-vue'
 
@@ -208,9 +257,12 @@ const columns = [
   { title: '巡检名称', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code' },
   { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '装置区/作业区', key: 'workArea', width: 150 },
   { title: '现场预览图', key: 'previewImage', width: 100 },
   { title: '巡检项数量', key: 'checkItemCount', width: 100 },
   { title: '设施设备数量', key: 'deviceCount', width: 110 },
+  { title: '停车点', key: 'parkingPointCount', width: 90 },
+  { title: '采集位', key: 'collectionPoseCount', width: 90 },
   { title: '巡检点类型', key: 'pointType', width: 120 },
   { title: '校准状态', key: 'calibrationStatus', width: 100 },
   { title: '校准时间', key: 'calibratedAt', width: 170 },
@@ -259,6 +311,96 @@ const listRows = computed(() =>
     previewImageUrl: point.previewImageUrl || workshopImage
   }))
 )
+
+function getSpatialModel(point: InspectionPoint): { workArea: string; parkingPoints: ParkingPoint[] } {
+  const pointNo = Number(String(point.id).replace(/\D/g, '')) || 1
+  const baseX = Number(point.mapPosition?.x || 120)
+  const baseY = Number(point.mapPosition?.y || 120)
+  const workArea = point.areaName || (pointNo % 2 === 0 ? '泵组作业区' : '反应装置区')
+  const parkingPoints: ParkingPoint[] = [
+    {
+      id: `${point.id}-parking-front`,
+      inspectionPointId: point.id,
+      name: `${point.name}-正前方停车点`,
+      position: { x: Math.round(baseX), y: Math.round(baseY), yaw: point.mapPosition?.yaw || 0 },
+      constraint: {
+        reachable: true,
+        reverseRequired: pointNo % 3 === 0,
+        turnAroundRequired: pointNo % 2 === 0,
+        narrowRoad: pointNo % 2 === 1,
+        slope: false,
+        bridgeRequired: pointNo % 4 === 0,
+        detourRequired: false
+      },
+      collectionPoses: buildCollectionPoses(point, 'front')
+    },
+    {
+      id: `${point.id}-parking-side`,
+      inspectionPointId: point.id,
+      name: `${point.name}-侧向停车点`,
+      position: { x: Math.round(baseX + 18), y: Math.round(baseY + 12), yaw: 90 },
+      constraint: {
+        reachable: true,
+        reverseRequired: true,
+        turnAroundRequired: false,
+        narrowRoad: true,
+        slope: pointNo % 5 === 0,
+        bridgeRequired: false,
+        detourRequired: pointNo % 3 === 0
+      },
+      collectionPoses: buildCollectionPoses(point, 'side')
+    }
+  ]
+  return { workArea, parkingPoints }
+}
+
+function buildCollectionPoses(point: InspectionPoint, side: 'front' | 'side'): CollectionPose[] {
+  const prefix = side === 'front' ? '正拍' : '侧拍'
+  return [
+    {
+      id: `${point.id}-${side}-meter`,
+      parkingPointId: `${point.id}-parking-${side}`,
+      targetName: `${prefix}压力表读数`,
+      targetType: 'component',
+      direction: side === 'front' ? 'front' : 'side',
+      distanceMeter: side === 'front' ? 1.8 : 2.4,
+      ptzYaw: side === 'front' ? 0 : 35,
+      ptzPitch: -12,
+      focalLength: side === 'front' ? '35mm' : '50mm',
+      method: 'optical',
+      collectableCondition: '无遮挡、无强反光、表盘刻度完整'
+    },
+    {
+      id: `${point.id}-${side}-flange`,
+      parkingPointId: `${point.id}-parking-${side}`,
+      targetName: `${prefix}阀门/法兰紧密度`,
+      targetType: 'connection',
+      direction: side === 'front' ? 'oblique' : 'side',
+      distanceMeter: side === 'front' ? 2.2 : 1.6,
+      ptzYaw: side === 'front' ? 18 : 60,
+      ptzPitch: -8,
+      focalLength: '70mm',
+      method: 'thermal',
+      collectableCondition: '连接面可见，热成像目标不被管线遮挡'
+    }
+  ]
+}
+
+function getCollectionPoseCount(point: InspectionPoint) {
+  return getSpatialModel(point).parkingPoints.reduce((sum, parking) => sum + parking.collectionPoses.length, 0)
+}
+
+function yesNo(value: boolean) {
+  return value ? '是' : '否'
+}
+
+function getDirectionText(direction: CollectionPose['direction']) {
+  return ({ front: '正拍', side: '侧拍', oblique: '斜拍', near: '近拍', overview: '全景' } as Record<CollectionPose['direction'], string>)[direction]
+}
+
+function getMethodText(method: CollectionMethod) {
+  return ({ optical: '光学', thermal: '热成像', gas: '气体', safety: '安全行为', multi_spectrum: '多光谱' } as Record<CollectionMethod, string>)[method]
+}
 
 function goToForm(id?: string) {
   if (id) {
@@ -463,6 +605,42 @@ onMounted(() => {
 }
 .inspection-point-list :deep(.ant-table-tbody > tr > td) {
   vertical-align: middle;
+}
+.spatial-detail {
+  padding: 4px 0;
+}
+.spatial-summary {
+  margin-bottom: 12px;
+}
+.parking-card {
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+}
+.parking-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.pose-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.pose-item {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #fafafa;
+  font-size: 12px;
+  color: #475569;
+}
+.pose-item b {
+  color: #1f2937;
 }
 @media (max-width: 992px) {
   .inspection-point-list :deep(.ant-card-body) {
