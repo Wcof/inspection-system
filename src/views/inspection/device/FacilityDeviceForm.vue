@@ -111,17 +111,101 @@
           </a-space>
         </a-form-item>
 
-        <a-card size="small" title="检测项配置">
-          <a-table :columns="itemColumns" :data-source="checkItems" row-key="localKey" :pagination="false" :scroll="{ x: 1240 }">
+        <a-card size="small" title="资产对象配置" class="model-card">
+          <a-row :gutter="[16, 12]">
+            <a-col :xs="24" :lg="12">
+              <div class="model-section-title">部件实例</div>
+              <a-table :data-source="assetComponents" row-key="localKey" :pagination="false" size="small">
+                <a-table-column title="部件名称">
+                  <template #default="{ record }">
+                    <a-input v-model:value="record.name" placeholder="例如 入口阀门" />
+                  </template>
+                </a-table-column>
+                <a-table-column title="部件类型" width="140">
+                  <template #default="{ record }">
+                    <a-select v-model:value="record.type" style="width: 100%">
+                      <a-select-option value="valve">阀门</a-select-option>
+                      <a-select-option value="meter">仪表</a-select-option>
+                      <a-select-option value="flange">法兰</a-select-option>
+                      <a-select-option value="motor">电机</a-select-option>
+                      <a-select-option value="pipe">管线</a-select-option>
+                      <a-select-option value="other">其他</a-select-option>
+                    </a-select>
+                  </template>
+                </a-table-column>
+                <a-table-column title="操作" width="80">
+                  <template #default="{ index }">
+                    <a-button type="link" size="small" danger @click="removeAssetComponent(index)">删除</a-button>
+                  </template>
+                </a-table-column>
+              </a-table>
+              <a-button size="small" style="margin-top: 10px" @click="addAssetComponent">新增部件</a-button>
+            </a-col>
+            <a-col :xs="24" :lg="12">
+              <div class="model-section-title">连接对象</div>
+              <a-table :data-source="connectionObjects" row-key="localKey" :pagination="false" size="small">
+                <a-table-column title="连接对象">
+                  <template #default="{ record }">
+                    <a-input v-model:value="record.name" placeholder="例如 阀门-管线" />
+                  </template>
+                </a-table-column>
+                <a-table-column title="端点A" width="120">
+                  <template #default="{ record }">
+                    <a-input v-model:value="record.endpointA" />
+                  </template>
+                </a-table-column>
+                <a-table-column title="端点B" width="120">
+                  <template #default="{ record }">
+                    <a-input v-model:value="record.endpointB" />
+                  </template>
+                </a-table-column>
+                <a-table-column title="检测关注点" width="150">
+                  <template #default="{ record }">
+                    <a-input v-model:value="record.detectionFocus" placeholder="密封/泄漏/温升" />
+                  </template>
+                </a-table-column>
+                <a-table-column title="操作" width="80">
+                  <template #default="{ index }">
+                    <a-button type="link" size="small" danger @click="removeConnectionObject(index)">删除</a-button>
+                  </template>
+                </a-table-column>
+              </a-table>
+              <a-button size="small" style="margin-top: 10px" @click="addConnectionObject">新增连接对象</a-button>
+            </a-col>
+          </a-row>
+        </a-card>
+
+        <a-card size="small" title="检测能力配置" class="model-card">
+          <a-table :columns="itemColumns" :data-source="checkItems" row-key="localKey" :pagination="false" :scroll="{ x: 1780 }">
             <template #bodyCell="{ column, record, index }">
               <template v-if="column.key === 'name'">
                 <a-input v-model:value="record.name" placeholder="检测项名称" />
               </template>
+              <template v-else-if="column.key === 'subjectType'">
+                <a-select v-model:value="record.subjectType" style="width: 100%" @change="onSubjectTypeChange(record)">
+                  <a-select-option value="asset">资产</a-select-option>
+                  <a-select-option value="component">部件</a-select-option>
+                  <a-select-option value="connection">连接对象</a-select-option>
+                  <a-select-option value="area_environment">区域环境</a-select-option>
+                  <a-select-option value="safety_behavior">安全行为</a-select-option>
+                </a-select>
+              </template>
+              <template v-else-if="column.key === 'targetObject'">
+                <a-select v-model:value="record.targetObject" style="width: 100%" placeholder="选择检测主体">
+                  <a-select-option v-for="target in getTargetOptions(record.subjectType)" :key="target" :value="target">
+                    {{ target }}
+                  </a-select-option>
+                </a-select>
+              </template>
               <template v-else-if="column.key === 'type'">
                 <a-select v-model:value="record.detectionType" style="width: 100%" @change="onTypeChange(record)">
+                  <a-select-option value="meter_reading">仪表读数</a-select-option>
+                  <a-select-option value="valve_status">阀门状态</a-select-option>
+                  <a-select-option value="flange_tightness">法兰紧密度</a-select-option>
+                  <a-select-option value="temperature">温度</a-select-option>
                   <a-select-option value="gas">气体</a-select-option>
-                  <a-select-option value="liquid">液体</a-select-option>
-                  <a-select-option value="appearance">外观</a-select-option>
+                  <a-select-option value="safety_behavior">安全行为</a-select-option>
+                  <a-select-option value="area_environment">区域环境</a-select-option>
                 </a-select>
               </template>
               <template v-else-if="column.key === 'priority'">
@@ -149,10 +233,13 @@
                 <a-input-number v-else v-model:value="record.thresholdValue" style="width: 100%" :min="0" />
               </template>
               <template v-else-if="column.key === 'thresholdUnit'">
-                <template v-if="record.detectionType === 'appearance'">-</template>
+                <template v-if="isNonNumericDetection(record.detectionType)">-</template>
                 <a-select v-else v-model:value="record.thresholdUnit" style="width: 100%" placeholder="请选择告警单位">
                   <a-select-option v-for="unit in thresholdUnitOptions" :key="unit.value" :value="unit.value">{{ unit.label }}</a-select-option>
                 </a-select>
+              </template>
+              <template v-else-if="column.key === 'condition'">
+                <a-input v-model:value="record.collectableCondition" placeholder="采集条件" />
               </template>
               <template v-else-if="column.key === 'actions'">
                 <a-space>
@@ -183,19 +270,26 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { UploadOutlined } from '@ant-design/icons-vue'
 import { useInspectionStore } from '@/stores/inspection'
+import type { DetectionCapabilityType, DetectionSubjectType, InspectedAssetComponent, ConnectionObject } from '@/types/inspection'
 
 interface DeviceCheckItemRow {
   id?: string
   localKey: string
   name: string
-  detectionType: 'gas' | 'liquid' | 'appearance'
+  subjectType: DetectionSubjectType
+  targetObject: string
+  detectionType: DetectionCapabilityType
   priority: 'high' | 'medium' | 'low'
   cycleValue: number
   cycleUnit: 'hour' | 'day' | 'week'
   windowText: string
   thresholdValue?: number
   thresholdUnit: string
+  collectableCondition: string
 }
+
+type AssetComponentRow = InspectedAssetComponent & { localKey: string }
+type ConnectionObjectRow = ConnectionObject & { localKey: string }
 
 const route = useRoute()
 const router = useRouter()
@@ -244,6 +338,8 @@ const form = reactive<any>({
 })
 
 const checkItems = ref<DeviceCheckItemRow[]>([])
+const assetComponents = ref<AssetComponentRow[]>([])
+const connectionObjects = ref<ConnectionObjectRow[]>([])
 const thresholdUnitOptions = [
   { value: '°C', label: '°C' },
   { value: 'MPa', label: 'MPa' },
@@ -255,12 +351,15 @@ const thresholdUnitOptions = [
 
 const itemColumns = [
   { title: '检测项名称', key: 'name', width: 180 },
-  { title: '检测类型', key: 'type', width: 120 },
+  { title: '检测主体', key: 'subjectType', width: 140 },
+  { title: '目标对象', key: 'targetObject', width: 180 },
+  { title: '检测类型', key: 'type', width: 150 },
   { title: '优先级', key: 'priority', width: 110 },
   { title: '巡检周期', key: 'cycle', width: 170 },
   { title: '巡检窗口', key: 'window', width: 170 },
   { title: '告警阈值', key: 'threshold', width: 130 },
   { title: '告警单位', key: 'thresholdUnit', width: 130 },
+  { title: '采集条件', key: 'condition', width: 220 },
   { title: '操作', key: 'actions', width: 220 }
 ]
 
@@ -273,32 +372,58 @@ const areas = computed(() => {
   return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
 })
 
-function inferDetectionType(name: string): 'gas' | 'liquid' | 'appearance' {
+function inferDetectionType(name: string): DetectionCapabilityType {
   if (name.includes('气') || name.includes('氧') || name.includes('硫化氢') || name.includes('一氧化碳')) return 'gas'
-  if (name.includes('液') || name.includes('液位')) return 'liquid'
-  return 'appearance'
+  if (name.includes('阀')) return 'valve_status'
+  if (name.includes('法兰') || name.includes('连接')) return 'flange_tightness'
+  if (name.includes('温')) return 'temperature'
+  if (name.includes('表') || name.includes('压力') || name.includes('液位')) return 'meter_reading'
+  return 'area_environment'
 }
 
 function defaultThresholdUnit(detectionType: DeviceCheckItemRow['detectionType']) {
   if (detectionType === 'gas') return 'ppm'
-  if (detectionType === 'liquid') return 'm'
+  if (detectionType === 'meter_reading') return 'MPa'
+  if (detectionType === 'temperature') return '°C'
   return '-'
+}
+
+function isNonNumericDetection(detectionType: DetectionCapabilityType) {
+  return ['valve_status', 'flange_tightness', 'safety_behavior', 'area_environment'].includes(detectionType)
+}
+
+function seedAssetModel(deviceId: string) {
+  assetComponents.value = [
+    { id: `${deviceId}-valve`, localKey: `${deviceId}-valve`, assetId: deviceId, name: '入口阀门', type: 'valve' },
+    { id: `${deviceId}-meter`, localKey: `${deviceId}-meter`, assetId: deviceId, name: '压力表', type: 'meter' },
+    { id: `${deviceId}-flange`, localKey: `${deviceId}-flange`, assetId: deviceId, name: '出口法兰', type: 'flange' },
+    { id: `${deviceId}-motor`, localKey: `${deviceId}-motor`, assetId: deviceId, name: '驱动电机', type: 'motor' }
+  ]
+  connectionObjects.value = [
+    { id: `${deviceId}-conn-valve-pipe`, localKey: `${deviceId}-conn-valve-pipe`, name: '阀门-管线', endpointA: '入口阀门', endpointB: '入口管线', detectionFocus: '开闭状态/泄漏' },
+    { id: `${deviceId}-conn-flange-pipe`, localKey: `${deviceId}-conn-flange-pipe`, name: '法兰-管线', endpointA: '出口法兰', endpointB: '出口管线', detectionFocus: '紧密度/温升' },
+    { id: `${deviceId}-conn-pump-out`, localKey: `${deviceId}-conn-pump-out`, name: '泵出口-管线', endpointA: '泵出口', endpointB: '出口管线', detectionFocus: '振动/温升' }
+  ]
 }
 
 function loadDetail() {
   inspectionStore.initialize()
   if (!isEdit.value) {
+    seedAssetModel(`device-${Date.now()}`)
     checkItems.value = [
       {
         localKey: `new-${Date.now()}`,
-        name: '示例检测项',
-        detectionType: 'gas',
+        name: '压力表读数识别',
+        subjectType: 'component',
+        targetObject: '压力表',
+        detectionType: 'meter_reading',
         priority: 'medium',
         cycleValue: 1,
         cycleUnit: 'day',
         windowText: '08:00 - 18:00',
-        thresholdValue: 50,
-        thresholdUnit: 'ppm'
+        thresholdValue: 1.6,
+        thresholdUnit: 'MPa',
+        collectableCondition: '正拍、无遮挡、表盘清晰'
       }
     ]
     return
@@ -344,6 +469,7 @@ function loadDetail() {
   form.checkCycleValue = detail.inspectionFrequency?.value || 1
   form.checkCycleUnit = detail.inspectionFrequency?.unit || 'day'
   form.windowText = detail.executionWindow ? `${detail.executionWindow.startTime} - ${detail.executionWindow.endTime}` : '08:00 - 18:00'
+  seedAssetModel(detail.id)
 
   checkItems.value = inspectionStore.inspectionDeviceCheckItems
     .filter((item: any) => item.deviceId === detail.id)
@@ -351,13 +477,16 @@ function loadDetail() {
       id: item.id,
       localKey: `${item.id}-${index}`,
       name: item.name,
+      subjectType: item.subjectType || (item.detectionType === 'gas' ? 'area_environment' : 'component'),
+      targetObject: item.targetObject || inferTargetObject(item.name, item.detectionType),
       detectionType: (item.detectionType as any) || inferDetectionType(item.name),
       priority: item.priorityLevel || (item.priority === 'primary' ? 'high' : 'medium'),
       cycleValue: item.inspectionFrequency?.value || detail.inspectionFrequency?.value || 1,
       cycleUnit: item.inspectionFrequency?.unit || detail.inspectionFrequency?.unit || 'day',
       windowText: item.executionWindow ? `${item.executionWindow.startTime} - ${item.executionWindow.endTime}` : (detail.executionWindow ? `${detail.executionWindow.startTime} - ${detail.executionWindow.endTime}` : '08:00 - 18:00'),
       thresholdValue: item.threshold?.warning || item.threshold?.max,
-      thresholdUnit: item.unit || defaultThresholdUnit(((item.detectionType as any) || inferDetectionType(item.name)))
+      thresholdUnit: item.unit || defaultThresholdUnit(((item.detectionType as any) || inferDetectionType(item.name))),
+      collectableCondition: item.collectableCondition || '按采集位条件执行'
     }))
 }
 
@@ -375,13 +504,16 @@ function addItem() {
   checkItems.value.push({
     localKey: `new-${Date.now()}`,
     name: '',
+    subjectType: 'area_environment',
+    targetObject: currentPoint.value?.areaName || form.areaName || '巡检点附近区域',
     detectionType: 'gas',
     priority: 'medium',
     cycleValue: 1,
     cycleUnit: 'day',
     windowText: '08:00 - 18:00',
     thresholdValue: 50,
-    thresholdUnit: 'ppm'
+    thresholdUnit: 'ppm',
+    collectableCondition: '无遮挡、采集角度满足识别要求'
   })
 }
 
@@ -397,7 +529,11 @@ function moveItem(index: number, offset: number) {
 }
 
 function onTypeChange(record: DeviceCheckItemRow) {
-  if (record.detectionType === 'appearance') {
+  if (record.detectionType === 'gas') {
+    record.subjectType = 'area_environment'
+    record.targetObject = currentPoint.value?.areaName || form.areaName || '巡检点附近区域'
+  }
+  if (isNonNumericDetection(record.detectionType)) {
     record.thresholdValue = undefined
     record.thresholdUnit = '-'
   } else if (record.thresholdValue === undefined) {
@@ -408,6 +544,45 @@ function onTypeChange(record: DeviceCheckItemRow) {
   } else if (!record.thresholdUnit || record.thresholdUnit === '-') {
     record.thresholdUnit = defaultThresholdUnit(record.detectionType)
   }
+}
+
+function onSubjectTypeChange(record: DeviceCheckItemRow) {
+  record.targetObject = getTargetOptions(record.subjectType)[0] || ''
+}
+
+function getTargetOptions(subjectType: DetectionSubjectType) {
+  if (subjectType === 'asset') return [form.name || '资产实例']
+  if (subjectType === 'component') return assetComponents.value.map(item => item.name)
+  if (subjectType === 'connection') return connectionObjects.value.map(item => item.name)
+  if (subjectType === 'area_environment') return [currentPoint.value?.areaName || form.areaName || '巡检点附近区域']
+  return ['作业人员行为']
+}
+
+function inferTargetObject(name: string, detectionType?: DetectionCapabilityType) {
+  if (detectionType === 'gas') return currentPoint.value?.areaName || form.areaName || '巡检点附近区域'
+  if (name.includes('阀')) return '入口阀门'
+  if (name.includes('法兰') || name.includes('连接')) return '法兰-管线'
+  if (name.includes('电机')) return '驱动电机'
+  if (name.includes('表') || name.includes('压力')) return '压力表'
+  return assetComponents.value[0]?.name || form.name || '资产实例'
+}
+
+function addAssetComponent() {
+  const id = `component-${Date.now()}`
+  assetComponents.value.push({ id, localKey: id, assetId: form.id || 'new-device', name: '新增部件', type: 'valve' })
+}
+
+function removeAssetComponent(index: number) {
+  assetComponents.value.splice(index, 1)
+}
+
+function addConnectionObject() {
+  const id = `connection-${Date.now()}`
+  connectionObjects.value.push({ id, localKey: id, name: '新增连接对象', endpointA: '端点A', endpointB: '端点B', detectionFocus: '泄漏/紧密度' })
+}
+
+function removeConnectionObject(index: number) {
+  connectionObjects.value.splice(index, 1)
 }
 
 function parseWindow(text: string) {
@@ -479,6 +654,8 @@ function handleSave() {
     status: form.status,
     inspectionFrequency: { value: form.checkCycleValue, unit: form.checkCycleUnit },
     executionWindow: parseWindow(form.windowText),
+    assetComponents: assetComponents.value,
+    connectionObjects: connectionObjects.value,
     createdAt: new Date(),
     updatedAt: new Date()
   }
@@ -497,13 +674,16 @@ function handleSave() {
       name: item.name || `检测项${index + 1}`,
       code: `CHECK-${index + 1}`,
       checkType: 'threshold',
+      subjectType: item.subjectType,
+      targetObject: item.targetObject,
       detectionType: item.detectionType,
       priorityLevel: item.priority,
       priority: mapPriority(item.priority),
       inspectionFrequency: { value: item.cycleValue, unit: item.cycleUnit },
       executionWindow: parseWindow(item.windowText),
-      unit: item.detectionType === 'appearance' ? '-' : item.thresholdUnit,
-      threshold: item.detectionType === 'appearance' ? {} : { warning: item.thresholdValue, max: item.thresholdValue },
+      unit: isNonNumericDetection(item.detectionType) ? '-' : item.thresholdUnit,
+      threshold: isNonNumericDetection(item.detectionType) ? {} : { warning: item.thresholdValue, max: item.thresholdValue },
+      collectableCondition: item.collectableCondition,
       visionMapping: payload.referenceImageUrl
         ? { sourceType: 'manual', customImageUrl: payload.referenceImageUrl, recognitionMode: 'ai' }
         : undefined,
@@ -537,5 +717,13 @@ onMounted(loadDetail)
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+}
+.model-card {
+  margin-top: 16px;
+}
+.model-section-title {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #1f2937;
 }
 </style>
