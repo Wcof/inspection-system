@@ -436,18 +436,14 @@ function loadDetail() {
   form.nfcId = detail.nfcId || ''
   form.referenceImageUrl = detail.referenceImageUrl || ''
   form.status = detail.status || 'active'
-  if (detail.assetComponents?.length || detail.connectionObjects?.length) {
-    assetComponents.value = (detail.assetComponents || []).map((item: any, index: number) => ({
-      ...item,
-      localKey: item.localKey || `${item.id || 'component'}-${index}`
-    }))
-    connectionObjects.value = (detail.connectionObjects || []).map((item: any, index: number) => ({
-      ...item,
-      localKey: item.localKey || `${item.id || 'connection'}-${index}`
-    }))
-  } else {
-    seedAssetModel(detail.id)
-  }
+  assetComponents.value = (detail.assetComponents || []).map((item: any, index: number) => ({
+    ...item,
+    localKey: item.localKey || `${item.id || 'component'}-${index}`
+  }))
+  connectionObjects.value = (detail.connectionObjects || []).map((item: any, index: number) => ({
+    ...item,
+    localKey: item.localKey || `${item.id || 'connection'}-${index}`
+  }))
 
   checkItems.value = inspectionStore.inspectionDeviceCheckItems
     .filter((item: any) => item.deviceId === detail.id)

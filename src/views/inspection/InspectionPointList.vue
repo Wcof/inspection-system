@@ -70,7 +70,14 @@
               <a-tag color="green">停车点 {{ getSpatialModel(record).parkingPoints.length }}</a-tag>
               <a-tag color="purple">采集位 {{ getCollectionPoseCount(record) }}</a-tag>
             </div>
-            <a-row :gutter="[12, 12]">
+            <a-alert
+              v-if="!getSpatialModel(record).parkingPoints.length"
+              type="warning"
+              show-icon
+              message="未配置停车点/采集位"
+              description="请先在 mock 初始化或点位配置数据中补充空间执行模型。"
+            />
+            <a-row v-else :gutter="[12, 12]">
               <a-col v-for="parking in getSpatialModel(record).parkingPoints" :key="parking.id" :xs="24" :lg="12">
                 <div class="parking-card">
                   <div class="parking-title">
@@ -280,22 +287,10 @@ function fetchPoints() {
   loading.value = true
   try {
     inspectionStore.fetchAllInspectionPoints()
-    points.value = inspectionStore.inspectionPoints.filter(isInspectionBizPoint).map(ensureSpatialPoint)
+    points.value = inspectionStore.inspectionPoints.filter(isInspectionBizPoint)
   } finally {
     loading.value = false
   }
-}
-
-function ensureSpatialPoint(point: InspectionPoint): InspectionPoint {
-  if (point.parkingPoints?.length) return point
-  const spatialModel = buildSpatialModel(point)
-  const updatedPoint: InspectionPoint = {
-    ...point,
-    workAreaName: spatialModel.workArea,
-    parkingPoints: spatialModel.parkingPoints
-  }
-  inspectionStore.saveInspectionPoint(updatedPoint)
-  return updatedPoint
 }
 
 const areaOptions = computed(() => {
@@ -331,81 +326,10 @@ function getSpatialModel(point: InspectionPoint): { workArea: string; parkingPoi
       parkingPoints: point.parkingPoints
     }
   }
-  return buildSpatialModel(point)
-}
-
-function buildSpatialModel(point: InspectionPoint): { workArea: string; parkingPoints: ParkingPoint[] } {
-  const pointNo = Number(String(point.id).replace(/\D/g, '')) || 1
-  const baseX = Number(point.mapPosition?.x || 120)
-  const baseY = Number(point.mapPosition?.y || 120)
-  const workArea = point.areaName || (pointNo % 2 === 0 ? '泵组作业区' : '反应装置区')
-  const parkingPoints: ParkingPoint[] = [
-    {
-      id: `${point.id}-parking-front`,
-      inspectionPointId: point.id,
-      name: `${point.name}-正前方停车点`,
-      position: { x: Math.round(baseX), y: Math.round(baseY), yaw: point.mapPosition?.yaw || 0 },
-      constraint: {
-        reachable: true,
-        reverseRequired: pointNo % 3 === 0,
-        turnAroundRequired: pointNo % 2 === 0,
-        narrowRoad: pointNo % 2 === 1,
-        slope: false,
-        bridgeRequired: pointNo % 4 === 0,
-        detourRequired: false
-      },
-      collectionPoses: buildCollectionPoses(point, 'front')
-    },
-    {
-      id: `${point.id}-parking-side`,
-      inspectionPointId: point.id,
-      name: `${point.name}-侧向停车点`,
-      position: { x: Math.round(baseX + 18), y: Math.round(baseY + 12), yaw: 90 },
-      constraint: {
-        reachable: true,
-        reverseRequired: true,
-        turnAroundRequired: false,
-        narrowRoad: true,
-        slope: pointNo % 5 === 0,
-        bridgeRequired: false,
-        detourRequired: pointNo % 3 === 0
-      },
-      collectionPoses: buildCollectionPoses(point, 'side')
-    }
-  ]
-  return { workArea, parkingPoints }
-}
-
-function buildCollectionPoses(point: InspectionPoint, side: 'front' | 'side'): CollectionPose[] {
-  const prefix = side === 'front' ? '正拍' : '侧拍'
-  return [
-    {
-      id: `${point.id}-${side}-meter`,
-      parkingPointId: `${point.id}-parking-${side}`,
-      targetName: `${prefix}压力表读数`,
-      targetType: 'component',
-      direction: side === 'front' ? 'front' : 'side',
-      distanceMeter: side === 'front' ? 1.8 : 2.4,
-      ptzYaw: side === 'front' ? 0 : 35,
-      ptzPitch: -12,
-      focalLength: side === 'front' ? '35mm' : '50mm',
-      method: 'optical',
-      collectableCondition: '无遮挡、无强反光、表盘刻度完整'
-    },
-    {
-      id: `${point.id}-${side}-flange`,
-      parkingPointId: `${point.id}-parking-${side}`,
-      targetName: `${prefix}阀门/法兰紧密度`,
-      targetType: 'connection',
-      direction: side === 'front' ? 'oblique' : 'side',
-      distanceMeter: side === 'front' ? 2.2 : 1.6,
-      ptzYaw: side === 'front' ? 18 : 60,
-      ptzPitch: -8,
-      focalLength: '70mm',
-      method: 'thermal',
-      collectableCondition: '连接面可见，热成像目标不被管线遮挡'
-    }
-  ]
+  return {
+    workArea: point.workAreaName || point.areaName || '未配置装置区',
+    parkingPoints: []
+  }
 }
 
 function getCollectionPoseCount(point: InspectionPoint) {
