@@ -19,6 +19,7 @@ import {
   InspectionDeviceFormData,
   InspectionDeviceCheckItem,
   InspectionDeviceCheckItemFormData,
+  StandardComponent,
   CalibrationStatus,
   InspectionPointType,
   PositionSource,
@@ -39,6 +40,7 @@ export const useInspectionStore = defineStore('inspection', () => {
   const inspectionRoutes = ref<InspectionRoute[]>([])
   const inspectionDevices = ref<InspectionDevice[]>([])
   const inspectionDeviceCheckItems = ref<InspectionDeviceCheckItem[]>([])
+  const standardComponents = ref<StandardComponent[]>([])
   const inspectionPlans = ref<InspectionPlan[]>([])
   const loading = ref(false)
   
@@ -55,6 +57,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     fetchAllInspectionRoutes()
     fetchAllInspectionDevices()
     fetchAllInspectionDeviceCheckItems()
+    fetchAllStandardComponents()
     fetchAllInspectionPlans()
   }
   
@@ -450,6 +453,26 @@ export const useInspectionStore = defineStore('inspection', () => {
     fetchAllInspectionDeviceCheckItems()
   }
 
+  // 标准部件库
+  function fetchAllStandardComponents() {
+    loading.value = true
+    try {
+      standardComponents.value = MockService.getStandardComponents()
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function saveStandardComponent(component: StandardComponent) {
+    MockService.saveStandardComponent(component)
+    fetchAllStandardComponents()
+  }
+
+  function deleteStandardComponent(id: string) {
+    MockService.deleteStandardComponent(id)
+    fetchAllStandardComponents()
+  }
+
   // 巡检计划相关
   function fetchAllInspectionPlans() {
     loading.value = true
@@ -487,6 +510,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     inspectionRoutes,
     inspectionDevices,
     inspectionDeviceCheckItems,
+    standardComponents,
     inspectionPlans,
     loading,
     initialize,
@@ -531,6 +555,9 @@ export const useInspectionStore = defineStore('inspection', () => {
     getInspectionDeviceCheckItemsByDeviceId,
     saveInspectionDeviceCheckItem,
     deleteInspectionDeviceCheckItem,
+    fetchAllStandardComponents,
+    saveStandardComponent,
+    deleteStandardComponent,
     fetchAllInspectionPlans,
     getInspectionPlanById,
     saveInspectionPlan,

@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   INSPECTION_ROUTES: 'inspection_routes',
   INSPECTION_DEVICES: 'inspection_devices',
   INSPECTION_DEVICE_CHECK_ITEMS: 'inspection_device_check_items',
+  STANDARD_COMPONENTS: 'standard_components',
   INSPECTION_TASK_SNAPSHOTS: 'inspection_task_snapshots',
   INSPECTION_TASK_RESULTS: 'inspection_task_results'
 }

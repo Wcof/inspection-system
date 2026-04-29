@@ -94,7 +94,8 @@ export interface InspectedAssetComponent {
   id: string
   assetId: string
   name: string
-  type: 'valve' | 'meter' | 'flange' | 'motor' | 'pipe' | 'other'
+  type: 'valve' | 'meter' | 'temperature_gauge' | 'flange' | 'motor' | 'pipe' | 'cable' | 'joint' | 'sensor' | 'screw' | 'other'
+  ruleIds?: string[]
 }
 
 export interface ConnectionObject {
@@ -102,7 +103,23 @@ export interface ConnectionObject {
   name: string
   endpointA: string
   endpointB: string
+  sourceComponentId?: string
+  sinkScope?: 'self' | 'other'
+  sinkDeviceId?: string
+  sinkComponentId?: string
+  endpointAPath?: [string, string]
+  endpointBPath?: [string, string]
+  ruleIds?: string[]
   detectionFocus: string
+}
+
+export interface StandardComponent {
+  id: string
+  name: string
+  type: 'valve' | 'meter' | 'temperature_gauge' | 'flange' | 'pipe' | 'motor' | 'cable' | 'joint' | 'sensor' | 'screw' | 'other'
+  description?: string
+  createdAt: Date
+  updatedAt: Date
 }
 
 export type DetectionSubjectType = 'asset' | 'component' | 'connection' | 'area_environment' | 'safety_behavior'
@@ -556,6 +573,9 @@ export interface InspectionPoint {
   lastManualAdjustAt?: Date
   areaId?: string
   areaName?: string
+  areaIds?: string[]
+  areaNames?: string[]
+  sourcePointIds?: string[]
   previewImageUrl?: string
   workAreaName?: string
   parkingPoints?: ParkingPoint[]
@@ -589,6 +609,9 @@ export interface InspectionPointFormData {
   positionSource: PositionSource
   areaId?: string
   areaName?: string
+  areaIds?: string[]
+  areaNames?: string[]
+  sourcePointIds?: string[]
   previewImageUrl?: string
   workAreaName?: string
   parkingPoints?: ParkingPoint[]

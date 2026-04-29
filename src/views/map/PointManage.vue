@@ -1,106 +1,152 @@
 <template>
   <div class="point-manage">
-    <a-page-header title="点位设置" sub-title="地图位置与点位属性统一管理" />
+    <a-page-header
+      :title="isListMode ? '点位管理' : `点位管理 - ${currentMap?.name || '未命名地图'}`"
+      :sub-title="isListMode ? '菜单入口展示列表；新增后进入地图内点位配置' : '地图位置与点位属性统一管理'"
+    >
+      <template #extra>
+        <a-space v-if="isListMode">
+          <a-button type="primary" @click="openCreateFromList">新增点位</a-button>
+        </a-space>
+        <a-space v-else>
+          <a-button @click="backToList">返回点位列表</a-button>
+        </a-space>
+      </template>
+    </a-page-header>
 
-    <div class="layout-grid">
-      <a-card class="map-card" title="位置管理">
-        <template #extra>
-          <a-space v-if="mode !== 'moving'">
-            <a-button type="primary" @click="enterAddMode">新增点位</a-button>
-            <a-button @click="enterMoveMode">移动点位</a-button>
-          </a-space>
-          <a-space v-else>
-            <a-button type="primary" @click="confirmMove">确认</a-button>
-            <a-button @click="cancelMove">取消</a-button>
-          </a-space>
-        </template>
-
-        <div class="map-stage" :style="mapStageStyle" @click="handleStageClick">
-          <div class="map-mask" />
-          <div class="map-tip">
-            <template v-if="mode === 'adding'">新增模式：在地图中点击位置后填写点位信息。</template>
-            <template v-else-if="mode === 'moving'">移动模式：先点击一个点位，再点击地图新位置。</template>
-            <template v-else>查看模式：可点击点位高亮，或切换到新增/移动模式。</template>
-          </div>
-
-          <div
-            v-for="point in points"
-            :key="point.id"
-            class="marker"
-            :class="{
-              active: point.id === selectedPointId,
-              moving: mode === 'moving' && point.id === activeMovePointId
-            }"
-            :style="{ left: `${point.mapX}%`, top: `${point.mapY}%` }"
-            @click.stop="handlePointClick(point)"
-          >
-            <span class="marker-dot">{{ getShortType(point.bizType) }}</span>
-            <span class="marker-text">{{ point.name }}</span>
-          </div>
-        </div>
-      </a-card>
-
-      <a-card title="属性管理列表">
-        <a-table :columns="columns" :data-source="points" row-key="id" :pagination="false" :scroll="{ y: 520 }">
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'pointType'">
-              <template v-if="editingId === record.id">
-                <a-select v-model:value="inlineEdit.type" style="width: 120px">
-                  <a-select-option value="inspection">巡检点</a-select-option>
-                  <a-select-option value="charging">充电点</a-select-option>
-                  <a-select-option value="parking">停车点</a-select-option>
-                </a-select>
-              </template>
-              <a-tag v-else>{{ pointTypeText(record.bizType) }}</a-tag>
-            </template>
-
-            <template v-else-if="column.key === 'name'">
-              <template v-if="editingId === record.id">
-                <a-input v-model:value="inlineEdit.name" />
-              </template>
-              <template v-else>{{ record.name }}</template>
-            </template>
-
-            <template v-else-if="column.key === 'location'">
-              {{ record.mapX.toFixed(2) }}, {{ record.mapY.toFixed(2) }}
-            </template>
-
-            <template v-else-if="column.key === 'actions'">
-              <a-space>
-                <template v-if="editingId === record.id">
-                  <a-button type="link" size="small" @click="saveInlineEdit(record)">保存</a-button>
-                  <a-button type="link" size="small" @click="cancelInlineEdit">取消</a-button>
-                </template>
-                <template v-else>
-                  <a-button type="link" size="small" @click="openInlineEdit(record)">编辑</a-button>
-                  <a-button type="link" size="small" danger @click="deletePoint(record)">删除</a-button>
-                </template>
-              </a-space>
-            </template>
+    <a-card v-if="isListMode" style="margin-top: 16px">
+      <a-table :columns="listColumns" :data-source="pointListRows" row-key="id">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'pointType'">
+            <a-tag>{{ pointTypeText(record.bizType) }}</a-tag>
           </template>
-        </a-table>
-      </a-card>
-    </div>
+          <template v-else-if="column.key === 'actions'">
+            <a-space>
+              <a-button type="link" size="small" @click="goToMapScopedPage(record.mapId)">进入地图点位管理</a-button>
+            </a-space>
+          </template>
+        </template>
+      </a-table>
+    </a-card>
 
-    <a-modal v-model:open="addModalVisible" title="新增点位" @ok="createPoint" @cancel="cancelAdd">
+    <template v-else>
+      <div class="layout-grid">
+        <a-card class="map-card" title="位置管理">
+          <template #extra>
+            <a-space v-if="mode !== 'moving'">
+              <a-button type="primary" @click="enterAddMode">新增点位</a-button>
+              <a-button @click="enterMoveMode">移动点位</a-button>
+            </a-space>
+            <a-space v-else>
+              <a-button type="primary" @click="confirmMove">确认</a-button>
+              <a-button @click="cancelMove">取消</a-button>
+            </a-space>
+          </template>
+
+          <div class="map-stage" :style="mapStageStyle" @click="handleStageClick">
+            <div class="map-mask" />
+            <div class="map-tip">
+              <template v-if="mode === 'adding'">新增模式：在地图中点击位置后填写点位信息。</template>
+              <template v-else-if="mode === 'moving'">移动模式：先点击一个点位，再点击地图新位置。</template>
+              <template v-else>查看模式：可点击点位高亮，或切换到新增/移动模式。</template>
+            </div>
+
+            <div
+              v-for="point in points"
+              :key="point.id"
+              class="marker"
+              :class="{
+                active: point.id === selectedPointId,
+                moving: mode === 'moving' && point.id === activeMovePointId
+              }"
+              :style="{ left: `${point.mapX}%`, top: `${point.mapY}%` }"
+              @click.stop="handlePointClick(point)"
+            >
+              <span class="marker-dot">{{ getShortType(point.bizType) }}</span>
+              <span class="marker-text">{{ point.name }}</span>
+            </div>
+          </div>
+        </a-card>
+
+        <a-card title="属性管理列表">
+          <a-table :columns="columns" :data-source="points" row-key="id" :pagination="false" :scroll="{ y: 520 }">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'pointType'">
+                <template v-if="editingId === record.id">
+                  <a-select v-model:value="inlineEdit.type" style="width: 120px">
+                    <a-select-option value="inspection">巡检点</a-select-option>
+                    <a-select-option value="charging">充电点</a-select-option>
+                    <a-select-option value="parking">停车点</a-select-option>
+                  </a-select>
+                </template>
+                <a-tag v-else>{{ pointTypeText(record.bizType) }}</a-tag>
+              </template>
+
+              <template v-else-if="column.key === 'name'">
+                <template v-if="editingId === record.id">
+                  <a-input v-model:value="inlineEdit.name" />
+                </template>
+                <template v-else>{{ record.name }}</template>
+              </template>
+
+              <template v-else-if="column.key === 'location'">
+                {{ record.mapX.toFixed(2) }}, {{ record.mapY.toFixed(2) }}
+              </template>
+
+              <template v-else-if="column.key === 'actions'">
+                <a-space>
+                  <template v-if="editingId === record.id">
+                    <a-button type="link" size="small" @click="saveInlineEdit(record)">保存</a-button>
+                    <a-button type="link" size="small" @click="cancelInlineEdit">取消</a-button>
+                  </template>
+                  <template v-else>
+                    <a-button type="link" size="small" @click="openInlineEdit(record)">编辑</a-button>
+                    <a-button type="link" size="small" danger @click="deletePoint(record)">删除</a-button>
+                  </template>
+                </a-space>
+              </template>
+            </template>
+          </a-table>
+        </a-card>
+      </div>
+
+      <a-modal v-model:open="addModalVisible" title="新增点位" @ok="createPoint" @cancel="cancelAdd">
+        <a-form layout="vertical">
+          <a-form-item label="点位名称" required>
+            <a-input v-model:value="addForm.name" placeholder="请输入点位名称" />
+          </a-form-item>
+          <a-form-item label="点位类型" required>
+            <a-select v-model:value="addForm.type">
+              <a-select-option value="inspection">巡检点</a-select-option>
+              <a-select-option value="charging">充电点</a-select-option>
+              <a-select-option value="parking">停车点</a-select-option>
+            </a-select>
+          </a-form-item>
+          <a-form-item label="所属区域">
+            <a-select v-model:value="addForm.areaId" allow-clear placeholder="请选择区域">
+              <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
+            </a-select>
+          </a-form-item>
+          <a-form-item label="地图坐标">
+            <a-input :value="`${addForm.mapX.toFixed(2)}, ${addForm.mapY.toFixed(2)}`" disabled />
+          </a-form-item>
+        </a-form>
+      </a-modal>
+    </template>
+
+    <a-modal
+      v-model:open="createFromListVisible"
+      title="选择地图后新增点位"
+      @ok="confirmCreateFromList"
+      @cancel="createFromListVisible = false"
+    >
       <a-form layout="vertical">
-        <a-form-item label="点位名称" required>
-          <a-input v-model:value="addForm.name" placeholder="请输入点位名称" />
-        </a-form-item>
-        <a-form-item label="点位类型" required>
-          <a-select v-model:value="addForm.type">
-            <a-select-option value="inspection">巡检点</a-select-option>
-            <a-select-option value="charging">充电点</a-select-option>
-            <a-select-option value="parking">停车点</a-select-option>
+        <a-form-item label="地图" required>
+          <a-select v-model:value="selectedMapForCreate" placeholder="请选择地图">
+            <a-select-option v-for="map in inspectionStore.inspectionMaps" :key="map.id" :value="map.id">
+              {{ map.name }}
+            </a-select-option>
           </a-select>
-        </a-form-item>
-        <a-form-item label="所属区域">
-          <a-select v-model:value="addForm.areaId" allow-clear placeholder="请选择区域">
-            <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="地图坐标">
-          <a-input :value="`${addForm.mapX.toFixed(2)}, ${addForm.mapY.toFixed(2)}`" disabled />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -108,9 +154,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
 import { CalibrationStatus, InspectionPointType, PositionSource } from '@/types/inspection'
 import { ExceptionStrategy } from '@/types'
@@ -124,6 +170,7 @@ interface PointRow {
   name: string
   code: string
   mapId: string
+  mapName: string
   mapX: number
   mapY: number
   areaId?: string
@@ -134,7 +181,10 @@ interface PointRow {
 
 const inspectionStore = useInspectionStore()
 const route = useRoute()
-const currentMapId = computed(() => String(route.query.mapId || 'map-001'))
+const router = useRouter()
+
+const selectedMapId = computed(() => (typeof route.query.mapId === 'string' ? route.query.mapId : ''))
+const isListMode = computed(() => !selectedMapId.value)
 
 const points = ref<PointRow[]>([])
 const mode = ref<Mode>('normal')
@@ -153,8 +203,11 @@ const addForm = reactive({
   mapY: 0
 })
 
+const createFromListVisible = ref(false)
+const selectedMapForCreate = ref('')
+
 const moveDraft = ref<Record<string, { x: number; y: number }>>({})
-const mapBackgroundUrl = new URL('../../地图.png', import.meta.url).href
+const fallbackMapBackgroundUrl = new URL('../../地图.png', import.meta.url).href
 
 const columns = [
   { title: '点位名称', dataIndex: 'name', key: 'name' },
@@ -165,11 +218,32 @@ const columns = [
   { title: '操作', key: 'actions', width: 140 }
 ]
 
-const currentMap = computed(() => inspectionStore.inspectionMaps.find(map => map.id === currentMapId.value))
+const listColumns = [
+  { title: '点位名称', dataIndex: 'name', key: 'name' },
+  { title: '地图', dataIndex: 'mapName', key: 'mapName', width: 180 },
+  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 180 },
+  { title: '点位类型', key: 'pointType', width: 140 },
+  { title: '操作', key: 'actions', width: 220 }
+]
+
+const currentMap = computed(() => inspectionStore.inspectionMaps.find(map => map.id === selectedMapId.value))
 const areaOptions = computed(() => currentMap.value?.regions || [])
+const pointListRows = computed(() => {
+  return inspectionStore.inspectionPoints.map((point) => {
+    const map = inspectionStore.inspectionMaps.find(item => item.id === point.mapId)
+    return {
+      id: point.id,
+      name: point.name,
+      mapId: point.mapId,
+      mapName: map?.name || point.mapId,
+      areaName: point.areaName || '-',
+      bizType: getBizTypeFromDescription(point.description)
+    }
+  })
+})
 
 const mapStageStyle = computed(() => ({
-  backgroundImage: `url(${mapBackgroundUrl})`,
+  backgroundImage: `url(${currentMap.value?.imageUrl || fallbackMapBackgroundUrl})`,
   backgroundColor: '#eef3ff'
 }))
 
@@ -226,14 +300,23 @@ function detectAreaByPoint(x: number, y: number) {
   return hit || null
 }
 
-function loadPoints() {
+function initializeBase() {
   inspectionStore.initialize()
-  const all = inspectionStore.inspectionPoints.filter(point => point.mapId === currentMapId.value)
+}
+
+function loadPoints() {
+  if (isListMode.value || !selectedMapId.value) {
+    points.value = []
+    return
+  }
+
+  const all = inspectionStore.inspectionPoints.filter(point => point.mapId === selectedMapId.value)
   points.value = all.map((point) => ({
     id: point.id,
     name: point.name,
     code: point.code,
     mapId: point.mapId,
+    mapName: currentMap.value?.name || point.mapId,
     mapX: normalizeMapCoordinate(point.mapPosition?.x),
     mapY: normalizeMapCoordinate(point.mapPosition?.y),
     areaId: point.areaId,
@@ -241,9 +324,43 @@ function loadPoints() {
     bizType: getBizTypeFromDescription(point.description),
     raw: point
   }))
+
   if (!selectedPointId.value && points.value[0]) {
     selectedPointId.value = points.value[0].id
   }
+}
+
+function goToMapScopedPage(mapId: string, action?: 'create') {
+  router.push({
+    path: '/implementation/map/point-manage',
+    query: action ? { mapId, action } : { mapId }
+  })
+}
+
+function backToList() {
+  router.push('/implementation/map/point-manage')
+}
+
+function openCreateFromList() {
+  if (!inspectionStore.inspectionMaps.length) {
+    message.warning('请先在地图管理中创建地图')
+    return
+  }
+  if (inspectionStore.inspectionMaps.length === 1) {
+    goToMapScopedPage(inspectionStore.inspectionMaps[0].id, 'create')
+    return
+  }
+  selectedMapForCreate.value = ''
+  createFromListVisible.value = true
+}
+
+function confirmCreateFromList() {
+  if (!selectedMapForCreate.value) {
+    message.warning('请先选择地图')
+    return
+  }
+  createFromListVisible.value = false
+  goToMapScopedPage(selectedMapForCreate.value, 'create')
 }
 
 function buildAndSavePoint(row: PointRow, patch: Partial<PointRow>) {
@@ -369,7 +486,7 @@ function cancelAdd() {
 
 function createPoint() {
   const name = addForm.name.trim()
-  if (!name) {
+  if (!name || !selectedMapId.value) {
     message.warning('请填写点位名称')
     return
   }
@@ -380,7 +497,7 @@ function createPoint() {
     code: `IP-${Math.floor(Math.random() * 900 + 100)}`,
     pointType: InspectionPointType.FIXED,
     description: getDescriptionByBizType(addForm.type, name),
-    mapId: currentMapId.value,
+    mapId: selectedMapId.value,
     areaId: addForm.areaId || undefined,
     areaName: area?.name || '',
     location: {
@@ -439,7 +556,27 @@ function cancelMove() {
   loadPoints()
 }
 
-onMounted(loadPoints)
+function handleRouteIntent() {
+  if (isListMode.value) return
+  if (route.query.action === 'create') {
+    enterAddMode()
+    router.replace({ path: '/implementation/map/point-manage', query: { mapId: selectedMapId.value } })
+  }
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    loadPoints()
+    handleRouteIntent()
+  }
+)
+
+onMounted(() => {
+  initializeBase()
+  loadPoints()
+  handleRouteIntent()
+})
 </script>
 
 <style scoped lang="css">

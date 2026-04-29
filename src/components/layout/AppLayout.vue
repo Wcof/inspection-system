@@ -90,52 +90,50 @@
               </span>
             </template>
             <a-menu-item key="implementation-map-list">
-              <router-link to="/implementation/map/list">地图列表</router-link>
+              <router-link to="/implementation/map/list">地图管理</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-map-point-manage">
-              <router-link to="/implementation/map/point-manage">地图点位</router-link>
+              <router-link to="/implementation/map/point-manage">点位管理</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-map-area-manage">
-              <router-link to="/implementation/map/area-manage">区域装置区</router-link>
-            </a-menu-item>
-          </a-sub-menu>
-          <a-sub-menu key="implementation-point-collection">
-            <template #title>
-              <span>
-                <a-icon type="cluster" />
-                点位采集
-              </span>
-            </template>
-            <a-menu-item key="implementation-point">
-              <router-link to="/implementation/point/list">巡检点/停车点/采集位</router-link>
+              <router-link to="/implementation/map/area-manage">区域管理</router-link>
             </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="implementation-asset-detection">
             <template #title>
               <span>
                 <a-icon type="appstore" />
-                资产检测
-              </span>
-            </template>
-            <a-menu-item key="implementation-device">
-              <router-link to="/implementation/device/list">资产对象</router-link>
-            </a-menu-item>
-            <a-menu-item key="implementation-metric">
-              <router-link to="/implementation/metric/list">检测能力</router-link>
-            </a-menu-item>
-          </a-sub-menu>
-          <a-sub-menu key="implementation-robot-resource">
-            <template #title>
-              <span>
-                <a-icon type="robot" />
-                机器人资源
+                资产设备
               </span>
             </template>
             <a-menu-item key="implementation-robot-list">
               <router-link to="/implementation/robot/list">机器人管理</router-link>
             </a-menu-item>
-            <a-menu-item key="implementation-robot-simulation">
-              <router-link to="/implementation/robot/simulation">机器人仿真</router-link>
+            <a-menu-item key="implementation-device">
+              <router-link to="/implementation/device/list">设施管理</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-device-component-usage">
+              <router-link to="/implementation/device/component-usage">设施部件</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-device-iot-list">
+              <router-link to="/implementation/device/iot-list">设备管理</router-link>
+            </a-menu-item>
+          </a-sub-menu>
+          <a-sub-menu key="implementation-point-collection">
+            <template #title>
+              <span>
+                <a-icon type="cluster" />
+                巡检采集
+              </span>
+            </template>
+            <a-menu-item key="implementation-point">
+              <router-link to="/implementation/point/list">巡检点管理</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-metric">
+              <router-link to="/implementation/metric/list">检测项管理（旧）</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-detection-item-config">
+              <router-link to="/implementation/detection-item-config/list">检测规则配置</router-link>
             </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="implementation-dispatch-config">
@@ -150,6 +148,12 @@
             </a-menu-item>
             <a-menu-item key="implementation-dispatch-resource-config">
               <router-link to="/implementation/dispatch/resource-config">资源基础配置</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-device-component-types">
+              <router-link to="/implementation/device/component-types">部件类型配置</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-device-standard-components">
+              <router-link to="/implementation/device/standard-components">标准部件库</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-dispatch-notify-config">
               <router-link to="/implementation/dispatch/notify-config">通知配置</router-link>
@@ -271,9 +275,16 @@ const currentKey = computed(() => {
   if (path.startsWith('/implementation/robot/list')) return 'implementation-robot-list'
   if (path.startsWith('/implementation/robot/simulation')) return 'implementation-robot-simulation'
   if (path.startsWith('/implementation/point/list')) return 'implementation-point'
+  if (path.startsWith('/implementation/point/create')) return 'implementation-point'
   if (path.startsWith('/implementation/point/form')) return 'implementation-point'
   if (path.startsWith('/implementation/device/list')) return 'implementation-device'
+  if (path.startsWith('/implementation/device/standard-components')) return 'implementation-device-standard-components'
+  if (path.startsWith('/implementation/device/component-usage')) return 'implementation-device-component-usage'
+  if (path.startsWith('/implementation/device/iot-list')) return 'implementation-device-iot-list'
+  if (path.startsWith('/implementation/device/component-types')) return 'implementation-device-component-types'
+  if (path.startsWith('/implementation/device/detail')) return 'implementation-device'
   if (path.startsWith('/implementation/device/form')) return 'implementation-device'
+  if (path.startsWith('/implementation/detection-item-config')) return 'implementation-detection-item-config'
   if (path.startsWith('/implementation/metric/list')) return 'implementation-metric'
   if (path.startsWith('/implementation/dispatch/rule-config')) return 'implementation-dispatch-rule-config'
   if (path.startsWith('/implementation/dispatch/resource-config')) return 'implementation-dispatch-resource-config'

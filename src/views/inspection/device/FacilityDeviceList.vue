@@ -1,6 +1,6 @@
 <template>
   <div class="facility-device-list">
-    <a-page-header title="设施设备管理" sub-title="支持设备维度查询、检测项数量统计与参考图预览" />
+    <a-page-header title="设施管理" sub-title="支持设备维度查询、检测项数量统计与参考图预览" />
 
     <a-card style="margin-top: 16px">
       <div class="search-panel">
@@ -31,13 +31,13 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备分类" class="search-item">
-                <a-input v-model:value="searchForm.deviceClassification" allow-clear placeholder="请输入设备分类" />
+              <a-form-item label="设施分类" class="search-item">
+                <a-input v-model:value="searchForm.deviceClassification" allow-clear placeholder="请输入设施分类" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备类别" class="search-item">
-                <a-input v-model:value="searchForm.deviceCategory" allow-clear placeholder="请输入设备类别" />
+              <a-form-item label="设施类别" class="search-item">
+                <a-input v-model:value="searchForm.deviceCategory" allow-clear placeholder="请输入设施类别" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
@@ -80,6 +80,10 @@
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
+              <a-button type="link" size="small" @click="goToDetail(record.id)">详情</a-button>
+              <a-button type="link" size="small" @click="goToDetectionConfig(record.id)">检测配置</a-button>
+              <a-button type="link" size="small" @click="goToComponents(record.id)">部件</a-button>
+              <a-button type="link" size="small" @click="goToConnections(record.id)">连接部位</a-button>
               <a-button type="link" size="small" @click="goToForm(record.id)">编辑</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">删除</a-button>
             </a-space>
@@ -112,10 +116,10 @@ const searchForm = reactive({
 })
 
 const columns = [
-  { title: '设备编号', dataIndex: 'deviceNo', key: 'deviceNo', width: 150 },
-  { title: '设备名称', dataIndex: 'name', key: 'name', width: 150 },
-  { title: '设备类别', dataIndex: 'deviceCategory', key: 'deviceCategory', width: 130 },
-  { title: '设备分类', dataIndex: 'deviceClassification', key: 'deviceClassification', width: 130 },
+  { title: '设施编号', dataIndex: 'deviceNo', key: 'deviceNo', width: 150 },
+  { title: '设施名称', dataIndex: 'name', key: 'name', width: 150 },
+  { title: '设施类别', dataIndex: 'deviceCategory', key: 'deviceCategory', width: 130 },
+  { title: '设施分类', dataIndex: 'deviceClassification', key: 'deviceClassification', width: 130 },
   { title: '责任人', dataIndex: 'owner', key: 'owner', width: 110 },
   { title: '所在区域', key: 'area', width: 130 },
   { title: '所在巡检点', key: 'point', width: 170 },
@@ -126,7 +130,7 @@ const columns = [
   { title: '最近检测结论', dataIndex: 'lastInspectionConclusion', key: 'lastInspectionConclusion', width: 130 },
   { title: '检测项数量', key: 'checkItemCount', width: 110 },
   { title: '参考图', key: 'reference', width: 110, fixed: 'right' as const },
-  { title: '操作', key: 'actions', width: 120, fixed: 'right' as const }
+  { title: '操作', key: 'actions', width: 380, fixed: 'right' as const }
 ]
 
 const points = computed(() => inspectionStore.inspectionPoints)
@@ -170,6 +174,22 @@ function getCheckItemCount(deviceId: string) {
 
 function goToForm(id?: string) {
   router.push(id ? `/implementation/device/form/${id}` : '/implementation/device/form')
+}
+
+function goToDetail(id: string) {
+  router.push(`/implementation/device/detail/${id}`)
+}
+
+function goToDetectionConfig(id: string) {
+  router.push(`/implementation/device/detection-config/${id}`)
+}
+
+function goToComponents(id: string) {
+  router.push(`/implementation/device/detail/${id}?tab=components`)
+}
+
+function goToConnections(id: string) {
+  router.push(`/implementation/device/detail/${id}?tab=connections`)
 }
 
 function noopSearch() {

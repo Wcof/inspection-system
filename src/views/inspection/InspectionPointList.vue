@@ -1,8 +1,8 @@
 <template>
   <div class="inspection-point-list">
-    <a-page-header title="点位管理" sub-title="管理点位信息">
+    <a-page-header title="巡检点管理" sub-title="管理巡检点信息">
       <template #extra>
-        <a-button type="primary" @click="goToForm()">
+        <a-button type="primary" @click="goToCreatePage">
           <a-icon type="plus" />
           新增巡检点
         </a-button>
@@ -122,7 +122,8 @@
           </template>
           <template v-if="column.key === 'actions'">
             <a-space>
-              <a-button type="link" size="small" @click="goToForm(record.id)">编辑</a-button>
+              <a-button type="link" size="small" @click="goToCompositionEditor(record.id)">编辑点位组成</a-button>
+              <a-button type="link" size="small" @click="goToForm(record.id)">基础编辑</a-button>
               <a-button type="link" size="small" @click="viewDevices(record.id)">设备</a-button>
               <a-button type="link" size="small" @click="handleCalibrate(record.id, record)">校准</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
@@ -274,7 +275,7 @@ const columns = [
   { title: '校准状态', key: 'calibrationStatus', width: 100 },
   { title: '校准时间', key: 'calibratedAt', width: 170 },
   { title: '更新时间', key: 'updatedAt', width: 170 },
-  { title: '操作', key: 'actions', width: 220 }
+  { title: '操作', key: 'actions', width: 320 }
 ]
 
 function isInspectionBizPoint(point: InspectionPoint): boolean {
@@ -351,9 +352,15 @@ function getMethodText(method: CollectionMethod) {
 function goToForm(id?: string) {
   if (id) {
     router.push(`/implementation/point/form/${id}`)
-  } else {
-    router.push('/implementation/map/point-manage?mapId=map-001')
   }
+}
+
+function goToCreatePage() {
+  router.push('/implementation/point/create')
+}
+
+function goToCompositionEditor(id: string) {
+  router.push(`/implementation/point/create/${id}`)
 }
 
 function viewDevices(id: string) {

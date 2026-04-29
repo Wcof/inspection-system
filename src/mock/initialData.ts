@@ -18,7 +18,8 @@ import {
   InspectionPlan,
   InspectionPlanStatus,
   ScheduleType,
-  InspectionPointType
+  InspectionPointType,
+  StandardComponent
 } from '@/types/inspection'
 
 const mapImageUrl = new URL('../地图.png', import.meta.url).href
@@ -662,4 +663,17 @@ export const initialInspectionPlans: InspectionPlan[] = [
     createdAt: new Date(),
     updatedAt: new Date()
   }
+]
+
+export const initialStandardComponents: StandardComponent[] = [
+  { id: 'std-comp-valve', name: '阀门', type: 'valve', description: '流体开关控制部件', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-pressure-gauge', name: '压力表', type: 'meter', description: '压力数值检测部件', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-temperature-gauge', name: '温度表', type: 'temperature_gauge', description: '温度数值检测部件', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-flange', name: '法兰', type: 'flange', description: '管路连接密封部件', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-pipe', name: '管体', type: 'pipe', description: '流体输送主体', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-motor', name: '电机', type: 'motor', description: '驱动执行部件', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-cable', name: '电缆', type: 'cable', description: '电力/信号连接线缆', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-joint', name: '接头', type: 'joint', description: '电气或管路连接节点', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-sensor', name: '传感器', type: 'sensor', description: '监测采集传感器部件', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'std-comp-screw', name: '螺杆', type: 'screw', description: '紧固传动类部件', createdAt: new Date(), updatedAt: new Date() }
 ]

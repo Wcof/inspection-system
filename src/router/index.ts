@@ -6,7 +6,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     redirect: '/management/dispatch/center'
   },
-  
+
   // 管理端路由
   {
     path: '/management',
@@ -184,7 +184,7 @@ const routes: RouteRecordRaw[] = [
       }
     ]
   },
-  
+
   // 实施平台路由
   {
     path: '/implementation',
@@ -265,6 +265,12 @@ const routes: RouteRecordRaw[] = [
             meta: { title: '点位采集' }
           },
           {
+            path: 'create/:id?',
+            name: 'ImplementationPointCreate',
+            component: () => import('../views/inspection/InspectionPointCreate.vue'),
+            meta: { title: '新增巡检点' }
+          },
+          {
             path: 'form/:id?',
             name: 'ImplementationPointForm',
             component: () => import('../views/inspection/InspectionPointForm.vue'),
@@ -288,13 +294,49 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'device',
         name: 'ImplementationDevice',
-        meta: { title: '资产检测' },
+        meta: { title: ' 资产设备' },
         children: [
           {
             path: 'list',
             name: 'ImplementationDeviceList',
             component: () => import('../views/inspection/device/FacilityDeviceList.vue'),
             meta: { title: '资产对象' }
+          },
+          {
+            path: 'standard-components',
+            name: 'ImplementationStandardComponentLibrary',
+            component: () => import('../views/inspection/device/StandardComponentLibrary.vue'),
+            meta: { title: '标准部件库' }
+          },
+          {
+            path: 'component-usage',
+            name: 'ImplementationComponentUsageList',
+            component: () => import('../views/inspection/device/ComponentUsageList.vue'),
+            meta: { title: '设施部件' }
+          },
+          {
+            path: 'iot-list',
+            name: 'ImplementationIoTDeviceList',
+            component: () => import('../views/inspection/device/IoTDeviceList.vue'),
+            meta: { title: '设备管理' }
+          },
+          {
+            path: 'component-types',
+            name: 'ImplementationComponentTypeConfig',
+            component: () => import('../views/inspection/device/ComponentTypeConfig.vue'),
+            meta: { title: '部件类型配置' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ImplementationDeviceDetail',
+            component: () => import('../views/inspection/device/FacilityDeviceDetail.vue'),
+            meta: { title: '设施详情' }
+          },
+          {
+            path: 'detection-config/:deviceId/:componentId?',
+            name: 'ImplementationObjectDetectionConfig',
+            component: () => import('../views/inspection/device/ObjectDetectionConfig.vue'),
+            meta: { title: '检测配置' }
           },
           {
             path: 'form/:id?',
@@ -314,6 +356,37 @@ const routes: RouteRecordRaw[] = [
             name: 'ImplementationMetricList',
             component: () => import('../views/implementation/MetricManagement.vue'),
             meta: { title: '检测项管理' }
+          }
+        ]
+      },
+      {
+        path: 'detection-item-config',
+        name: 'ImplementationDetectionItemConfig',
+        meta: { title: '检测项配置' },
+        children: [
+          {
+            path: 'list',
+            name: 'ImplementationDetectionItemConfigList',
+            component: () => import('../views/implementation/detection-item-config/DetectionItemConfigList.vue'),
+            meta: { title: '检测项配置' }
+          },
+          {
+            path: 'create',
+            name: 'ImplementationDetectionItemConfigCreate',
+            component: () => import('../views/implementation/detection-item-config/DetectionItemConfigForm.vue'),
+            meta: { title: '新增检测规则' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ImplementationDetectionItemConfigDetail',
+            component: () => import('../views/implementation/detection-item-config/DetectionItemConfigDetail.vue'),
+            meta: { title: '检测项配置详情' }
+          },
+          {
+            path: 'edit/:id',
+            name: 'ImplementationDetectionItemConfigEdit',
+            component: () => import('../views/implementation/detection-item-config/DetectionItemConfigForm.vue'),
+            meta: { title: '编辑检测项配置' }
           }
         ]
       },

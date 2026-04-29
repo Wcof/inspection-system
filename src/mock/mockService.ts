@@ -11,7 +11,8 @@ import {
   initialInspectionRoutes,
   initialInspectionDevices,
   initialInspectionDeviceCheckItems,
-  initialInspectionPlans
+  initialInspectionPlans,
+  initialStandardComponents
 } from './initialData'
 import { Robot, InspectionPoint, MonitorPoint, Metric, InspectionTask, InspectionPath } from '@/types'
 import type {
@@ -23,7 +24,8 @@ import type {
   InspectionDeviceCheckItem,
   InspectionTaskSnapshot,
   InspectionTaskResult,
-  InspectionPlan
+  InspectionPlan,
+  StandardComponent
 } from '@/types/inspection'
 import { migrateToV2 } from './migrations'
 
@@ -66,6 +68,9 @@ export class MockService {
     }
     if (!storage.get(STORAGE_KEYS.PLANS)) {
       storage.set(STORAGE_KEYS.PLANS, initialInspectionPlans)
+    }
+    if (!storage.get(STORAGE_KEYS.STANDARD_COMPONENTS)) {
+      storage.set(STORAGE_KEYS.STANDARD_COMPONENTS, initialStandardComponents)
     }
     
     migrateToV2()
@@ -389,6 +394,27 @@ export class MockService {
   static deleteInspectionDeviceCheckItem(id: string): void {
     const items = this.getInspectionDeviceCheckItems().filter(i => i.id !== id)
     storage.set(STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS, items)
+  }
+
+  // 标准部件库
+  static getStandardComponents(): StandardComponent[] {
+    return storage.get<StandardComponent[]>(STORAGE_KEYS.STANDARD_COMPONENTS) || []
+  }
+
+  static saveStandardComponent(component: StandardComponent): void {
+    const components = this.getStandardComponents()
+    const index = components.findIndex(item => item.id === component.id)
+    if (index >= 0) {
+      components[index] = component
+    } else {
+      components.push(component)
+    }
+    storage.set(STORAGE_KEYS.STANDARD_COMPONENTS, components)
+  }
+
+  static deleteStandardComponent(id: string): void {
+    const components = this.getStandardComponents().filter(item => item.id !== id)
+    storage.set(STORAGE_KEYS.STANDARD_COMPONENTS, components)
   }
   
   // 任务快照相关
