@@ -113,6 +113,24 @@ export interface ConnectionObject {
   detectionFocus: string
 }
 
+export type ObjectDetectionSubjectType = 'component' | 'connection' | 'asset' | 'area_environment'
+export type DetectionFailureStrategy = 'manual_review' | 'supplement_task' | 'mark_uninspectable'
+
+export interface ObjectDetectionConfig {
+  id: string
+  deviceId: string
+  subjectType: ObjectDetectionSubjectType
+  subjectId: string
+  subjectName: string
+  ruleId: string
+  collectionPoseId?: string
+  requiredCoverage: boolean
+  failureStrategy: DetectionFailureStrategy
+  enabled: boolean
+  remark?: string
+  updatedAt: string
+}
+
 export interface StandardComponent {
   id: string
   name: string
@@ -286,6 +304,7 @@ export interface InspectionDevice {
   checkItems: InspectionDeviceCheckItem[]
   assetComponents?: InspectedAssetComponent[]
   connectionObjects?: ConnectionObject[]
+  objectDetectionConfigs?: ObjectDetectionConfig[]
   inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -332,6 +351,7 @@ export interface InspectionDeviceFormData {
   status?: DeviceStatus
   assetComponents?: InspectedAssetComponent[]
   connectionObjects?: ConnectionObject[]
+  objectDetectionConfigs?: ObjectDetectionConfig[]
   inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }

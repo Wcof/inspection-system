@@ -16,7 +16,7 @@
         type="info"
         show-icon
         style="margin-bottom: 12px"
-        message="这里用于把标准检测规则关联到具体设施部件。检测规则只定义能检测什么，本页面定义该设施哪个部件要启用哪些检测规则。"
+        message="对象检测配置是具体绑定页：检测主体 + 检测规则 + 采集位 + 覆盖要求 + 失败策略。这里保存到设施对象本身，不再使用独立 localStorage。"
       />
 
       <a-descriptions v-if="device" :column="3" bordered size="small" style="margin-bottom: 16px">
@@ -30,21 +30,43 @@
         :data-source="rows"
         row-key="id"
         :pagination="false"
-        :scroll="{ x: 1500 }"
+        :scroll="{ x: 1900 }"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'type'">{{ getComponentTypeText(record.type) }}</template>
+          <template v-if="column.key === 'subjectType'">
+            <a-tag :color="record.subjectType === 'connection' ? 'purple' : 'blue'">{{ getSubjectTypeText(record.subjectType) }}</a-tag>
+          </template>
           <template v-else-if="column.key === 'rules'">
             <a-select
               v-model:value="formState[record.id].ruleIds"
               mode="multiple"
               style="width: 100%"
-              placeholder="选择该部件要执行的检测规则"
+              placeholder="选择该对象要执行的检测规则"
               :options="getRuleOptions(record)"
               option-filter-prop="label"
               show-search
             />
-            <div class="field-tip">建议优先选择适用对象类别包含“{{ record.name }}”或“{{ getComponentTypeText(record.type) }}”的规则。</div>
+          </template>
+          <template v-else-if="column.key === 'collectionPose'">
+            <a-select
+              v-model:value="formState[record.id].collectionPoseId"
+              style="width: 100%"
+              allow-clear
+              placeholder="选择采集位"
+              :options="poseOptions"
+              option-filter-prop="label"
+              show-search
+            />
+          </template>
+          <template v-else-if="column.key === 'requiredCoverage'">
+            <a-switch v-model:checked="formState[record.id].requiredCoverage" checked-children="必须" un-checked-children="可选" />
+          </template>
+          <template v-else-if="column.key === 'failureStrategy'">
+            <a-select v-model:value="formState[record.id].failureStrategy" style="width: 150px">
+              <a-select-option value="manual_review">人工复核</a-select-option>
+              <a-select-option value="supplement_task">生成补检</a-select-option>
+              <a-select-option value="mark_uninspectable">标记不可检</a-select-option>
+            </a-select>
           </template>
           <template v-else-if="column.key === 'enabled'">
             <a-switch v-model:checked="formState[record.id].enabled" checked-children="启用" un-checked-children="停用" />
@@ -55,7 +77,7 @@
         </template>
       </a-table>
 
-      <a-empty v-if="!rows.length" description="当前设施暂无组成部位，请先在设施编辑中维护部件。" />
+      <a-empty v-if="!rows.length" description="当前设施暂无部件或连接对象，请先在设施编辑中维护资产结构。" />
     </a-card>
   </div>
 </template>
@@ -65,27 +87,30 @@ import { computed, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
-import type { InspectedAssetComponent } from '@/types/inspection'
+import type { DetectionFailureStrategy, InspectedAssetComponent, ObjectDetectionConfig, ObjectDetectionSubjectType } from '@/types/inspection'
 import { getDetectionItemConfigs, type DetectionItemConfig } from '@/views/implementation/detection-item-config/model'
 
-interface ObjectDetectionConfigItem {
+interface SubjectRow {
   id: string
-  deviceId: string
-  componentId: string
-  ruleIds: string[]
-  enabled: boolean
-  remark: string
-  updatedAt: string
+  subjectId: string
+  subjectName: string
+  subjectType: ObjectDetectionSubjectType
+  categoryText: string
 }
 
-type ComponentRow = InspectedAssetComponent
-
-const STORAGE_KEY = 'inspection_object_detection_configs_v1'
+interface FormStateItem {
+  ruleIds: string[]
+  collectionPoseId?: string
+  requiredCoverage: boolean
+  failureStrategy: DetectionFailureStrategy
+  enabled: boolean
+  remark: string
+}
 
 const route = useRoute()
 const router = useRouter()
 const inspectionStore = useInspectionStore()
-const formState = reactive<Record<string, ObjectDetectionConfigItem>>({})
+const formState = reactive<Record<string, FormStateItem>>({})
 
 const deviceId = computed(() => String(route.params.deviceId || ''))
 const componentId = computed(() => String(route.params.componentId || ''))
@@ -94,18 +119,44 @@ const point = computed(() => inspectionStore.inspectionPoints.find(item => item.
 const ruleOptions = computed(() => getDetectionItemConfigs().filter(item => item.publishStatus === '已发布' && item.enabled))
 const pageTitle = computed(() => componentId.value ? '部件检测配置' : '设施检测配置')
 
-const rows = computed<ComponentRow[]>(() => {
-  const components = device.value?.assetComponents || []
-  if (!componentId.value) return components
-  return components.filter(item => item.id === componentId.value)
+const rows = computed<SubjectRow[]>(() => {
+  const components = (device.value?.assetComponents || []).map(component => ({
+    id: `component-${component.id}`,
+    subjectId: component.id,
+    subjectName: component.name,
+    subjectType: 'component' as const,
+    categoryText: getComponentTypeText(component.type)
+  }))
+  const connections = (device.value?.connectionObjects || []).map(connection => ({
+    id: `connection-${connection.id}`,
+    subjectId: connection.id,
+    subjectName: connection.name,
+    subjectType: 'connection' as const,
+    categoryText: `${connection.endpointA || '-'} -> ${connection.endpointB || '-'}`
+  }))
+  const allRows = [...components, ...connections]
+  if (!componentId.value) return allRows
+  return allRows.filter(item => item.subjectType === 'component' && item.subjectId === componentId.value)
+})
+
+const poseOptions = computed(() => {
+  const parkingPoints = point.value?.parkingPoints || []
+  return parkingPoints.flatMap(parking => parking.collectionPoses.map(pose => ({
+    value: pose.id,
+    label: `${parking.name} / ${pose.targetName} / ${pose.method}`
+  })))
 })
 
 const columns = [
-  { title: '部件名称', dataIndex: 'name', key: 'name', width: 180 },
-  { title: '部件类型', key: 'type', width: 140 },
-  { title: '关联检测规则', key: 'rules', width: 520 },
+  { title: '检测主体', dataIndex: 'subjectName', key: 'subjectName', width: 180 },
+  { title: '主体类型', key: 'subjectType', width: 120 },
+  { title: '对象类别/连接关系', dataIndex: 'categoryText', key: 'categoryText', width: 260 },
+  { title: '关联检测规则', key: 'rules', width: 420 },
+  { title: '采集位', key: 'collectionPose', width: 300 },
+  { title: '覆盖要求', key: 'requiredCoverage', width: 110 },
+  { title: '失败策略', key: 'failureStrategy', width: 160 },
   { title: '启用', key: 'enabled', width: 100 },
-  { title: '备注', key: 'remark', width: 260 }
+  { title: '备注', key: 'remark', width: 240 }
 ]
 
 const componentTypeText: Record<string, string> = {
@@ -126,62 +177,97 @@ function getComponentTypeText(type: string) {
   return componentTypeText[type] || type
 }
 
-function getStoredConfigs(): ObjectDetectionConfigItem[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as ObjectDetectionConfigItem[]
-  } catch {
-    return []
-  }
+function getSubjectTypeText(type: ObjectDetectionSubjectType) {
+  if (type === 'connection') return '连接部位'
+  if (type === 'area_environment') return '区域环境'
+  if (type === 'asset') return '设施'
+  return '设施部件'
 }
 
-function saveStoredConfigs(items: ObjectDetectionConfigItem[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-}
-
-function createEmptyConfig(component: ComponentRow): ObjectDetectionConfigItem {
+function createEmptyState(): FormStateItem {
   return {
-    id: `${deviceId.value}-${component.id}`,
-    deviceId: deviceId.value,
-    componentId: component.id,
     ruleIds: [],
+    collectionPoseId: undefined,
+    requiredCoverage: true,
+    failureStrategy: 'manual_review',
     enabled: true,
-    remark: '',
-    updatedAt: new Date().toISOString()
+    remark: ''
   }
 }
 
 function hydrateFormState() {
-  const configs = getStoredConfigs()
-  rows.value.forEach((component) => {
-    const config = configs.find(item => item.deviceId === deviceId.value && item.componentId === component.id)
-    formState[component.id] = config ? { ...createEmptyConfig(component), ...config } : createEmptyConfig(component)
+  const configs = device.value?.objectDetectionConfigs || []
+  rows.value.forEach((row) => {
+    const matched = configs.filter(item => item.subjectType === row.subjectType && item.subjectId === row.subjectId)
+    const first = matched[0]
+    formState[row.id] = {
+      ...createEmptyState(),
+      ruleIds: matched.filter(item => item.enabled).map(item => item.ruleId),
+      collectionPoseId: first?.collectionPoseId,
+      requiredCoverage: first?.requiredCoverage ?? true,
+      failureStrategy: first?.failureStrategy || 'manual_review',
+      enabled: first?.enabled ?? true,
+      remark: first?.remark || ''
+    }
   })
 }
 
-function getRuleOptions(component: ComponentRow) {
-  const componentName = component.name
-  const componentType = getComponentTypeText(component.type)
+function getRuleOptions(row: SubjectRow) {
   return ruleOptions.value
     .slice()
-    .sort((a, b) => Number(isRecommendedRule(b, componentName, componentType)) - Number(isRecommendedRule(a, componentName, componentType)))
+    .sort((a, b) => Number(isRecommendedRule(b, row)) - Number(isRecommendedRule(a, row)))
     .map(item => ({
       value: item.id,
-      label: `${isRecommendedRule(item, componentName, componentType) ? '推荐 - ' : ''}${item.name}（${item.category}）`
+      label: `${isRecommendedRule(item, row) ? '推荐 - ' : ''}${item.name}（${item.category}）`
     }))
 }
 
-function isRecommendedRule(rule: DetectionItemConfig, componentName: string, componentType: string) {
-  const target = `${rule.targetDetails || ''}${rule.name || ''}`
-  return target.includes(componentName) || target.includes(componentType)
+function isRecommendedRule(rule: DetectionItemConfig, row: SubjectRow) {
+  const target = `${rule.targetTypes?.join('') || ''}${rule.targetDetails || ''}${rule.name || ''}`
+  if (row.subjectType === 'connection') return target.includes('连接') || target.includes('法兰') || target.includes(row.subjectName)
+  return target.includes('设施部件') || target.includes(row.subjectName) || target.includes(row.categoryText)
+}
+
+function buildConfigs(): ObjectDetectionConfig[] {
+  const now = new Date().toISOString()
+  return rows.value.flatMap((row) => {
+    const state = formState[row.id] || createEmptyState()
+    return (state.ruleIds || []).map(ruleId => ({
+      id: `odc-${deviceId.value}-${row.subjectType}-${row.subjectId}-${ruleId}`,
+      deviceId: deviceId.value,
+      subjectType: row.subjectType,
+      subjectId: row.subjectId,
+      subjectName: row.subjectName,
+      ruleId,
+      collectionPoseId: state.collectionPoseId,
+      requiredCoverage: state.requiredCoverage,
+      failureStrategy: state.failureStrategy,
+      enabled: state.enabled,
+      remark: state.remark,
+      updatedAt: now
+    }))
+  })
 }
 
 function save() {
-  const existing = getStoredConfigs().filter(item => item.deviceId !== deviceId.value || !rows.value.some(component => component.id === item.componentId))
-  const next = rows.value.map(component => ({
-    ...formState[component.id],
-    updatedAt: new Date().toISOString()
+  if (!device.value) return
+  const configs = buildConfigs()
+  const nextComponents = (device.value.assetComponents || []).map((component: InspectedAssetComponent) => ({
+    ...component,
+    ruleIds: configs.filter(item => item.subjectType === 'component' && item.subjectId === component.id && item.enabled).map(item => item.ruleId)
   }))
-  saveStoredConfigs([...existing, ...next])
+  const nextConnections = (device.value.connectionObjects || []).map(connection => ({
+    ...connection,
+    ruleIds: configs.filter(item => item.subjectType === 'connection' && item.subjectId === connection.id && item.enabled).map(item => item.ruleId)
+  }))
+  inspectionStore.saveInspectionDevice({
+    ...device.value,
+    assetComponents: nextComponents,
+    connectionObjects: nextConnections,
+    objectDetectionConfigs: configs,
+    updatedAt: new Date()
+  })
+  inspectionStore.fetchAllInspectionDevices()
   message.success('检测配置已保存')
 }
 
@@ -206,12 +292,5 @@ onMounted(() => {
 <style scoped lang="css">
 .object-detection-config {
   width: 100%;
-}
-
-.field-tip {
-  color: #8c8c8c;
-  font-size: 12px;
-  line-height: 20px;
-  margin-top: 4px;
 }
 </style>

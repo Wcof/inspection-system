@@ -245,7 +245,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { UploadOutlined } from '@ant-design/icons-vue'
 import { useInspectionStore } from '@/stores/inspection'
-import type { InspectedAssetComponent, ConnectionObject } from '@/types/inspection'
+import type { InspectedAssetComponent, ConnectionObject, ObjectDetectionConfig } from '@/types/inspection'
 import { getDetectionItemConfigs, type DetectionItemConfig } from '@/views/implementation/detection-item-config/model'
 
 type AssetComponentRow = InspectedAssetComponent & { localKey: string }
@@ -305,6 +305,7 @@ const form = reactive<any>({
 
 const assetComponents = ref<AssetComponentRow[]>([])
 const connectionObjects = ref<ConnectionObjectRow[]>([])
+const existingObjectDetectionConfigs = ref<ObjectDetectionConfig[]>([])
 
 const currentPoint = computed(() => inspectionStore.inspectionPoints.find((point: any) => point.id === form.inspectionPointId) as any)
 const currentDeviceId = computed(() => form.id || 'new-device')
@@ -410,6 +411,7 @@ function loadDetail() {
 
   const detail = inspectionStore.inspectionDevices.find((item: any) => item.id === route.params.id) as any
   if (!detail) return
+  existingObjectDetectionConfigs.value = Array.isArray(detail.objectDetectionConfigs) ? detail.objectDetectionConfigs : []
 
   form.id = detail.id
   form.name = detail.name
@@ -446,6 +448,7 @@ function loadDetail() {
   form.status = detail.status || 'active'
   assetComponents.value = (detail.assetComponents || []).map((item: any, index: number) => ({
     ...item,
+    ruleIds: Array.isArray(item.ruleIds) ? item.ruleIds : getRuleIdsFromUnifiedConfig('component', item.id),
     localKey: item.localKey || `${item.id || 'component'}-${index}`
   }))
   connectionObjects.value = (detail.connectionObjects || []).map((item: any, index: number) => ({
@@ -520,7 +523,7 @@ function normalizeConnectionObject(item: any): Partial<ConnectionObjectRow> {
     sinkScope,
     sinkDeviceId: sinkScope === 'self' ? currentDeviceId.value : sinkDeviceId,
     sinkComponentId,
-    ruleIds: Array.isArray(item.ruleIds) ? item.ruleIds : [],
+    ruleIds: Array.isArray(item.ruleIds) ? item.ruleIds : getRuleIdsFromUnifiedConfig('connection', item.id),
     endpointAPath: sourceComponentId ? [currentDeviceId.value, sourceComponentId] : undefined,
     endpointBPath: sinkComponentId ? [sinkScope === 'self' ? currentDeviceId.value : sinkDeviceId, sinkComponentId] : undefined,
     endpointA: item.endpointA || formatSourceEndpoint(sourceComponentId),
@@ -557,6 +560,45 @@ function getComponentRuleOptions(component: AssetComponentRow) {
       value: rule.id,
       label: `${isComponentRule(rule, component) ? '推荐 - ' : ''}${rule.name}（${rule.category}）`
     }))
+}
+
+function getRuleIdsFromUnifiedConfig(subjectType: ObjectDetectionConfig['subjectType'], subjectId: string) {
+  return existingObjectDetectionConfigs.value
+    .filter(item => item.subjectType === subjectType && item.subjectId === subjectId && item.enabled)
+    .map(item => item.ruleId)
+}
+
+function buildObjectDetectionConfigs(deviceId: string): ObjectDetectionConfig[] {
+  const previous = existingObjectDetectionConfigs.value
+  const now = new Date().toISOString()
+  const configs: ObjectDetectionConfig[] = []
+
+  function createConfig(subjectType: ObjectDetectionConfig['subjectType'], subjectId: string, subjectName: string, ruleId: string) {
+    const old = previous.find(item => item.subjectType === subjectType && item.subjectId === subjectId && item.ruleId === ruleId)
+    configs.push({
+      id: old?.id || `odc-${deviceId}-${subjectType}-${subjectId}-${ruleId}`,
+      deviceId,
+      subjectType,
+      subjectId,
+      subjectName,
+      ruleId,
+      collectionPoseId: old?.collectionPoseId,
+      requiredCoverage: old?.requiredCoverage ?? true,
+      failureStrategy: old?.failureStrategy || 'manual_review',
+      enabled: true,
+      remark: old?.remark,
+      updatedAt: now
+    })
+  }
+
+  assetComponents.value.forEach((component) => {
+    ;(component.ruleIds || []).forEach(ruleId => createConfig('component', component.id, component.name, ruleId))
+  })
+  connectionObjects.value.forEach((connection) => {
+    ;(connection.ruleIds || []).forEach(ruleId => createConfig('connection', connection.id, connection.name, ruleId))
+  })
+
+  return configs
 }
 
 function isComponentRule(rule: DetectionItemConfig, component: AssetComponentRow) {
@@ -656,6 +698,7 @@ function handleSave() {
     status: form.status,
     assetComponents: assetComponents.value.map(({ localKey, ...item }) => ({ ...item, assetId: payloadId })),
     connectionObjects: connectionObjects.value.map(({ localKey, ...item }) => item),
+    objectDetectionConfigs: buildObjectDetectionConfigs(payloadId),
     createdAt: new Date(),
     updatedAt: new Date()
   }

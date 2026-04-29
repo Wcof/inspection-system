@@ -401,6 +401,9 @@ export const useInspectionStore = defineStore('inspection', () => {
       referenceImageUrl: deviceData.referenceImageUrl,
       status: deviceData.status || DeviceStatus.ACTIVE,
       checkItems: [],
+      assetComponents: deviceData.assetComponents,
+      connectionObjects: deviceData.connectionObjects,
+      objectDetectionConfigs: deviceData.objectDetectionConfigs,
       createdAt: new Date(),
       updatedAt: new Date()
     }

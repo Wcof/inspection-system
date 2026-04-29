@@ -25,8 +25,8 @@
           <a-table :columns="connectionColumns" :data-source="connectionRows" row-key="id" :pagination="false" />
         </a-tab-pane>
 
-        <a-tab-pane key="checkItems" tab="检测项">
-          <a-table :columns="checkItemColumns" :data-source="checkItemRows" row-key="id" :pagination="false" />
+        <a-tab-pane key="detectionConfigs" tab="检测配置">
+          <a-table :columns="detectionConfigColumns" :data-source="detectionConfigRows" row-key="id" :pagination="false" />
         </a-tab-pane>
 
         <a-tab-pane key="collectionPoses" tab="采集位">
@@ -41,6 +41,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
+import { getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
 
 const route = useRoute()
 const router = useRouter()
@@ -52,7 +53,7 @@ const point = computed(() => inspectionStore.inspectionPoints.find(item => item.
 
 const componentRows = computed(() => device.value?.assetComponents || [])
 const connectionRows = computed(() => device.value?.connectionObjects || [])
-const checkItemRows = computed(() => inspectionStore.inspectionDeviceCheckItems.filter(item => item.deviceId === device.value?.id))
+const detectionRules = computed(() => getDetectionItemConfigs())
 const poseRows = computed(() => {
   const parkingPoints = point.value?.parkingPoints || []
   return parkingPoints.flatMap((parking) =>
@@ -62,6 +63,19 @@ const poseRows = computed(() => {
     }))
   )
 })
+const detectionConfigRows = computed(() => (device.value?.objectDetectionConfigs || []).map((config) => {
+  const rule = detectionRules.value.find(item => item.id === config.ruleId)
+  const pose = poseRows.value.find(item => item.id === config.collectionPoseId)
+  return {
+    ...config,
+    subjectTypeText: getSubjectTypeText(config.subjectType),
+    ruleName: rule?.name || config.ruleId,
+    collectionPoseName: pose ? `${pose.parkingPointName} / ${pose.targetName}` : '-',
+    requiredCoverageText: config.requiredCoverage ? '必须覆盖' : '可选覆盖',
+    failureStrategyText: getFailureStrategyText(config.failureStrategy),
+    enabledText: config.enabled ? '启用' : '停用'
+  }
+}))
 
 const statusText = computed(() => {
   const status = device.value?.status
@@ -79,16 +93,18 @@ const componentColumns = [
 const connectionColumns = [
   { title: '连接对象', dataIndex: 'name', key: 'name' },
   { title: '端点A', dataIndex: 'endpointA', key: 'endpointA', width: 180 },
-  { title: '端点B', dataIndex: 'endpointB', key: 'endpointB', width: 180 },
-  { title: '检测关注点', dataIndex: 'detectionFocus', key: 'detectionFocus' }
+  { title: '端点B', dataIndex: 'endpointB', key: 'endpointB', width: 180 }
 ]
 
-const checkItemColumns = [
-  { title: '检测项', dataIndex: 'name', key: 'name' },
-  { title: '检测主体', dataIndex: 'subjectType', key: 'subjectType', width: 140 },
-  { title: '目标对象', dataIndex: 'targetObject', key: 'targetObject', width: 180 },
-  { title: '检测类型', dataIndex: 'detectionType', key: 'detectionType', width: 150 },
-  { title: '采集条件', dataIndex: 'collectableCondition', key: 'collectableCondition' }
+const detectionConfigColumns = [
+  { title: '检测主体', dataIndex: 'subjectName', key: 'subjectName' },
+  { title: '主体类型', dataIndex: 'subjectTypeText', key: 'subjectTypeText', width: 130 },
+  { title: '检测规则', dataIndex: 'ruleName', key: 'ruleName' },
+  { title: '采集位', dataIndex: 'collectionPoseName', key: 'collectionPoseName' },
+  { title: '覆盖要求', dataIndex: 'requiredCoverageText', key: 'requiredCoverageText', width: 120 },
+  { title: '失败策略', dataIndex: 'failureStrategyText', key: 'failureStrategyText', width: 120 },
+  { title: '状态', dataIndex: 'enabledText', key: 'enabledText', width: 90 },
+  { title: '备注', dataIndex: 'remark', key: 'remark' }
 ]
 
 const poseColumns = [
@@ -104,9 +120,22 @@ function goBack() {
   router.push('/implementation/device/list')
 }
 
+function getSubjectTypeText(type: string) {
+  if (type === 'connection') return '连接部位'
+  if (type === 'asset') return '设施'
+  if (type === 'area_environment') return '区域环境'
+  return '设施部件'
+}
+
+function getFailureStrategyText(strategy: string) {
+  if (strategy === 'supplement_task') return '生成补检'
+  if (strategy === 'mark_uninspectable') return '标记不可检'
+  return '人工复核'
+}
+
 function syncTabFromQuery() {
   const tab = String(route.query.tab || 'basic')
-  if (['basic', 'components', 'connections', 'checkItems', 'collectionPoses'].includes(tab)) {
+  if (['basic', 'components', 'connections', 'detectionConfigs', 'collectionPoses'].includes(tab)) {
     activeTab.value = tab
   } else {
     activeTab.value = 'basic'
