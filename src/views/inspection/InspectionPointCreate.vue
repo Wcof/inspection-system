@@ -67,6 +67,56 @@
         </template>
       </a-table>
 
+      <a-card v-if="selectedSourceRows.length" size="small" title="采集位配置" style="margin-top: 16px">
+        <a-alert
+          type="info"
+          show-icon
+          style="margin-bottom: 12px"
+          message="每个停车点至少配置一个采集位；后续对象检测配置会把检测规则绑定到这些采集位。"
+        />
+        <a-table :columns="poseColumns" :data-source="selectedSourceRows" row-key="id" :pagination="false" :scroll="{ x: 1300 }">
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'parkingName'">{{ record.name }}</template>
+            <template v-else-if="column.key === 'targetName'">
+              <a-input v-model:value="collectionDrafts[record.id].targetName" placeholder="采集目标" />
+            </template>
+            <template v-else-if="column.key === 'method'">
+              <a-select v-model:value="collectionDrafts[record.id].method" style="width: 120px">
+                <a-select-option value="optical">光学</a-select-option>
+                <a-select-option value="thermal">热成像</a-select-option>
+                <a-select-option value="gas">气体</a-select-option>
+                <a-select-option value="safety">安全行为</a-select-option>
+                <a-select-option value="multi_spectrum">多光谱</a-select-option>
+              </a-select>
+            </template>
+            <template v-else-if="column.key === 'direction'">
+              <a-select v-model:value="collectionDrafts[record.id].direction" style="width: 120px">
+                <a-select-option value="front">正拍</a-select-option>
+                <a-select-option value="side">侧拍</a-select-option>
+                <a-select-option value="oblique">斜拍</a-select-option>
+                <a-select-option value="near">近拍</a-select-option>
+                <a-select-option value="overview">全景</a-select-option>
+              </a-select>
+            </template>
+            <template v-else-if="column.key === 'distance'">
+              <a-input-number v-model:value="collectionDrafts[record.id].distanceMeter" :min="0" :step="0.1" style="width: 100px" />
+            </template>
+            <template v-else-if="column.key === 'ptz'">
+              <a-space>
+                <a-input-number v-model:value="collectionDrafts[record.id].ptzYaw" :min="-180" :max="180" style="width: 90px" />
+                <a-input-number v-model:value="collectionDrafts[record.id].ptzPitch" :min="-90" :max="90" style="width: 90px" />
+              </a-space>
+            </template>
+            <template v-else-if="column.key === 'focalLength'">
+              <a-input v-model:value="collectionDrafts[record.id].focalLength" placeholder="如 35mm" />
+            </template>
+            <template v-else-if="column.key === 'condition'">
+              <a-input v-model:value="collectionDrafts[record.id].collectableCondition" placeholder="可采条件" />
+            </template>
+          </template>
+        </a-table>
+      </a-card>
+
       <div class="footer-actions">
         <a-space>
           <a-button type="primary" :loading="saving" @click="handleSave">{{ isEdit ? '保存修改' : '保存' }}</a-button>
@@ -100,6 +150,17 @@ interface SourcePointRow {
   bizType: '停车点'
 }
 
+interface CollectionPoseDraft {
+  targetName: string
+  method: CollectionPose['method']
+  direction: CollectionPose['direction']
+  distanceMeter: number
+  ptzYaw: number
+  ptzPitch: number
+  focalLength: string
+  collectableCondition: string
+}
+
 const route = useRoute()
 const router = useRouter()
 const inspectionStore = useInspectionStore()
@@ -109,6 +170,7 @@ const loading = ref(false)
 const saving = ref(false)
 const hydrating = ref(true)
 const selectedSourceIds = ref<string[]>([])
+const collectionDrafts = reactive<Record<string, CollectionPoseDraft>>({})
 
 const form = reactive({
   name: '',
@@ -123,6 +185,16 @@ const columns = [
   { title: '点位类型', key: 'bizType', width: 110 },
   { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '地图坐标', key: 'position', width: 160 }
+]
+const poseColumns = [
+  { title: '停车点', key: 'parkingName', width: 160 },
+  { title: '采集目标', key: 'targetName', width: 180 },
+  { title: '采集设备', key: 'method', width: 140 },
+  { title: '方向', key: 'direction', width: 140 },
+  { title: '距离(m)', key: 'distance', width: 120 },
+  { title: '云台Yaw/Pitch', key: 'ptz', width: 210 },
+  { title: '焦距', key: 'focalLength', width: 140 },
+  { title: '可采条件', key: 'condition', width: 260 }
 ]
 
 const currentPoint = computed(() => {
@@ -156,6 +228,7 @@ const sourceRows = computed<SourcePointRow[]>(() => {
       bizType: '停车点'
     }))
 })
+const selectedSourceRows = computed(() => sourceRows.value.filter(row => selectedSourceIds.value.includes(row.id)))
 
 const rowSelection = computed(() => ({
   selectedRowKeys: selectedSourceIds.value,
@@ -163,6 +236,35 @@ const rowSelection = computed(() => ({
     selectedSourceIds.value = keys.map((item) => String(item))
   }
 }))
+
+function createDefaultPoseDraft(source: SourcePointRow): CollectionPoseDraft {
+  return {
+    targetName: source.name,
+    method: 'optical',
+    direction: 'overview',
+    distanceMeter: 3,
+    ptzYaw: source.mapYaw || 0,
+    ptzPitch: 0,
+    focalLength: '35mm',
+    collectableCondition: '视野无遮挡，目标可识别'
+  }
+}
+
+function ensurePoseDraft(source: SourcePointRow, pose?: CollectionPose) {
+  if (collectionDrafts[source.id]) return
+  collectionDrafts[source.id] = pose
+    ? {
+        targetName: pose.targetName,
+        method: pose.method,
+        direction: pose.direction,
+        distanceMeter: pose.distanceMeter,
+        ptzYaw: pose.ptzYaw,
+        ptzPitch: pose.ptzPitch,
+        focalLength: pose.focalLength,
+        collectableCondition: pose.collectableCondition
+      }
+    : createDefaultPoseDraft(source)
+}
 
 function goBack() {
   router.push('/implementation/point/list')
@@ -191,18 +293,19 @@ function resolveAreaName(point: InspectionPoint) {
 }
 
 function buildCollectionPose(source: SourcePointRow, parkingPointId: string): CollectionPose {
+  const draft = collectionDrafts[source.id] || createDefaultPoseDraft(source)
   return {
     id: `pose-${source.id}`,
     parkingPointId,
-    targetName: source.name,
+    targetName: draft.targetName || source.name,
     targetType: 'asset',
-    direction: 'overview',
-    distanceMeter: 3,
-    ptzYaw: source.mapYaw || 0,
-    ptzPitch: 0,
-    focalLength: '35mm',
-    method: 'optical',
-    collectableCondition: '视野无遮挡，目标可识别'
+    direction: draft.direction,
+    distanceMeter: draft.distanceMeter,
+    ptzYaw: draft.ptzYaw,
+    ptzPitch: draft.ptzPitch,
+    focalLength: draft.focalLength,
+    method: draft.method,
+    collectableCondition: draft.collectableCondition
   }
 }
 
@@ -348,6 +451,11 @@ function fillEditData() {
     ? [...currentPoint.value.areaIds]
     : (currentPoint.value.areaId ? [currentPoint.value.areaId] : [])
   selectedSourceIds.value = inferSourcePointIdsFromParking(currentPoint.value)
+  const parkingByName = new Map((currentPoint.value.parkingPoints || []).map(parking => [parking.name, parking]))
+  sourceRows.value.forEach((source) => {
+    const parking = parkingByName.get(source.name)
+    ensurePoseDraft(source, parking?.collectionPoses?.[0])
+  })
 }
 
 onMounted(() => {
@@ -379,7 +487,16 @@ watch(
   (rows) => {
     const validIds = new Set(rows.map(item => item.id))
     selectedSourceIds.value = selectedSourceIds.value.filter(id => validIds.has(id))
+    rows.filter(row => selectedSourceIds.value.includes(row.id)).forEach(row => ensurePoseDraft(row))
   }
+)
+
+watch(
+  selectedSourceRows,
+  (rows) => {
+    rows.forEach(row => ensurePoseDraft(row))
+  },
+  { immediate: true }
 )
 </script>
 
