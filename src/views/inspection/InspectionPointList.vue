@@ -279,9 +279,9 @@ const columns = [
 ]
 
 function isInspectionBizPoint(point: InspectionPoint): boolean {
-  const matched = point.description?.match(/^\[(巡检点|停车点|充电点)\]\s*/)
-  if (!matched?.[1]) return true
-  return matched[1] === '巡检点'
+  if (point.parkingPoints?.length) return true
+  const matched = point.description?.match(/^\[(巡检点|停车点|充电点|充电站|通行点)\]\s*/)
+  return matched?.[1] === '巡检点'
 }
 
 function fetchPoints() {

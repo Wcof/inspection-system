@@ -576,6 +576,7 @@ export interface InspectionPoint {
   areaIds?: string[]
   areaNames?: string[]
   sourcePointIds?: string[]
+  sourceParkingPointIds?: string[]
   previewImageUrl?: string
   workAreaName?: string
   parkingPoints?: ParkingPoint[]
@@ -612,6 +613,7 @@ export interface InspectionPointFormData {
   areaIds?: string[]
   areaNames?: string[]
   sourcePointIds?: string[]
+  sourceParkingPointIds?: string[]
   previewImageUrl?: string
   workAreaName?: string
   parkingPoints?: ParkingPoint[]

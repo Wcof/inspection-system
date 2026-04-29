@@ -1,6 +1,6 @@
 <template>
   <div class="inspection-point-create">
-    <a-page-header :title="isEdit ? '编辑巡检点组成' : '新增巡检点'" sub-title="通过勾选已有点位，组合形成巡检点" @back="goBack" />
+    <a-page-header :title="isEdit ? '编辑巡检点组成' : '新增巡检点'" sub-title="通过勾选地图停车点，组合形成业务巡检点" @back="goBack" />
 
     <a-card style="margin-top: 16px">
       <a-form :model="form" layout="vertical">
@@ -41,8 +41,8 @@
               <a-alert
                 type="info"
                 show-icon
-                :message="`已选择 ${selectedSourceIds.length} 个点位`"
-                description="勾选点位后保存，将自动生成停车点与采集位结构。"
+                :message="`已选择 ${selectedSourceIds.length} 个停车点`"
+                description="巡检点只能由地图停车点聚合生成，不能选择充电站、通行点或已有巡检点。"
               />
             </a-form-item>
           </a-col>
@@ -59,9 +59,7 @@
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'bizType'">
-            <a-tag :color="record.bizType === '停车点' ? 'orange' : record.bizType === '充电点' ? 'purple' : 'blue'">
-              {{ record.bizType }}
-            </a-tag>
+            <a-tag color="orange">{{ record.bizType }}</a-tag>
           </template>
           <template v-if="column.key === 'position'">
             {{ record.mapX.toFixed(2) }}, {{ record.mapY.toFixed(2) }}
@@ -99,7 +97,7 @@ interface SourcePointRow {
   mapY: number
   mapYaw: number
   location: InspectionPoint['location']
-  bizType: '巡检点' | '停车点' | '充电点'
+  bizType: '停车点'
 }
 
 const route = useRoute()
@@ -155,7 +153,7 @@ const sourceRows = computed<SourcePointRow[]>(() => {
       mapY: Number(point.mapPosition?.y || 0),
       mapYaw: Number(point.mapPosition?.yaw || 0),
       location: point.location,
-      bizType: parseBizType(point.description)
+      bizType: '停车点'
     }))
 })
 
@@ -170,18 +168,19 @@ function goBack() {
   router.push('/implementation/point/list')
 }
 
-function parseBizType(description?: string): '巡检点' | '停车点' | '充电点' {
-  const tag = String(description || '').match(/^\[(巡检点|停车点|充电点)\]/)?.[1]
-  if (tag === '停车点') return '停车点'
-  if (tag === '充电点') return '充电点'
-  return '巡检点'
+function parseBizType(description?: string): '停车点' | '充电站' | '通行点' | '巡检点' {
+  const tag = String(description || '').match(/^\[(巡检点|停车点|充电点|充电站|通行点)\]/)?.[1]
+  if (tag === '巡检点') return '巡检点'
+  if (tag === '充电点' || tag === '充电站') return '充电站'
+  if (tag === '通行点') return '通行点'
+  return '停车点'
 }
 
 function canBeSourcePoint(point: InspectionPoint) {
   if (!point.mapPosition) return false
   if (isEdit.value && point.id === currentPoint.value?.id) return false
   if (point.parkingPoints?.length) return false
-  return true
+  return parseBizType(point.description) === '停车点'
 }
 
 function resolveAreaName(point: InspectionPoint) {
@@ -266,6 +265,7 @@ function nextSequence() {
 }
 
 function inferSourcePointIdsFromParking(point: InspectionPoint) {
+  if (point.sourceParkingPointIds?.length) return point.sourceParkingPointIds
   if (point.sourcePointIds?.length) return point.sourcePointIds
   const names = (point.parkingPoints || []).map(item => item.name)
   const candidates = inspectionStore.inspectionPoints.filter(item => item.mapId === point.mapId && !item.parkingPoints?.length)
@@ -309,6 +309,7 @@ async function handleSave() {
       areaIds: [...form.areaIds],
       areaNames,
       sourcePointIds: [...selectedSourceIds.value],
+      sourceParkingPointIds: [...selectedSourceIds.value],
       workAreaName: areaNames.join('、'),
       location: buildLocation(selectedRows),
       mapPosition: centerPosition,

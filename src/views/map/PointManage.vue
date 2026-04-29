@@ -1,15 +1,15 @@
 <template>
   <div class="point-manage">
     <a-page-header
-      :title="isListMode ? '点位管理' : `点位管理 - ${currentMap?.name || '未命名地图'}`"
-      :sub-title="isListMode ? '菜单入口展示列表；新增后进入地图内点位配置' : '地图位置与点位属性统一管理'"
+      :title="isListMode ? '地图执行点管理' : `地图执行点管理 - ${currentMap?.name || '未命名地图'}`"
+      :sub-title="isListMode ? '菜单入口展示停车点、充电站、通行点；新增后进入地图内配置' : '维护机器人地图执行点，不在这里创建业务巡检点'"
     >
       <template #extra>
         <a-space v-if="isListMode">
-          <a-button type="primary" @click="openCreateFromList">新增点位</a-button>
+          <a-button type="primary" @click="openCreateFromList">新增执行点</a-button>
         </a-space>
         <a-space v-else>
-          <a-button @click="backToList">返回点位列表</a-button>
+          <a-button @click="backToList">返回执行点列表</a-button>
         </a-space>
       </template>
     </a-page-header>
@@ -22,7 +22,7 @@
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
-              <a-button type="link" size="small" @click="goToMapScopedPage(record.mapId)">进入地图点位管理</a-button>
+              <a-button type="link" size="small" @click="goToMapScopedPage(record.mapId)">进入地图执行点管理</a-button>
             </a-space>
           </template>
         </template>
@@ -34,8 +34,8 @@
         <a-card class="map-card" title="位置管理">
           <template #extra>
             <a-space v-if="mode !== 'moving'">
-              <a-button type="primary" @click="enterAddMode">新增点位</a-button>
-              <a-button @click="enterMoveMode">移动点位</a-button>
+              <a-button type="primary" @click="enterAddMode">新增执行点</a-button>
+              <a-button @click="enterMoveMode">移动执行点</a-button>
             </a-space>
             <a-space v-else>
               <a-button type="primary" @click="confirmMove">确认</a-button>
@@ -46,9 +46,9 @@
           <div class="map-stage" :style="mapStageStyle" @click="handleStageClick">
             <div class="map-mask" />
             <div class="map-tip">
-              <template v-if="mode === 'adding'">新增模式：在地图中点击位置后填写点位信息。</template>
-              <template v-else-if="mode === 'moving'">移动模式：先点击一个点位，再点击地图新位置。</template>
-              <template v-else>查看模式：可点击点位高亮，或切换到新增/移动模式。</template>
+              <template v-if="mode === 'adding'">新增模式：在地图中点击位置后填写执行点信息。</template>
+              <template v-else-if="mode === 'moving'">移动模式：先点击一个执行点，再点击地图新位置。</template>
+              <template v-else>查看模式：可点击执行点高亮，或切换到新增/移动模式。</template>
             </div>
 
             <div
@@ -74,9 +74,9 @@
               <template v-if="column.key === 'pointType'">
                 <template v-if="editingId === record.id">
                   <a-select v-model:value="inlineEdit.type" style="width: 120px">
-                    <a-select-option value="inspection">巡检点</a-select-option>
-                    <a-select-option value="charging">充电点</a-select-option>
                     <a-select-option value="parking">停车点</a-select-option>
+                    <a-select-option value="charging">充电站</a-select-option>
+                    <a-select-option value="transit">通行点</a-select-option>
                   </a-select>
                 </template>
                 <a-tag v-else>{{ pointTypeText(record.bizType) }}</a-tag>
@@ -110,16 +110,16 @@
         </a-card>
       </div>
 
-      <a-modal v-model:open="addModalVisible" title="新增点位" @ok="createPoint" @cancel="cancelAdd">
+      <a-modal v-model:open="addModalVisible" title="新增地图执行点" @ok="createPoint" @cancel="cancelAdd">
         <a-form layout="vertical">
-          <a-form-item label="点位名称" required>
-            <a-input v-model:value="addForm.name" placeholder="请输入点位名称" />
+          <a-form-item label="执行点名称" required>
+            <a-input v-model:value="addForm.name" placeholder="请输入执行点名称" />
           </a-form-item>
-          <a-form-item label="点位类型" required>
+          <a-form-item label="执行点类型" required>
             <a-select v-model:value="addForm.type">
-              <a-select-option value="inspection">巡检点</a-select-option>
-              <a-select-option value="charging">充电点</a-select-option>
               <a-select-option value="parking">停车点</a-select-option>
+              <a-select-option value="charging">充电站</a-select-option>
+              <a-select-option value="transit">通行点</a-select-option>
             </a-select>
           </a-form-item>
           <a-form-item label="所属区域">
@@ -136,7 +136,7 @@
 
     <a-modal
       v-model:open="createFromListVisible"
-      title="选择地图后新增点位"
+      title="选择地图后新增执行点"
       @ok="confirmCreateFromList"
       @cancel="createFromListVisible = false"
     >
@@ -162,7 +162,7 @@ import { CalibrationStatus, InspectionPointType, PositionSource } from '@/types/
 import { ExceptionStrategy } from '@/types'
 import type { InspectionPoint, MapRegion } from '@/types/inspection'
 
-type BizPointType = 'inspection' | 'charging' | 'parking'
+type BizPointType = 'parking' | 'charging' | 'transit'
 type Mode = 'normal' | 'adding' | 'moving'
 
 interface PointRow {
@@ -192,12 +192,12 @@ const selectedPointId = ref('')
 const activeMovePointId = ref('')
 
 const editingId = ref('')
-const inlineEdit = reactive({ name: '', type: 'inspection' as BizPointType })
+const inlineEdit = reactive({ name: '', type: 'parking' as BizPointType })
 
 const addModalVisible = ref(false)
 const addForm = reactive({
   name: '',
-  type: 'inspection' as BizPointType,
+  type: 'parking' as BizPointType,
   areaId: '',
   mapX: 0,
   mapY: 0
@@ -210,26 +210,26 @@ const moveDraft = ref<Record<string, { x: number; y: number }>>({})
 const fallbackMapBackgroundUrl = new URL('../../地图.png', import.meta.url).href
 
 const columns = [
-  { title: '点位名称', dataIndex: 'name', key: 'name' },
-  { title: '点位编码', dataIndex: 'code', key: 'code', width: 160 },
-  { title: '点位类型', key: 'pointType', width: 140 },
+  { title: '执行点名称', dataIndex: 'name', key: 'name' },
+  { title: '执行点编码', dataIndex: 'code', key: 'code', width: 160 },
+  { title: '执行点类型', key: 'pointType', width: 140 },
   { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 150 },
   { title: '地图坐标', key: 'location', width: 170 },
   { title: '操作', key: 'actions', width: 140 }
 ]
 
 const listColumns = [
-  { title: '点位名称', dataIndex: 'name', key: 'name' },
+  { title: '执行点名称', dataIndex: 'name', key: 'name' },
   { title: '地图', dataIndex: 'mapName', key: 'mapName', width: 180 },
   { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 180 },
-  { title: '点位类型', key: 'pointType', width: 140 },
+  { title: '执行点类型', key: 'pointType', width: 140 },
   { title: '操作', key: 'actions', width: 220 }
 ]
 
 const currentMap = computed(() => inspectionStore.inspectionMaps.find(map => map.id === selectedMapId.value))
 const areaOptions = computed(() => currentMap.value?.regions || [])
 const pointListRows = computed(() => {
-  return inspectionStore.inspectionPoints.map((point) => {
+  return inspectionStore.inspectionPoints.filter(isMapExecutionPoint).map((point) => {
     const map = inspectionStore.inspectionMaps.find(item => item.id === point.mapId)
     return {
       id: point.id,
@@ -259,24 +259,35 @@ function clamp(value: number) {
 }
 
 function getBizTypeFromDescription(description?: string): BizPointType {
-  const tag = String(description || '').match(/^\[(巡检点|停车点|充电点)\]/)?.[1]
-  if (tag === '充电点') return 'charging'
+  const tag = String(description || '').match(/^\[(巡检点|停车点|充电点|充电站|通行点)\]/)?.[1]
+  if (tag === '充电点' || tag === '充电站') return 'charging'
+  if (tag === '通行点') return 'transit'
   if (tag === '停车点') return 'parking'
-  return 'inspection'
+  return 'parking'
 }
 
 function getDescriptionByBizType(type: BizPointType, name: string) {
-  if (type === 'charging') return `[充电点] ${name}`
-  if (type === 'parking') return `[停车点] ${name}`
-  return `[巡检点] ${name}`
+  if (type === 'charging') return `[充电站] ${name}`
+  if (type === 'transit') return `[通行点] ${name}`
+  return `[停车点] ${name}`
 }
 
 function pointTypeText(type: BizPointType) {
-  return type === 'charging' ? '充电点' : type === 'parking' ? '停车点' : '巡检点'
+  if (type === 'charging') return '充电站'
+  if (type === 'transit') return '通行点'
+  return '停车点'
 }
 
 function getShortType(type: BizPointType) {
-  return type === 'charging' ? '充' : type === 'parking' ? '停' : '检'
+  if (type === 'charging') return '充'
+  if (type === 'transit') return '通'
+  return '停'
+}
+
+function isMapExecutionPoint(point: InspectionPoint) {
+  if (point.parkingPoints?.length) return false
+  const tag = String(point.description || '').match(/^\[(巡检点|停车点|充电点|充电站|通行点)\]/)?.[1]
+  return tag !== '巡检点'
 }
 
 function normalizeRegion(region: MapRegion) {
@@ -310,7 +321,7 @@ function loadPoints() {
     return
   }
 
-  const all = inspectionStore.inspectionPoints.filter(point => point.mapId === selectedMapId.value)
+  const all = inspectionStore.inspectionPoints.filter(point => point.mapId === selectedMapId.value && isMapExecutionPoint(point))
   points.value = all.map((point) => ({
     id: point.id,
     name: point.name,
@@ -390,12 +401,12 @@ function openInlineEdit(record: PointRow) {
 function saveInlineEdit(record: PointRow) {
   const name = inlineEdit.name.trim()
   if (!name) {
-    message.warning('请填写点位名称')
+    message.warning('请填写执行点名称')
     return
   }
   buildAndSavePoint(record, { name, bizType: inlineEdit.type })
   editingId.value = ''
-  message.success('点位属性已更新')
+  message.success('执行点属性已更新')
   loadPoints()
 }
 
@@ -405,14 +416,14 @@ function cancelInlineEdit() {
 
 function deletePoint(record: PointRow) {
   Modal.confirm({
-    title: '确认删除该点位？',
-    content: `点位 ${record.name} 删除后不可恢复。`,
+    title: '确认删除该执行点？',
+    content: `执行点 ${record.name} 删除后不可恢复。`,
     okText: '确认删除',
     okButtonProps: { danger: true },
     cancelText: '取消',
     onOk() {
       inspectionStore.deleteInspectionPoint(record.id)
-      message.success('已删除点位')
+      message.success('已删除执行点')
       loadPoints()
     }
   })
@@ -429,14 +440,14 @@ function getClickPosition(event: MouseEvent) {
 function enterAddMode() {
   mode.value = 'adding'
   activeMovePointId.value = ''
-  message.info('已进入新增模式，请在地图点击位置')
+  message.info('已进入新增模式，请在地图点击位置创建执行点')
 }
 
 function enterMoveMode() {
   mode.value = 'moving'
   activeMovePointId.value = ''
   moveDraft.value = {}
-  message.info('已进入移动模式，请先点击一个点位再点击地图新位置')
+  message.info('已进入移动模式，请先点击一个执行点再点击地图新位置')
 }
 
 function handlePointClick(point: PointRow) {
@@ -454,7 +465,7 @@ function handleStageClick(event: MouseEvent) {
 
   if (mode.value === 'adding') {
     addForm.name = ''
-    addForm.type = 'inspection'
+    addForm.type = 'parking'
     addForm.mapX = position.x
     addForm.mapY = position.y
     const area = detectAreaByPoint(position.x, position.y)
@@ -465,7 +476,7 @@ function handleStageClick(event: MouseEvent) {
 
   if (mode.value === 'moving') {
     if (!activeMovePointId.value) {
-      message.warning('请先点击一个点位')
+      message.warning('请先点击一个执行点')
       return
     }
     moveDraft.value[activeMovePointId.value] = { x: position.x, y: position.y }
@@ -487,7 +498,7 @@ function cancelAdd() {
 function createPoint() {
   const name = addForm.name.trim()
   if (!name || !selectedMapId.value) {
-    message.warning('请填写点位名称')
+    message.warning('请填写执行点名称')
     return
   }
   const area = areaOptions.value.find(item => item.id === addForm.areaId)
@@ -524,14 +535,14 @@ function createPoint() {
   inspectionStore.saveInspectionPoint(newPoint)
   addModalVisible.value = false
   mode.value = 'normal'
-  message.success('点位新增成功')
+  message.success('执行点新增成功')
   loadPoints()
 }
 
 function confirmMove() {
   const draftIds = Object.keys(moveDraft.value)
   if (!draftIds.length) {
-    message.warning('尚未移动任何点位')
+    message.warning('尚未移动任何执行点')
     return
   }
 
@@ -545,7 +556,7 @@ function confirmMove() {
   mode.value = 'normal'
   activeMovePointId.value = ''
   moveDraft.value = {}
-  message.success('点位位置已更新')
+  message.success('执行点位置已更新')
   loadPoints()
 }
 
