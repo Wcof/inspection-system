@@ -107,7 +107,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
 import { useRobotStore } from '@/stores/robot'
-import type { CollectionQualityStatus, EvidenceChain } from '@/types/inspection'
+import type { EvidenceChain, InspectionTaskResult, InspectionTaskSnapshot } from '@/types/inspection'
 
 const router = useRouter()
 const route = useRoute()
@@ -116,7 +116,9 @@ const robotStore = useRobotStore()
 
 const task = ref<any>()
 const inspectionPoints = ref<any[]>([])
-const activeView = ref('point')
+const taskSnapshot = ref<InspectionTaskSnapshot>()
+const taskResults = ref<InspectionTaskResult[]>([])
+const activeView = ref(String(route.query.tab || 'point'))
 
 const pointColumns = [
   { title: '序号', key: 'index', width: 80 },
@@ -192,7 +194,7 @@ function getMissedItemCount(pointId: string, itemCount: number, inspectionStatus
   return pointNo % (itemCount + 1)
 }
 
-function getQualityStatusText(status: CollectionQualityStatus) {
+function getQualityStatusText(status: string) {
   return ({
     normal: '正常',
     warning: '预警',
@@ -205,11 +207,14 @@ function getQualityStatusText(status: CollectionQualityStatus) {
     blurred: '模糊',
     reflection: '反光',
     target_missing: '目标缺失',
-    unreadable: '无法读取'
-  } as Record<CollectionQualityStatus, string>)[status]
+    unreadable: '无法读取',
+    uninspectable: '不可检',
+    monitor_failure: '监测失效',
+    unknown: '未知'
+  } as Record<string, string>)[status] || status
 }
 
-function getQualityStatusColor(status: CollectionQualityStatus) {
+function getQualityStatusColor(status: string) {
   return ({
     normal: 'green',
     warning: 'gold',
@@ -222,11 +227,14 @@ function getQualityStatusColor(status: CollectionQualityStatus) {
     blurred: 'cyan',
     reflection: 'blue',
     target_missing: 'magenta',
-    unreadable: 'red'
-  } as Record<CollectionQualityStatus, string>)[status]
+    unreadable: 'red',
+    uninspectable: 'volcano',
+    monitor_failure: 'red',
+    unknown: 'default'
+  } as Record<string, string>)[status] || 'default'
 }
 
-function isEffectiveCoverage(status: CollectionQualityStatus) {
+function isEffectiveCoverage(status: string) {
   return ['normal', 'warning', 'alarm', 'critical_alarm'].includes(status)
 }
 
@@ -338,59 +346,37 @@ const deviceRows = computed(() => {
 const collectionActionRows = computed(() => {
   const opticalImage = new URL('../../../设备.png', import.meta.url).href
   const thermalImage = new URL('../../../车间.png', import.meta.url).href
-  const statuses: CollectionQualityStatus[] = [
-    'normal',
-    'warning',
-    'alarm',
-    'critical_alarm',
-    'skipped',
-    'not_arrived',
-    'blocked',
-    'bad_angle',
-    'blurred',
-    'reflection',
-    'target_missing',
-    'unreadable'
-  ]
-  const taskStart = task.value ? getTaskStart(task.value) : new Date()
   const rows: Array<{
     id: string
     pointName: string
     parkingPoint: string
     collectionAction: string
     targetObject: string
-    qualityStatus: CollectionQualityStatus
+    qualityStatus: string
     evidence: EvidenceChain
   }> = []
 
-  inspectionPoints.value.forEach((point: any, pointIndex: number) => {
-    const devices = inspectionStore.inspectionDevices.filter((device: any) => device.inspectionPointId === point.id)
-    devices.forEach((device: any, deviceIndex: number) => {
-      const items = inspectionStore.inspectionDeviceCheckItems.filter((item: any) => item.deviceId === device.id)
-      const resolvedItems = items.length ? items : [{ id: `${device.id}-default`, name: '默认外观检测', unit: '-' }]
-      resolvedItems.forEach((item: any, itemIndex: number) => {
-        const seed = pointIndex + deviceIndex + itemIndex
-        const status = statuses[seed % statuses.length]
-        const sampledAt = new Date(taskStart.getTime() + (seed + 1) * 5 * 60 * 1000).toLocaleString()
-        rows.push({
-          id: `${point.id}-${device.id}-${item.id}`,
-          pointName: point.name,
-          parkingPoint: `${point.name}-${seed % 2 === 0 ? '正前方停车点' : '侧向停车点'}`,
-          collectionAction: `${seed % 2 === 0 ? '正拍' : '侧拍'}-${item.name}`,
-          targetObject: item.targetObject || device.name,
-          qualityStatus: status,
-          evidence: {
-            opticalImageUrl: opticalImage,
-            thermalImageUrl: thermalImage,
-            sampledAt,
-            robotPose: `X${120 + seed * 3}, Y${86 + seed * 2}, Yaw${(seed * 18) % 360}°`,
-            recognizedValue: isEffectiveCoverage(status) ? getDetectionValue(item, seed + 1) : getQualityStatusText(status),
-            confidence: isEffectiveCoverage(status) ? Math.max(0.72, 0.96 - seed * 0.03) : Math.max(0.38, 0.62 - seed * 0.02),
-            ruleVersion: `R-${new Date().getFullYear()}.04.${(seed % 4) + 1}`,
-            manualReviewConclusion: isEffectiveCoverage(status) ? '待抽检' : '需人工复核'
-          }
-        })
-      })
+  const resultMap = new Map(taskResults.value.map(result => [result.collectionActionId, result]))
+  ;(taskSnapshot.value?.collectionActions || []).forEach((action, index) => {
+    const result = resultMap.get(action.id)
+    const qualityStatus = String(result?.qualityStatus || result?.status || 'unknown')
+    rows.push({
+      id: action.id,
+      pointName: action.pointName,
+      parkingPoint: action.parkingPointName,
+      collectionAction: action.collectionAction,
+      targetObject: action.targetObject,
+      qualityStatus,
+      evidence: result?.evidence || {
+        opticalImageUrl: opticalImage,
+        thermalImageUrl: thermalImage,
+        sampledAt: new Date().toLocaleString(),
+        robotPose: `X${120 + index * 3}, Y${86 + index * 2}, Yaw${(index * 18) % 360}°`,
+        recognizedValue: getQualityStatusText(qualityStatus),
+        confidence: 0.5,
+        ruleVersion: action.ruleId ? `${action.ruleId}-V1` : 'DEFAULT-V1',
+        manualReviewConclusion: '需人工复核'
+      }
     })
   })
 
@@ -405,6 +391,8 @@ onMounted(() => {
   inspectionStore.initialize()
   robotStore.initialize()
   task.value = inspectionStore.getTaskById(route.params.id as string)
+  taskSnapshot.value = inspectionStore.ensureTaskExecutionData(route.params.id as string)
+  taskResults.value = inspectionStore.getInspectionTaskResultsByTaskId(route.params.id as string)
   inspectionPoints.value = (task.value?.inspectionPointIds || []).map((id: string) => inspectionStore.getInspectionPointById(id)).filter(Boolean)
 })
 </script>

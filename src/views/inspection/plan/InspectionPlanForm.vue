@@ -82,6 +82,20 @@
           message="自动调度计划不在计划层展示周期与固定执行时间，最终任务由总调度台按规则动态拆分 / 合并 / 重排。"
         />
 
+        <a-card size="small" title="计划覆盖预览" style="margin-bottom: 16px">
+          <a-descriptions :column="4" size="small" bordered>
+            <a-descriptions-item label="巡检点">{{ coverageSummary.pointCount }}</a-descriptions-item>
+            <a-descriptions-item label="停车点">{{ coverageSummary.parkingPointCount }}</a-descriptions-item>
+            <a-descriptions-item label="采集位">{{ coverageSummary.collectionPoseCount }}</a-descriptions-item>
+            <a-descriptions-item label="检测配置">{{ coverageSummary.detectionConfigCount }}</a-descriptions-item>
+            <a-descriptions-item label="覆盖检查">
+              <a-tag :color="coverageSummary.hasMissingCoverage ? 'red' : 'green'">
+                {{ coverageSummary.hasMissingCoverage ? '存在漏检风险' : '覆盖完整' }}
+              </a-tag>
+            </a-descriptions-item>
+          </a-descriptions>
+        </a-card>
+
         <a-form-item label="执行说明">
           <a-textarea v-model:value="form.description" :rows="4" placeholder="可补充该计划的执行范围、检查原则与说明" />
         </a-form-item>
@@ -118,6 +132,22 @@ const form = reactive<any>({
   inspectionTimeStart: '08:00',
   inspectionTimeEnd: '18:00',
   description: ''
+})
+
+const selectedPoints = computed(() => inspectionStore.inspectionPoints.filter(point => form.inspectionPointIds.includes(point.id)))
+const coverageSummary = computed(() => {
+  const pointIds = new Set(form.inspectionPointIds)
+  const devices = inspectionStore.inspectionDevices.filter(device => pointIds.has(device.inspectionPointId))
+  const parkingPointCount = selectedPoints.value.reduce((sum, point) => sum + (point.parkingPoints?.length || 0), 0)
+  const collectionPoseCount = selectedPoints.value.reduce((sum, point) => sum + (point.parkingPoints || []).reduce((poseSum, parking) => poseSum + parking.collectionPoses.length, 0), 0)
+  const detectionConfigCount = devices.reduce((sum, device) => sum + (device.objectDetectionConfigs?.filter(config => config.enabled).length || 0), 0)
+  return {
+    pointCount: selectedPoints.value.length,
+    parkingPointCount,
+    collectionPoseCount,
+    detectionConfigCount,
+    hasMissingCoverage: !selectedPoints.value.length || parkingPointCount === 0 || collectionPoseCount === 0 || detectionConfigCount === 0
+  }
 })
 
 function loadDetail() {
@@ -158,7 +188,8 @@ function handleSave() {
     inspectionTimeStart: form.planType === 'manual' ? form.inspectionTimeStart : '',
     inspectionTimeEnd: form.planType === 'manual' ? form.inspectionTimeEnd : '',
     description: form.description,
-    hasMissingCoverage: false,
+    hasMissingCoverage: coverageSummary.value.hasMissingCoverage,
+    coverageSummary: coverageSummary.value,
     schedule: form.planType === 'manual'
       ? {
           type: 'manual-window',

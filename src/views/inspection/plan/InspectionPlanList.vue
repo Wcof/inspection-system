@@ -204,7 +204,7 @@ const columns = [
   { title: '计划类型', key: 'planType', width: 140 },
   { title: '任务来源', key: 'taskSource', width: 120 },
   { title: '巡检点数量', key: 'pointCount', width: 120 },
-  { title: '检测项数量', key: 'checkItemCount', width: 120 },
+  { title: '检测配置数量', key: 'checkItemCount', width: 120 },
   { title: '覆盖检查', key: 'missingCoverage', width: 120 },
   { title: '状态', key: 'status', width: 100 },
   { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 180 },
@@ -214,19 +214,19 @@ const columns = [
 function enrichPlan(plan: any) {
   const inspectionPointIds = plan.inspectionPointIds || []
   const linkedDevices = inspectionStore.inspectionDevices.filter((device: any) => inspectionPointIds.includes(device.inspectionPointId))
-  const linkedCheckItems = inspectionStore.inspectionDeviceCheckItems.filter((item: any) => linkedDevices.some((device: any) => device.id === item.deviceId))
+  const linkedDetectionConfigs = linkedDevices.flatMap((device: any) => device.objectDetectionConfigs || [])
   const missingPoints = inspectionStore.inspectionPoints
     .filter((point: any) => !inspectionPointIds.includes(point.id))
     .slice(0, 2)
     .map((point: any) => point.name)
-  const missingDevices = linkedDevices.filter((device: any) => !inspectionStore.inspectionDeviceCheckItems.some((item: any) => item.deviceId === device.id)).map((device: any) => device.name)
-  const missingCheckItems = linkedCheckItems.filter((item: any) => !item.threshold && !item.executionWindow && !item.visionMapping).slice(0, 3).map((item: any) => item.name)
+  const missingDevices = linkedDevices.filter((device: any) => !(device.objectDetectionConfigs || []).some((item: any) => item.enabled)).map((device: any) => device.name)
+  const missingCheckItems = linkedDetectionConfigs.filter((item: any) => !item.collectionPoseId || !item.ruleId).slice(0, 3).map((item: any) => item.subjectName)
   const planType = plan.planType || (plan.schedule ? 'manual' : 'auto')
   return {
     ...plan,
     planType,
     linkedDeviceIds: linkedDevices.map((item: any) => item.id),
-    linkedCheckItemIds: linkedCheckItems.map((item: any) => item.id),
+    linkedCheckItemIds: linkedDetectionConfigs.map((item: any) => item.id),
     hasMissingCoverage: Boolean(plan.hasMissingCoverage || missingPoints.length || missingDevices.length || missingCheckItems.length),
     missingPoints,
     missingDevices,

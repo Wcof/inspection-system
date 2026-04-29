@@ -130,6 +130,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { message, Modal } from 'ant-design-vue'
 
 type AlertType = 'facility' | 'gas' | 'safety' | 'monitor_failure' | 'uninspectable'
@@ -167,6 +168,7 @@ const searchForm = reactive<AlertSearchForm>({
   riskLevel: undefined,
   timeRange: undefined
 })
+const router = useRouter()
 
 const appliedSearch = reactive<AlertSearchForm>({
   name: '',
@@ -256,7 +258,14 @@ function isAlertTimeInRange(alertTime: string, timeRange?: [any, any]) {
   const endAt = typeof timeRange[1].valueOf === 'function' ? timeRange[1].valueOf() : new Date(timeRange[1]).getTime()
   return alertAt >= startAt && alertAt <= endAt
 }
-function jumpToSource(alert: AlertItem) { message.info(`跳转至来源详情：${alert.source}`) }
+function jumpToSource(alert: AlertItem) {
+  const matched = alert.source.match(/TASK-\d+-(\d+)/)
+  if (matched?.[1]) {
+    router.push(`/management/task/detail/task-${matched[1].padStart(3, '0')}?tab=evidence`)
+    return
+  }
+  message.info(`跳转至来源详情：${alert.source}`)
+}
 function canClear(status: AlertStatus) { return ['pending_confirm', 'confirmed', 'pending_review'].includes(status) }
 function canCreateHazard(status: AlertStatus) { return ['confirmed', 'pending_review'].includes(status) }
 function canRectify(status: AlertStatus) { return ['hazard_created'].includes(status) }

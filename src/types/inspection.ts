@@ -469,17 +469,49 @@ export interface InspectionTaskSnapshot {
     referenceImageUrl?: string
     referenceImageVersion?: string
   }>
+  parkingRoute?: Array<{
+    id: string
+    inspectionPointId: string
+    inspectionPointName: string
+    parkingPointId: string
+    parkingPointName: string
+    sequence: number
+    position: MapPosition
+    arrivalStatus: 'arrived' | 'not_arrived' | 'unreachable' | 'blocked' | 'low_battery_return' | 'localization_error' | 'communication_error'
+    failureReason?: string
+  }>
+  collectionActions?: Array<{
+    id: string
+    inspectionPointId: string
+    pointName: string
+    parkingPointId: string
+    parkingPointName: string
+    collectionPoseId: string
+    collectionAction: string
+    targetObject: string
+    ruleId?: string
+    ruleName?: string
+    requiredCoverage: boolean
+  }>
   createdAt: string
 }
+
+export type InspectionResultStatus = 'normal' | 'warning' | 'alarm' | 'critical' | 'critical_alarm' | 'hazard' | 'major_hazard' | 'skipped' | 'uninspectable' | 'unreadable' | 'blocked' | 'bad_angle' | 'target_missing' | 'monitor_failure' | 'not_arrived' | 'unknown'
 
 export interface InspectionTaskResult {
   id: string
   taskId: string
   inspectionPointId: string
+  parkingPointId?: string
+  collectionPoseId?: string
+  collectionActionId?: string
+  subjectName?: string
   deviceId?: string
   checkItemId?: string
   value?: string | number
-  status: 'normal' | 'warning' | 'critical' | 'skipped'
+  status: InspectionResultStatus
+  qualityStatus?: CollectionQualityStatus | 'uninspectable' | 'monitor_failure' | 'unknown'
+  evidence?: EvidenceChain
   imageUrl?: string
   exceptionLogId?: string
   recordedAt: string

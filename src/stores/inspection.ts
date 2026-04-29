@@ -26,7 +26,8 @@ import {
   DeviceStatus,
   InspectionTaskInstanceStatus,
   InspectionPlan,
-  InspectionTaskResult
+  InspectionTaskResult,
+  InspectionTaskSnapshot
 } from '@/types/inspection'
 
 export const useInspectionStore = defineStore('inspection', () => {
@@ -237,6 +238,127 @@ export const useInspectionStore = defineStore('inspection', () => {
 
   function getInspectionTaskResultsByTaskId(taskId: string): InspectionTaskResult[] {
     return MockService.getInspectionTaskResultsByTaskId(taskId)
+  }
+
+  function getInspectionTaskSnapshotByTaskId(taskId: string): InspectionTaskSnapshot | undefined {
+    return MockService.getInspectionTaskSnapshotByTaskId(taskId)
+  }
+
+  function ensureTaskExecutionData(taskId: string): InspectionTaskSnapshot | undefined {
+    const task = getTaskById(taskId)
+    if (!task) return undefined
+    const existed = MockService.getInspectionTaskSnapshotByTaskId(taskId)
+    if (existed && MockService.getInspectionTaskResultsByTaskId(taskId).length) return existed
+
+    const taskPoints = (task.inspectionPointIds || [])
+      .map(id => getInspectionPointById(id))
+      .filter(Boolean) as InspectionPoint[]
+    const createdAt = new Date().toISOString()
+    const parkingRoute: NonNullable<InspectionTaskSnapshot['parkingRoute']> = []
+    const collectionActions: NonNullable<InspectionTaskSnapshot['collectionActions']> = []
+    let parkingSequence = 1
+
+    taskPoints.forEach((point) => {
+      const parkingPoints = point.parkingPoints?.length ? point.parkingPoints : []
+      parkingPoints.forEach((parking) => {
+        const arrivalStatus = parking.constraint.reachable ? 'arrived' : 'unreachable'
+        parkingRoute.push({
+          id: `${task.id}-${parking.id}`,
+          inspectionPointId: point.id,
+          inspectionPointName: point.name,
+          parkingPointId: parking.id,
+          parkingPointName: parking.name,
+          sequence: parkingSequence++,
+          position: parking.position,
+          arrivalStatus,
+          failureReason: arrivalStatus === 'arrived' ? undefined : '停车点不可达'
+        })
+
+        parking.collectionPoses.forEach((pose) => {
+          const devices = inspectionDevices.value.filter(device => device.inspectionPointId === point.id)
+          const configs = devices.flatMap(device => device.objectDetectionConfigs || [])
+          const config = configs.find(item => !item.collectionPoseId || item.collectionPoseId === pose.id)
+          collectionActions.push({
+            id: `${task.id}-${pose.id}-${config?.ruleId || 'default'}`,
+            inspectionPointId: point.id,
+            pointName: point.name,
+            parkingPointId: parking.id,
+            parkingPointName: parking.name,
+            collectionPoseId: pose.id,
+            collectionAction: `${pose.targetName} / ${pose.method}`,
+            targetObject: config?.subjectName || pose.targetName,
+            ruleId: config?.ruleId,
+            ruleName: config?.ruleId || '默认外观检测',
+            requiredCoverage: config?.requiredCoverage ?? true
+          })
+        })
+      })
+    })
+
+    const snapshot: InspectionTaskSnapshot = {
+      id: `snapshot-${task.id}`,
+      taskId: task.id,
+      route: {
+        id: task.routeId,
+        name: task.routeId || '任务路线',
+        waypointIds: [],
+        inspectionPointIds: task.inspectionPointIds
+      },
+      points: taskPoints.map((point, index) => ({
+        id: point.id,
+        name: point.name,
+        sequence: index + 1,
+        mapPosition: point.mapPosition || { x: 0, y: 0, yaw: 0 },
+        stayDurationSec: point.stayDurationSec
+      })),
+      devices: inspectionDevices.value
+        .filter(device => task.inspectionPointIds.includes(device.inspectionPointId))
+        .map(device => ({
+          id: device.id,
+          inspectionPointId: device.inspectionPointId,
+          name: device.name,
+          sequence: device.sequence || 1,
+          ptzPreset: device.ptzPreset,
+          referenceImageUrl: device.referenceImageUrl,
+          referenceImageVersion: device.referenceImageVersion
+        })),
+      parkingRoute,
+      collectionActions,
+      createdAt
+    }
+    MockService.saveInspectionTaskSnapshot(snapshot)
+
+    const statuses: InspectionTaskResult['status'][] = ['normal', 'warning', 'alarm', 'critical_alarm', 'uninspectable', 'blocked', 'bad_angle', 'target_missing', 'unreadable', 'not_arrived']
+    collectionActions.forEach((action, index) => {
+      const status = statuses[index % statuses.length]
+      const sampledAt = new Date(Date.now() - index * 6 * 60 * 1000).toISOString()
+      MockService.saveInspectionTaskResult({
+        id: `result-${action.id}`,
+        taskId: task.id,
+        inspectionPointId: action.inspectionPointId,
+        parkingPointId: action.parkingPointId,
+        collectionPoseId: action.collectionPoseId,
+        collectionActionId: action.id,
+        subjectName: action.targetObject,
+        value: ['normal', 'warning', 'alarm', 'critical_alarm'].includes(status) ? `${(10 + index * 1.7).toFixed(1)}` : status,
+        status,
+        qualityStatus: (status === 'uninspectable' ? 'uninspectable' : status === 'monitor_failure' ? 'monitor_failure' : status === 'normal' || status === 'warning' || status === 'alarm' || status === 'critical_alarm' ? 'normal' : status) as InspectionTaskResult['qualityStatus'],
+        evidence: {
+          opticalImageUrl: '/src/设备.png',
+          thermalImageUrl: '/src/车间.png',
+          sampledAt,
+          robotPose: `X${120 + index * 2}, Y${80 + index}, Yaw${(index * 17) % 360}°`,
+          recognizedValue: String(status),
+          confidence: ['normal', 'warning', 'alarm', 'critical_alarm'].includes(status) ? 0.91 : 0.48,
+          ruleVersion: action.ruleId ? `${action.ruleId}-V1` : 'DEFAULT-V1',
+          manualReviewConclusion: ['normal', 'warning', 'alarm', 'critical_alarm'].includes(status) ? '待抽检' : '需人工复核'
+        },
+        recordedAt: sampledAt,
+        createdAt: new Date(sampledAt),
+        updatedAt: new Date(sampledAt)
+      })
+    })
+    return snapshot
   }
   
   // 路径相关巡检地图相关
@@ -535,6 +657,8 @@ export const useInspectionStore = defineStore('inspection', () => {
     deleteTask,
     getTaskResultsByRobotId,
     getInspectionTaskResultsByTaskId,
+    getInspectionTaskSnapshotByTaskId,
+    ensureTaskExecutionData,
     fetchAllInspectionMaps,
     getInspectionMapById,
     saveInspectionMap,
