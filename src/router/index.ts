@@ -268,12 +268,18 @@ const routes: RouteRecordRaw[] = [
             path: 'create/:id?',
             name: 'ImplementationPointCreate',
             component: () => import('../views/inspection/InspectionPointCreate.vue'),
-            meta: { title: '新增巡检点' }
+            meta: { title: '巡检点配置' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ImplementationPointDetail',
+            component: () => import('../views/inspection/InspectionPointDetail.vue'),
+            meta: { title: '巡检点详情' }
           },
           {
             path: 'form/:id?',
             name: 'ImplementationPointForm',
-            component: () => import('../views/inspection/InspectionPointForm.vue'),
+            redirect: to => ({ path: `/implementation/point/detail/${to.params.id || ''}` }),
             meta: { title: '点位编辑' }
           }
         ]

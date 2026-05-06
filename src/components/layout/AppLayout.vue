@@ -129,9 +129,6 @@
             <a-menu-item key="implementation-point">
               <router-link :to="{ path: '/implementation/map/point-manage', query: { tab: 'inspection' } }">巡检点管理</router-link>
             </a-menu-item>
-            <a-menu-item key="implementation-metric">
-              <router-link to="/implementation/metric/list">检测项管理（旧）</router-link>
-            </a-menu-item>
             <a-menu-item key="implementation-detection-item-config">
               <router-link to="/implementation/detection-item-config/list">检测规则配置</router-link>
             </a-menu-item>
@@ -278,6 +275,7 @@ const currentKey = computed(() => {
   if (path.startsWith('/implementation/robot/simulation')) return 'implementation-robot-simulation'
   if (path.startsWith('/implementation/point/list')) return 'implementation-point'
   if (path.startsWith('/implementation/point/create')) return 'implementation-point'
+  if (path.startsWith('/implementation/point/detail')) return 'implementation-point'
   if (path.startsWith('/implementation/point/form')) return 'implementation-point'
   if (path.startsWith('/implementation/device/list')) return 'implementation-device'
   if (path.startsWith('/implementation/device/standard-components')) return 'implementation-device-standard-components'

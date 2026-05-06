@@ -180,8 +180,8 @@
               </template>
               <template v-else-if="column.key === 'actions'">
                 <a-space>
-                  <a-button type="link" size="small" @click="goToInspectionConfig(record.id)">巡检配置</a-button>
-                  <a-button type="link" size="small" @click="goToPointForm(record.id)">基础编辑</a-button>
+                  <a-button type="link" size="small" @click="goToPointDetail(record.id)">详情</a-button>
+                  <a-button type="link" size="small" @click="goToInspectionConfig(record.id)">配置</a-button>
                   <a-button type="link" size="small" @click="viewDevices(record.id)">设施</a-button>
                   <a-button type="link" size="small" @click="handleCalibrate(record.raw)">校准</a-button>
                   <a-button type="link" size="small" danger @click="deleteListPoint(record)">删除</a-button>
@@ -203,7 +203,7 @@
               <template v-else-if="column.key === 'actions'">
                 <a-space>
                   <a-button type="link" size="small" @click="goToMapScopedPage(record.mapId)">地图配置</a-button>
-                  <a-button type="link" size="small" @click="goToPointForm(record.id)">基础编辑</a-button>
+                  <a-button type="link" size="small" @click="goToPointDetail(record.id)">详情</a-button>
                 </a-space>
               </template>
             </template>
@@ -222,7 +222,7 @@
               <template v-else-if="column.key === 'actions'">
                 <a-space>
                   <a-button type="link" size="small" @click="goToMapScopedPage(record.mapId)">地图配置</a-button>
-                  <a-button type="link" size="small" @click="goToPointForm(record.id)">基础编辑</a-button>
+                  <a-button type="link" size="small" @click="goToPointDetail(record.id)">详情</a-button>
                 </a-space>
               </template>
             </template>
@@ -241,7 +241,7 @@
               <template v-else-if="column.key === 'actions'">
                 <a-space>
                   <a-button type="link" size="small" @click="goToMapScopedPage(record.mapId)">地图配置</a-button>
-                  <a-button type="link" size="small" @click="goToPointForm(record.id)">基础编辑</a-button>
+                  <a-button type="link" size="small" @click="goToPointDetail(record.id)">详情</a-button>
                 </a-space>
               </template>
             </template>
@@ -704,15 +704,17 @@ function getCollectionPoseCount(record: PointRow) {
 }
 
 function getCoverageObjectCount(record: PointRow) {
-  const devices = inspectionStore.inspectionDevices.filter(device => device.inspectionPointId === record.id)
+  if (record.raw.coverageObjects?.length) return record.raw.coverageObjects.length
+  const devices = inspectionStore.getInspectionDevicesByInspectionPointId(record.id)
   const componentCount = devices.reduce((sum, device) => sum + (device.assetComponents?.length || 0), 0)
   const connectionCount = devices.reduce((sum, device) => sum + (device.connectionObjects?.length || 0), 0)
   return componentCount + connectionCount + devices.length
 }
 
 function getDetectionConfigCount(pointId: string) {
-  return inspectionStore.inspectionDevices
-    .filter(device => device.inspectionPointId === pointId)
+  const point = inspectionStore.inspectionPoints.find(item => item.id === pointId)
+  if (point?.detectionConfigs?.length) return point.detectionConfigs.filter(item => item.enabled).length
+  return inspectionStore.getInspectionDevicesByInspectionPointId(pointId)
     .reduce((sum, device) => sum + (device.objectDetectionConfigs?.length || 0), 0)
 }
 
@@ -1048,8 +1050,8 @@ function handleRouteIntent() {
   }
 }
 
-function goToPointForm(id: string) {
-  router.push(`/implementation/point/form/${id}`)
+function goToPointDetail(id: string) {
+  router.push(`/implementation/point/detail/${id}`)
 }
 
 function goToInspectionConfig(id: string) {

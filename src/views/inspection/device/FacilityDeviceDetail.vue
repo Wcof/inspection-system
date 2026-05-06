@@ -10,9 +10,9 @@
             <a-descriptions-item label="设施编号">{{ device.deviceNo || device.code }}</a-descriptions-item>
             <a-descriptions-item label="设施类别">{{ device.deviceCategory || '-' }}</a-descriptions-item>
             <a-descriptions-item label="设施分类">{{ device.deviceClassification || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="来源">{{ device.source === 'synced' ? '三方同步' : '手动维护' }}</a-descriptions-item>
             <a-descriptions-item label="责任人">{{ device.owner || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="所在区域">{{ device.areaName || point?.areaName || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="所在巡检点">{{ point?.name || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="所属区域">{{ device.areaName || '-' }}</a-descriptions-item>
             <a-descriptions-item label="状态">{{ statusText }}</a-descriptions-item>
           </a-descriptions>
         </a-tab-pane>
@@ -23,6 +23,10 @@
 
         <a-tab-pane key="connections" tab="连接部位">
           <a-table :columns="connectionColumns" :data-source="connectionRows" row-key="id" :pagination="false" />
+        </a-tab-pane>
+
+        <a-tab-pane key="parkingBindings" tab="可采点位">
+          <a-table :columns="bindingColumns" :data-source="bindingRows" row-key="id" :pagination="false" />
         </a-tab-pane>
 
         <a-tab-pane key="detectionConfigs" tab="检测配置">
@@ -49,20 +53,30 @@ const inspectionStore = useInspectionStore()
 const activeTab = ref('basic')
 
 const device = computed(() => inspectionStore.inspectionDevices.find(item => item.id === String(route.params.id)))
-const point = computed(() => inspectionStore.inspectionPoints.find(item => item.id === device.value?.inspectionPointId))
+const detectionRules = computed(() => getDetectionItemConfigs())
 
 const componentRows = computed(() => device.value?.assetComponents || [])
 const connectionRows = computed(() => device.value?.connectionObjects || [])
-const detectionRules = computed(() => getDetectionItemConfigs())
+const bindingRows = computed(() => (device.value?.parkingPointBindings || []).map((binding) => ({
+  ...binding,
+  componentNames: (binding.componentIds || [])
+    .map(id => device.value?.assetComponents?.find(component => component.id === id)?.name || id)
+    .join('、')
+})))
+
 const poseRows = computed(() => {
-  const parkingPoints = point.value?.parkingPoints || []
-  return parkingPoints.flatMap((parking) =>
-    parking.collectionPoses.map((pose) => ({
+  const bindings = device.value?.parkingPointBindings || []
+  return bindings.flatMap((binding) => {
+    const point = inspectionStore.inspectionPoints.find(item => item.id === binding.inspectionPointId)
+    const parking = point?.parkingPoints?.find(item => item.id === binding.parkingPointId)
+    return (parking?.collectionPoses || []).map((pose) => ({
       ...pose,
-      parkingPointName: parking.name
+      inspectionPointName: binding.inspectionPointName,
+      parkingPointName: binding.parkingPointName
     }))
-  )
+  })
 })
+
 const detectionConfigRows = computed(() => (device.value?.objectDetectionConfigs || []).map((config) => {
   const rule = detectionRules.value.find(item => item.id === config.ruleId)
   const pose = poseRows.value.find(item => item.id === config.collectionPoseId)
@@ -70,7 +84,7 @@ const detectionConfigRows = computed(() => (device.value?.objectDetectionConfigs
     ...config,
     subjectTypeText: getSubjectTypeText(config.subjectType),
     ruleName: rule?.name || config.ruleId,
-    collectionPoseName: pose ? `${pose.parkingPointName} / ${pose.targetName}` : '-',
+    collectionPoseName: pose ? `${pose.inspectionPointName} / ${pose.parkingPointName} / ${pose.targetName}` : '-',
     requiredCoverageText: config.requiredCoverage ? '必须覆盖' : '可选覆盖',
     failureStrategyText: getFailureStrategyText(config.failureStrategy),
     enabledText: config.enabled ? '启用' : '停用'
@@ -87,13 +101,21 @@ const statusText = computed(() => {
 
 const componentColumns = [
   { title: '部件名称', dataIndex: 'name', key: 'name' },
-  { title: '部件类型', dataIndex: 'type', key: 'type', width: 180 }
+  { title: '部件类型', dataIndex: 'type', key: 'type', width: 180 },
+  { title: '检测规则', key: 'ruleIds', customRender: ({ record }: any) => (record.ruleIds || []).join('、') || '-', width: 260 }
 ]
 
 const connectionColumns = [
   { title: '连接对象', dataIndex: 'name', key: 'name' },
   { title: '端点A', dataIndex: 'endpointA', key: 'endpointA', width: 180 },
-  { title: '端点B', dataIndex: 'endpointB', key: 'endpointB', width: 180 }
+  { title: '端点B', dataIndex: 'endpointB', key: 'endpointB', width: 180 },
+  { title: '检测规则', key: 'ruleIds', customRender: ({ record }: any) => (record.ruleIds || []).join('、') || '-', width: 260 }
+]
+
+const bindingColumns = [
+  { title: '巡检点', dataIndex: 'inspectionPointName', key: 'inspectionPointName', width: 180 },
+  { title: '停车点', dataIndex: 'parkingPointName', key: 'parkingPointName', width: 180 },
+  { title: '关联部件', dataIndex: 'componentNames', key: 'componentNames' }
 ]
 
 const detectionConfigColumns = [
@@ -103,11 +125,11 @@ const detectionConfigColumns = [
   { title: '采集位', dataIndex: 'collectionPoseName', key: 'collectionPoseName' },
   { title: '覆盖要求', dataIndex: 'requiredCoverageText', key: 'requiredCoverageText', width: 120 },
   { title: '失败策略', dataIndex: 'failureStrategyText', key: 'failureStrategyText', width: 120 },
-  { title: '状态', dataIndex: 'enabledText', key: 'enabledText', width: 90 },
-  { title: '备注', dataIndex: 'remark', key: 'remark' }
+  { title: '状态', dataIndex: 'enabledText', key: 'enabledText', width: 90 }
 ]
 
 const poseColumns = [
+  { title: '巡检点', dataIndex: 'inspectionPointName', key: 'inspectionPointName', width: 150 },
   { title: '停车点', dataIndex: 'parkingPointName', key: 'parkingPointName', width: 150 },
   { title: '采集位目标', dataIndex: 'targetName', key: 'targetName' },
   { title: '采集方向', dataIndex: 'direction', key: 'direction', width: 120 },
@@ -135,7 +157,7 @@ function getFailureStrategyText(strategy: string) {
 
 function syncTabFromQuery() {
   const tab = String(route.query.tab || 'basic')
-  if (['basic', 'components', 'connections', 'detectionConfigs', 'collectionPoses'].includes(tab)) {
+  if (['basic', 'components', 'connections', 'parkingBindings', 'detectionConfigs', 'collectionPoses'].includes(tab)) {
     activeTab.value = tab
   } else {
     activeTab.value = 'basic'

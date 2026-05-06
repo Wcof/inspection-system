@@ -136,11 +136,9 @@ const form = reactive<any>({
 
 const selectedPoints = computed(() => inspectionStore.inspectionPoints.filter(point => form.inspectionPointIds.includes(point.id)))
 const coverageSummary = computed(() => {
-  const pointIds = new Set(form.inspectionPointIds)
-  const devices = inspectionStore.inspectionDevices.filter(device => pointIds.has(device.inspectionPointId))
   const parkingPointCount = selectedPoints.value.reduce((sum, point) => sum + (point.parkingPoints?.length || 0), 0)
   const collectionPoseCount = selectedPoints.value.reduce((sum, point) => sum + (point.parkingPoints || []).reduce((poseSum, parking) => poseSum + parking.collectionPoses.length, 0), 0)
-  const detectionConfigCount = devices.reduce((sum, device) => sum + (device.objectDetectionConfigs?.filter(config => config.enabled).length || 0), 0)
+  const detectionConfigCount = selectedPoints.value.reduce((sum, point) => sum + (point.detectionConfigs?.filter(config => config.enabled).length || 0), 0)
   return {
     pointCount: selectedPoints.value.length,
     parkingPointCount,

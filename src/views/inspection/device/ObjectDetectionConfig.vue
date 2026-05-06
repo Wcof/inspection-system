@@ -22,7 +22,7 @@
       <a-descriptions v-if="device" :column="3" bordered size="small" style="margin-bottom: 16px">
         <a-descriptions-item label="设施名称">{{ device.name }}</a-descriptions-item>
         <a-descriptions-item label="设施编号">{{ device.deviceNo || device.code || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="所在巡检点">{{ point?.name || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="关联巡检点">{{ linkedPointNames || '-' }}</a-descriptions-item>
       </a-descriptions>
 
       <a-table
@@ -115,7 +115,7 @@ const formState = reactive<Record<string, FormStateItem>>({})
 const deviceId = computed(() => String(route.params.deviceId || ''))
 const componentId = computed(() => String(route.params.componentId || ''))
 const device = computed(() => inspectionStore.inspectionDevices.find(item => item.id === deviceId.value))
-const point = computed(() => inspectionStore.inspectionPoints.find(item => item.id === device.value?.inspectionPointId))
+const linkedPointNames = computed(() => Array.from(new Set((device.value?.parkingPointBindings || []).map(item => item.inspectionPointName))).join('、'))
 const ruleOptions = computed(() => getDetectionItemConfigs().filter(item => item.publishStatus === '已发布' && item.enabled))
 const pageTitle = computed(() => componentId.value ? '部件检测配置' : '设施检测配置')
 
@@ -140,11 +140,15 @@ const rows = computed<SubjectRow[]>(() => {
 })
 
 const poseOptions = computed(() => {
-  const parkingPoints = point.value?.parkingPoints || []
-  return parkingPoints.flatMap(parking => parking.collectionPoses.map(pose => ({
-    value: pose.id,
-    label: `${parking.name} / ${pose.targetName} / ${pose.method}`
-  })))
+  const bindings = device.value?.parkingPointBindings || []
+  return bindings.flatMap((binding) => {
+    const point = inspectionStore.inspectionPoints.find(item => item.id === binding.inspectionPointId)
+    const parking = point?.parkingPoints?.find(item => item.id === binding.parkingPointId)
+    return (parking?.collectionPoses || []).map(pose => ({
+      value: pose.id,
+      label: `${binding.inspectionPointName} / ${binding.parkingPointName} / ${pose.targetName} / ${pose.method}`
+    }))
+  })
 })
 
 const columns = [

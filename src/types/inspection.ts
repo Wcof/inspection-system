@@ -31,6 +31,9 @@ export enum InspectionPointType {
   AREA = 'area'
 }
 
+export type InspectionPointBizType = 'inspection' | 'charging' | 'maintenance' | 'standby'
+export type InspectionMode = 'fixed' | 'area'
+
 export enum PositionSource {
   MAP_PICK = 'map_pick',
   MANUAL_ADJUST = 'manual_adjust'
@@ -81,6 +84,20 @@ export interface CollectionPose {
   collectableCondition: string
 }
 
+export interface InspectionPointCoverageObject {
+  id: string
+  type: 'asset' | 'component' | 'connection' | 'area_environment' | 'safety_behavior'
+  name: string
+  deviceId?: string
+  componentId?: string
+  connectionId?: string
+  areaName?: string
+  coverageType: 'primary' | 'secondary' | 'backup'
+  coverageStatus: 'coverable' | 'partial' | 'uncoverable'
+  requiredCoverage: boolean
+  remark?: string
+}
+
 export interface ParkingPoint {
   id: string
   inspectionPointId: string
@@ -129,6 +146,39 @@ export interface ObjectDetectionConfig {
   enabled: boolean
   remark?: string
   updatedAt: string
+}
+
+export interface InspectionPointDetectionConfig {
+  id: string
+  inspectionPointId: string
+  subjectType: ObjectDetectionSubjectType | 'safety_behavior'
+  subjectId: string
+  subjectName: string
+  ruleId: string
+  collectionPoseId?: string
+  requiredCoverage: boolean
+  failureStrategy: DetectionFailureStrategy
+  enabled: boolean
+  remark?: string
+  updatedAt: string
+}
+
+export interface InspectionPointExecutionRecord {
+  id: string
+  inspectionPointId: string
+  taskName: string
+  executedAt: string
+  resultSummary: string
+  executor?: string
+}
+
+export interface FacilityParkingPointBinding {
+  id: string
+  inspectionPointId: string
+  inspectionPointName: string
+  parkingPointId: string
+  parkingPointName: string
+  componentIds: string[]
 }
 
 export interface StandardComponent {
@@ -300,11 +350,13 @@ export interface InspectionDevice {
   ptzPreset?: PTZPreset
   referenceImageUrl?: string
   referenceImageVersion?: string
+  source?: 'manual' | 'synced'
   status: DeviceStatus
   checkItems: InspectionDeviceCheckItem[]
   assetComponents?: InspectedAssetComponent[]
   connectionObjects?: ConnectionObject[]
   objectDetectionConfigs?: ObjectDetectionConfig[]
+  parkingPointBindings?: FacilityParkingPointBinding[]
   inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -348,10 +400,12 @@ export interface InspectionDeviceFormData {
   sequence: number
   ptzPreset?: PTZPreset
   referenceImageUrl?: string
+  source?: 'manual' | 'synced'
   status?: DeviceStatus
   assetComponents?: InspectedAssetComponent[]
   connectionObjects?: ConnectionObject[]
   objectDetectionConfigs?: ObjectDetectionConfig[]
+  parkingPointBindings?: FacilityParkingPointBinding[]
   inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -602,6 +656,8 @@ export interface InspectionPoint {
   name: string
   code: string
   pointType: InspectionPointType
+  pointBizType?: InspectionPointBizType
+  inspectionMode?: InspectionMode
   description: string
   mapId: string
   location: {
@@ -632,6 +688,9 @@ export interface InspectionPoint {
   previewImageUrl?: string
   workAreaName?: string
   parkingPoints?: ParkingPoint[]
+  coverageObjects?: InspectionPointCoverageObject[]
+  detectionConfigs?: InspectionPointDetectionConfig[]
+  executionRecords?: InspectionPointExecutionRecord[]
   calibratedAt?: Date
   updatedBy?: string
   createdAt: Date
@@ -642,6 +701,8 @@ export interface InspectionPointFormData {
   name: string
   code: string
   pointType: InspectionPointType
+  pointBizType?: InspectionPointBizType
+  inspectionMode?: InspectionMode
   description: string
   mapId: string
   location: {
@@ -669,6 +730,9 @@ export interface InspectionPointFormData {
   previewImageUrl?: string
   workAreaName?: string
   parkingPoints?: ParkingPoint[]
+  coverageObjects?: InspectionPointCoverageObject[]
+  detectionConfigs?: InspectionPointDetectionConfig[]
+  executionRecords?: InspectionPointExecutionRecord[]
   calibratedAt?: Date
   updatedBy?: string
 }

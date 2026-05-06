@@ -11,94 +11,63 @@
 
         <a-row :gutter="16">
           <a-col :span="8"><a-form-item label="设施分类" required><a-input v-model:value="form.deviceClassification" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="规格型号"><a-input v-model:value="form.specModel" /></a-form-item></a-col>
           <a-col :span="8"><a-form-item label="责任人" required><a-input v-model:value="form.owner" /></a-form-item></a-col>
-        </a-row>
-
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="所在巡检点" required>
-              <a-select v-model:value="form.inspectionPointId" placeholder="请选择巡检点" @change="onPointChange">
-                <a-select-option v-for="point in inspectionStore.inspectionPoints" :key="point.id" :value="point.id">{{ point.name }}</a-select-option>
+          <a-col :span="8">
+            <a-form-item label="来源" required>
+              <a-select v-model:value="form.source">
+                <a-select-option value="manual">手动维护</a-select-option>
+                <a-select-option value="synced">三方同步</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
-          <a-col :span="12">
-            <a-form-item label="所在区域" required>
-              <a-select v-model:value="form.areaId" placeholder="请选择区域" @change="onAreaChange">
+        </a-row>
+
+        <a-row :gutter="16">
+          <a-col :span="8">
+            <a-form-item label="所属区域" required>
+              <a-select v-model:value="form.areaId" allow-clear placeholder="请选择区域" @change="onAreaChange">
                 <a-select-option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
+          <a-col :span="8"><a-form-item label="规格型号"><a-input v-model:value="form.specModel" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item label="系统名称"><a-input v-model:value="form.systemName" /></a-form-item></a-col>
         </a-row>
 
         <a-row :gutter="16">
           <a-col :span="8"><a-form-item label="设备状态"><a-select v-model:value="form.status"><a-select-option value="active">在用</a-select-option><a-select-option value="inactive">停用</a-select-option><a-select-option value="maintenance">维护中</a-select-option><a-select-option value="scrapped">报废</a-select-option></a-select></a-form-item></a-col>
           <a-col :span="8"><a-form-item label="出厂厂家"><a-input v-model:value="form.manufacturer" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="出厂编号"><a-input v-model:value="form.factoryNo" /></a-form-item></a-col>
-        </a-row>
-
-        <a-row :gutter="16">
-          <a-col :span="8"><a-form-item label="投用日期"><a-date-picker v-model:value="form.commissioningDate" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="失效日期"><a-date-picker v-model:value="form.expiryDate" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="出日期"><a-date-picker v-model:value="form.outDate" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-        </a-row>
-
-        <a-row :gutter="16">
-          <a-col :span="8"><a-form-item label="发证日期"><a-date-picker v-model:value="form.issueDate" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="最近检测时间"><a-date-picker v-model:value="form.lastInspectionTime" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="下次检测时间"><a-date-picker v-model:value="form.nextInspectionTime" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-        </a-row>
-
-        <a-row :gutter="16">
-          <a-col :span="8"><a-form-item label="使用证号"><a-input v-model:value="form.usageCertificateNo" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="机构核准证书"><a-input v-model:value="form.authorityCertificateNo" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="NFCID"><a-input v-model:value="form.nfcId" /></a-form-item></a-col>
-        </a-row>
-
-        <a-row :gutter="16">
-          <a-col :span="8"><a-form-item label="系统名称"><a-input v-model:value="form.systemName" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="使用部门名称"><a-input v-model:value="form.departmentName" /></a-form-item></a-col>
           <a-col :span="8"><a-form-item label="存放位置"><a-input v-model:value="form.storageLocation" /></a-form-item></a-col>
         </a-row>
 
         <a-row :gutter="16">
-          <a-col :span="8"><a-form-item label="检查岗位名称"><a-input v-model:value="form.inspectionPostName" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="保管岗位名称"><a-input v-model:value="form.custodianPostName" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item label="最近检测时间"><a-date-picker v-model:value="form.lastInspectionTime" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item label="下次检测时间"><a-date-picker v-model:value="form.nextInspectionTime" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
           <a-col :span="8"><a-form-item label="地图坐标"><a-input v-model:value="form.mapCoordinate" placeholder="例如 120.12,30.16" /></a-form-item></a-col>
-        </a-row>
-
-        <a-row :gutter="16">
-          <a-col :span="8"><a-form-item label="失效预警天数"><a-input-number v-model:value="form.expiryWarningDays" :min="0" style="width: 100%" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="检测预警天数"><a-input-number v-model:value="form.inspectionWarningDays" :min="0" style="width: 100%" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="设备编码"><a-input v-model:value="form.code" placeholder="默认同设备编号" /></a-form-item></a-col>
         </a-row>
 
         <a-form-item label="参考图（单张）">
           <a-space direction="vertical" style="width: 100%">
             <a-upload :show-upload-list="false" :before-upload="() => false" @change="handleUploadChange">
-              <a-button>
-                <upload-outlined />
-                上传参考图
-              </a-button>
+              <a-button>上传参考图</a-button>
             </a-upload>
             <img :src="form.referenceImageUrl || defaultDeviceImage" class="preview-image" alt="reference" />
           </a-space>
         </a-form-item>
 
-        <a-card size="small" title="设施部件" class="model-card">
+        <a-card size="small" title="设施资产结构" class="model-card">
           <a-alert
             type="info"
             show-icon
             style="margin-bottom: 12px"
-            message="这里仅维护设施资产结构：组成部件与连接对象。检测规则绑定请回到设施列表或部件清单，通过“检测配置”进入。"
+            message="这里维护设施部件与连接对象。检测规则仍然绑定到真实部件或连接部位。"
           />
           <a-tabs>
             <a-tab-pane key="components" tab="部件配置">
               <a-table :data-source="assetComponents" row-key="localKey" :pagination="false" size="small">
                 <a-table-column title="部件名称">
                   <template #default="{ record }">
-                    <a-input v-model:value="record.name" placeholder="例如 入口阀门" />
+                    <a-input v-model:value="record.name" />
                   </template>
                 </a-table-column>
                 <a-table-column title="部件类型" width="180">
@@ -118,22 +87,21 @@
                     </a-select>
                   </template>
                 </a-table-column>
-                <a-table-column title="关联检测规则" width="320">
+                <a-table-column title="关联检测规则" width="340">
                   <template #default="{ record }">
                     <a-select
                       v-model:value="record.ruleIds"
                       mode="multiple"
                       style="width: 100%"
-                      placeholder="不选则该部件不参与检测"
                       :options="getComponentRuleOptions(record)"
                       option-filter-prop="label"
                       show-search
                     />
                   </template>
                 </a-table-column>
-                <a-table-column title="操作" width="80">
+                <a-table-column title="操作" width="90">
                   <template #default="{ index }">
-                    <a-button type="link" size="small" danger @click="removeAssetComponent(index)">删除</a-button>
+                    <a-button type="link" size="small" danger @click="assetComponents.splice(index, 1)">删除</a-button>
                   </template>
                 </a-table-column>
               </a-table>
@@ -141,28 +109,20 @@
             </a-tab-pane>
 
             <a-tab-pane key="connections" tab="连接对象配置">
-              <a-alert
-                type="warning"
-                show-icon
-                style="margin-bottom: 12px"
-                message="连接对象按 连接 A/连接 B 配置：连接 A 固定为当前设施部件；连接 B 可选择本设施部件，也可选择其他设施下的部件。"
-              />
-              <a-table :data-source="connectionObjects" row-key="localKey" :pagination="false" size="small" :scroll="{ x: 1500 }">
+              <a-table :data-source="connectionObjects" row-key="localKey" :pagination="false" size="small" :scroll="{ x: 1450 }">
+                <a-table-column title="连接对象名称" width="180">
+                  <template #default="{ record }">
+                    <a-input v-model:value="record.name" />
+                  </template>
+                </a-table-column>
                 <a-table-column title="当前设施部件" width="220">
                   <template #default="{ record }">
-                    <a-select
-                      v-model:value="record.sourceComponentId"
-                      style="width: 100%"
-                      placeholder="选择当前设施部件"
-                      @change="syncConnectionEndpoint(record)"
-                    >
-                      <a-select-option v-for="component in assetComponents" :key="component.id" :value="component.id">
-                        {{ component.name }}
-                      </a-select-option>
+                    <a-select v-model:value="record.sourceComponentId" style="width: 100%" @change="syncConnectionEndpoint(record)">
+                      <a-select-option v-for="component in assetComponents" :key="component.id" :value="component.id">{{ component.name }}</a-select-option>
                     </a-select>
                   </template>
                 </a-table-column>
-                <a-table-column title="连接类型" width="140">
+                <a-table-column title="连接范围" width="140">
                   <template #default="{ record }">
                     <a-select v-model:value="record.sinkScope" style="width: 100%" @change="onSinkScopeChange(record)">
                       <a-select-option value="self">本设施</a-select-option>
@@ -172,18 +132,8 @@
                 </a-table-column>
                 <a-table-column title="连接设施" width="220">
                   <template #default="{ record }">
-                    <a-input
-                      v-if="record.sinkScope !== 'other'"
-                      :value="currentDeviceLabel"
-                      disabled
-                    />
-                    <a-select
-                      v-else
-                      v-model:value="record.sinkDeviceId"
-                      style="width: 100%"
-                      placeholder="选择其他设施"
-                      @change="onSinkDeviceChange(record)"
-                    >
+                    <a-input v-if="record.sinkScope !== 'other'" :value="currentDeviceLabel" disabled />
+                    <a-select v-else v-model:value="record.sinkDeviceId" style="width: 100%" @change="onSinkDeviceChange(record)">
                       <a-select-option v-for="device in otherDeviceOptions" :key="device.id" :value="device.id">
                         {{ device.name }}{{ device.deviceNo ? `（${device.deviceNo}）` : '' }}
                       </a-select-option>
@@ -192,15 +142,8 @@
                 </a-table-column>
                 <a-table-column title="连接部件" width="220">
                   <template #default="{ record }">
-                    <a-select
-                      v-model:value="record.sinkComponentId"
-                      style="width: 100%"
-                      placeholder="选择连接部件"
-                      @change="syncConnectionEndpoint(record)"
-                    >
-                      <a-select-option v-for="component in getSinkComponentOptions(record)" :key="component.id" :value="component.id">
-                        {{ component.name }}
-                      </a-select-option>
+                    <a-select v-model:value="record.sinkComponentId" style="width: 100%" @change="syncConnectionEndpoint(record)">
+                      <a-select-option v-for="component in getSinkComponentOptions(record)" :key="component.id" :value="component.id">{{ component.name }}</a-select-option>
                     </a-select>
                   </template>
                 </a-table-column>
@@ -210,22 +153,64 @@
                       v-model:value="record.ruleIds"
                       mode="multiple"
                       style="width: 100%"
-                      placeholder="不选则该连接对象不参与检测"
                       :options="connectionRuleOptions"
                       option-filter-prop="label"
                       show-search
                     />
                   </template>
                 </a-table-column>
-                <a-table-column title="操作" width="80">
+                <a-table-column title="操作" width="90">
                   <template #default="{ index }">
-                    <a-button type="link" size="small" danger @click="removeConnectionObject(index)">删除</a-button>
+                    <a-button type="link" size="small" danger @click="connectionObjects.splice(index, 1)">删除</a-button>
                   </template>
                 </a-table-column>
               </a-table>
               <a-button size="small" style="margin-top: 10px" @click="addConnectionObject">新增连接对象</a-button>
             </a-tab-pane>
           </a-tabs>
+        </a-card>
+
+        <a-card size="small" title="可采点位配置" class="model-card">
+          <a-alert
+            type="warning"
+            show-icon
+            style="margin-bottom: 12px"
+            message="在设施侧维护该设施可被哪些巡检点/停车点检测，并为每个停车点绑定真实部件。"
+          />
+          <a-table :data-source="parkingBindings" row-key="localKey" :pagination="false" size="small" :scroll="{ x: 1300 }">
+            <a-table-column title="巡检点" width="220">
+              <template #default="{ record }">
+                <a-select v-model:value="record.inspectionPointId" style="width: 100%" allow-clear @change="onBindingPointChange(record)">
+                  <a-select-option v-for="point in inspectionPointOptions" :key="point.id" :value="point.id">{{ point.name }}</a-select-option>
+                </a-select>
+              </template>
+            </a-table-column>
+            <a-table-column title="停车点" width="240">
+              <template #default="{ record }">
+                <a-select v-model:value="record.parkingPointId" style="width: 100%" allow-clear @change="onBindingParkingChange(record)">
+                  <a-select-option v-for="parking in getParkingOptions(record.inspectionPointId)" :key="parking.id" :value="parking.id">{{ parking.name }}</a-select-option>
+                </a-select>
+              </template>
+            </a-table-column>
+            <a-table-column title="关联部件" width="360">
+              <template #default="{ record }">
+                <a-select v-model:value="record.componentIds" mode="multiple" style="width: 100%" allow-clear placeholder="选择该停车点可采的部件">
+                  <a-select-option v-for="component in assetComponents" :key="component.id" :value="component.id">{{ component.name }}</a-select-option>
+                </a-select>
+              </template>
+            </a-table-column>
+            <a-table-column title="巡检模式" width="180">
+              <template #default="{ record }">
+                <a-tag>{{ getInspectionModeText(record.inspectionPointId) }}</a-tag>
+              </template>
+            </a-table-column>
+            <a-table-column title="操作" width="90">
+              <template #default="{ index }">
+                <a-button type="link" size="small" danger @click="parkingBindings.splice(index, 1)">删除</a-button>
+              </template>
+            </a-table-column>
+          </a-table>
+          <a-button size="small" style="margin-top: 10px" @click="addParkingBinding">新增可采点位</a-button>
         </a-card>
 
         <div class="form-actions">
@@ -243,22 +228,26 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { UploadOutlined } from '@ant-design/icons-vue'
 import { useInspectionStore } from '@/stores/inspection'
-import type { InspectedAssetComponent, ConnectionObject, ObjectDetectionConfig } from '@/types/inspection'
+import type {
+  ConnectionObject,
+  FacilityParkingPointBinding,
+  InspectedAssetComponent,
+  ObjectDetectionConfig
+} from '@/types/inspection'
+import { DeviceStatus } from '@/types/inspection'
 import { getDetectionItemConfigs, type DetectionItemConfig } from '@/views/implementation/detection-item-config/model'
 
-type AssetComponentRow = InspectedAssetComponent & { localKey: string }
-type EndpointPath = [string, string]
-type ConnectionObjectRow = ConnectionObject & {
+interface AssetComponentRow extends InspectedAssetComponent {
   localKey: string
-  sourceComponentId?: string
-  sinkScope?: 'self' | 'other'
-  sinkDeviceId?: string
-  sinkComponentId?: string
-  endpointAPath?: EndpointPath
-  endpointBPath?: EndpointPath
-  ruleIds?: string[]
+}
+
+interface ConnectionObjectRow extends ConnectionObject {
+  localKey: string
+}
+
+interface ParkingBindingRow extends FacilityParkingPointBinding {
+  localKey: string
 }
 
 const route = useRoute()
@@ -276,42 +265,30 @@ const form = reactive<any>({
   specModel: '',
   owner: '',
   manufacturer: '',
-  expiryDate: '',
-  usageCertificateNo: '',
-  authorityCertificateNo: '',
-  commissioningDate: '',
-  lastInspectionTime: '',
-  nextInspectionTime: '',
-  expiryWarningDays: 30,
-  inspectionPostName: '',
-  mapCoordinate: '',
   areaId: '',
   areaName: '',
-  departmentName: '',
   storageLocation: '',
-  outDate: '',
-  factoryNo: '',
-  issueDate: '',
   systemName: '',
-  lastInspectionConclusion: '',
-  inspectionWarningDays: 15,
+  lastInspectionTime: '',
+  nextInspectionTime: '',
+  mapCoordinate: '',
   deviceCategory: '',
-  custodianPostName: '',
-  nfcId: '',
-  inspectionPointId: '',
   referenceImageUrl: '',
-  status: 'active'
+  status: 'active',
+  source: 'manual'
 })
 
 const assetComponents = ref<AssetComponentRow[]>([])
 const connectionObjects = ref<ConnectionObjectRow[]>([])
+const parkingBindings = ref<ParkingBindingRow[]>([])
 const existingObjectDetectionConfigs = ref<ObjectDetectionConfig[]>([])
 
-const currentPoint = computed(() => inspectionStore.inspectionPoints.find((point: any) => point.id === form.inspectionPointId) as any)
 const currentDeviceId = computed(() => form.id || 'new-device')
 const currentDeviceLabel = computed(() => `${form.name || '当前设施'}${form.deviceNo ? `（${form.deviceNo}）` : ''}`)
 const otherDeviceOptions = computed(() => inspectionStore.inspectionDevices.filter(device => device.id !== currentDeviceId.value && (device.assetComponents || []).length))
+const inspectionPointOptions = computed(() => inspectionStore.inspectionPoints.filter(point => point.pointBizType === 'inspection' || !point.pointBizType))
 const detectionRules = computed(() => getDetectionItemConfigs().filter(item => item.publishStatus === '已发布' && item.enabled))
+
 const connectionRuleOptions = computed(() => detectionRules.value
   .slice()
   .sort((a, b) => Number(isConnectionRule(b)) - Number(isConnectionRule(a)))
@@ -319,6 +296,7 @@ const connectionRuleOptions = computed(() => detectionRules.value
     value: rule.id,
     label: `${isConnectionRule(rule) ? '推荐 - ' : ''}${rule.name}（${rule.category}）`
   })))
+
 const componentTypeText: Record<InspectedAssetComponent['type'], string> = {
   valve: '阀门',
   meter: '压力表',
@@ -332,30 +310,11 @@ const componentTypeText: Record<InspectedAssetComponent['type'], string> = {
   screw: '螺杆',
   other: '其他'
 }
-const componentEndpointOptions = computed(() => {
-  const currentDeviceId = form.id || 'new-device'
-  const currentDevice = {
-    id: currentDeviceId,
-    name: form.name || '当前设施',
-    deviceNo: form.deviceNo || form.code || '',
-    assetComponents: assetComponents.value
-  }
-  const devices = [currentDevice, ...inspectionStore.inspectionDevices.filter(device => device.id !== currentDeviceId)]
-  return devices
-    .filter(device => (device.assetComponents || []).length)
-    .map(device => ({
-      label: `${device.name}${device.deviceNo ? `（${device.deviceNo}）` : ''}`,
-      value: device.id,
-      children: (device.assetComponents || []).map(component => ({
-        label: component.name,
-        value: component.id
-      }))
-    }))
-})
+
 const areas = computed(() => {
   const map = new Map<string, string>()
-  inspectionStore.inspectionPoints.forEach((point) => {
-    if (point.areaId) map.set(point.areaId, point.areaName || point.areaId)
+  inspectionStore.inspectionMaps.forEach((inspectionMap) => {
+    inspectionMap.regions?.forEach((region) => map.set(region.id, region.name))
   })
   return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
 })
@@ -363,10 +322,9 @@ const areas = computed(() => {
 function seedAssetModel(deviceId: string) {
   form.id = deviceId
   assetComponents.value = [
-    { id: `${deviceId}-valve`, localKey: `${deviceId}-valve`, assetId: deviceId, name: '入口阀门', type: 'valve' },
-    { id: `${deviceId}-meter`, localKey: `${deviceId}-meter`, assetId: deviceId, name: '压力表', type: 'meter' },
-    { id: `${deviceId}-flange`, localKey: `${deviceId}-flange`, assetId: deviceId, name: '出口法兰', type: 'flange' },
-    { id: `${deviceId}-motor`, localKey: `${deviceId}-motor`, assetId: deviceId, name: '驱动电机', type: 'motor' }
+    { id: `${deviceId}-valve`, localKey: `${deviceId}-valve`, assetId: deviceId, name: '入口阀门', type: 'valve', ruleIds: [] },
+    { id: `${deviceId}-meter`, localKey: `${deviceId}-meter`, assetId: deviceId, name: '压力表', type: 'meter', ruleIds: [] },
+    { id: `${deviceId}-flange`, localKey: `${deviceId}-flange`, assetId: deviceId, name: '出口法兰', type: 'flange', ruleIds: [] }
   ]
   connectionObjects.value = [
     {
@@ -379,27 +337,11 @@ function seedAssetModel(deviceId: string) {
       sinkScope: 'self',
       sinkDeviceId: deviceId,
       sinkComponentId: `${deviceId}-meter`,
-      endpointAPath: [deviceId, `${deviceId}-valve`],
-      endpointBPath: [deviceId, `${deviceId}-meter`],
       ruleIds: [],
       detectionFocus: '开闭状态/泄漏'
-    },
-    {
-      id: `${deviceId}-conn-flange-pipe`,
-      localKey: `${deviceId}-conn-flange-pipe`,
-      name: '法兰-管线',
-      endpointA: '当前设施 / 出口法兰',
-      endpointB: '当前设施 / 驱动电机',
-      sourceComponentId: `${deviceId}-flange`,
-      sinkScope: 'self',
-      sinkDeviceId: deviceId,
-      sinkComponentId: `${deviceId}-motor`,
-      endpointAPath: [deviceId, `${deviceId}-flange`],
-      endpointBPath: [deviceId, `${deviceId}-motor`],
-      ruleIds: [],
-      detectionFocus: '紧密度/温升'
     }
   ]
+  parkingBindings.value = []
 }
 
 function loadDetail() {
@@ -408,53 +350,49 @@ function loadDetail() {
     seedAssetModel(`device-${Date.now()}`)
     return
   }
-
-  const detail = inspectionStore.inspectionDevices.find((item: any) => item.id === route.params.id) as any
+  const detail = inspectionStore.inspectionDevices.find(item => item.id === String(route.params.id))
   if (!detail) return
   existingObjectDetectionConfigs.value = Array.isArray(detail.objectDetectionConfigs) ? detail.objectDetectionConfigs : []
 
-  form.id = detail.id
-  form.name = detail.name
-  form.inspectionPointId = detail.inspectionPointId
-  form.deviceNo = detail.deviceNo || detail.code
-  form.code = detail.code
-  form.deviceClassification = detail.deviceClassification || ''
-  form.specModel = detail.specModel || ''
-  form.owner = detail.owner || ''
-  form.manufacturer = detail.manufacturer || ''
-  form.expiryDate = detail.expiryDate || ''
-  form.usageCertificateNo = detail.usageCertificateNo || ''
-  form.authorityCertificateNo = detail.authorityCertificateNo || ''
-  form.commissioningDate = detail.commissioningDate || ''
-  form.lastInspectionTime = detail.lastInspectionTime || ''
-  form.nextInspectionTime = detail.nextInspectionTime || ''
-  form.expiryWarningDays = detail.expiryWarningDays ?? 30
-  form.inspectionPostName = detail.inspectionPostName || ''
-  form.mapCoordinate = detail.mapCoordinate || ''
-  form.areaId = detail.areaId || currentPoint.value?.areaId || ''
-  form.areaName = detail.areaName || currentPoint.value?.areaName || ''
-  form.departmentName = detail.departmentName || ''
-  form.storageLocation = detail.storageLocation || ''
-  form.outDate = detail.outDate || ''
-  form.factoryNo = detail.factoryNo || ''
-  form.issueDate = detail.issueDate || ''
-  form.systemName = detail.systemName || ''
-  form.lastInspectionConclusion = detail.lastInspectionConclusion || ''
-  form.inspectionWarningDays = detail.inspectionWarningDays ?? 15
-  form.deviceCategory = detail.deviceCategory || ''
-  form.custodianPostName = detail.custodianPostName || ''
-  form.nfcId = detail.nfcId || ''
-  form.referenceImageUrl = detail.referenceImageUrl || ''
-  form.status = detail.status || 'active'
-  assetComponents.value = (detail.assetComponents || []).map((item: any, index: number) => ({
+  Object.assign(form, {
+    id: detail.id,
+    name: detail.name,
+    code: detail.code,
+    deviceNo: detail.deviceNo || detail.code,
+    deviceClassification: detail.deviceClassification || '',
+    specModel: detail.specModel || '',
+    owner: detail.owner || '',
+    manufacturer: detail.manufacturer || '',
+    areaId: detail.areaId || '',
+    areaName: detail.areaName || '',
+    storageLocation: detail.storageLocation || '',
+    systemName: detail.systemName || '',
+    lastInspectionTime: detail.lastInspectionTime || '',
+    nextInspectionTime: detail.nextInspectionTime || '',
+    mapCoordinate: detail.mapCoordinate || '',
+    deviceCategory: detail.deviceCategory || '',
+    referenceImageUrl: detail.referenceImageUrl || '',
+    status: detail.status || 'active',
+    source: detail.source || 'manual'
+  })
+
+  assetComponents.value = (detail.assetComponents || []).map((item, index) => ({
     ...item,
     ruleIds: Array.isArray(item.ruleIds) ? item.ruleIds : getRuleIdsFromUnifiedConfig('component', item.id),
-    localKey: item.localKey || `${item.id || 'component'}-${index}`
+    localKey: `${item.id}-${index}`
   }))
-  connectionObjects.value = (detail.connectionObjects || []).map((item: any, index: number) => ({
+
+  connectionObjects.value = (detail.connectionObjects || []).map((item, index) => ({
     ...item,
-    localKey: item.localKey || `${item.id || 'connection'}-${index}`,
-    ...normalizeConnectionObject(item)
+    ruleIds: Array.isArray(item.ruleIds) ? item.ruleIds : getRuleIdsFromUnifiedConfig('connection', item.id),
+    localKey: `${item.id}-${index}`,
+    sinkScope: item.sinkScope || 'self',
+    sinkDeviceId: item.sinkDeviceId || currentDeviceId.value
+  }))
+
+  parkingBindings.value = (detail.parkingPointBindings || []).map((item, index) => ({
+    ...item,
+    localKey: `${item.id}-${index}`
   }))
 }
 
@@ -470,11 +408,7 @@ function handleUploadChange(info: any) {
 
 function addAssetComponent() {
   const id = `component-${Date.now()}`
-  assetComponents.value.push({ id, localKey: id, assetId: form.id || 'new-device', name: '新增部件', type: 'valve', ruleIds: [] })
-}
-
-function removeAssetComponent(index: number) {
-  assetComponents.value.splice(index, 1)
+  assetComponents.value.push({ id, localKey: id, assetId: currentDeviceId.value, name: '新增部件', type: 'valve', ruleIds: [] })
 }
 
 function addConnectionObject() {
@@ -491,44 +425,50 @@ function addConnectionObject() {
     sinkScope: 'self',
     sinkDeviceId: currentDeviceId.value,
     sinkComponentId: firstSink,
-    endpointAPath: firstSource ? [currentDeviceId.value, firstSource] : undefined,
-    endpointBPath: firstSink ? [currentDeviceId.value, firstSink] : undefined,
     ruleIds: [],
     detectionFocus: '泄漏/紧密度'
   })
 }
 
-function removeConnectionObject(index: number) {
-  connectionObjects.value.splice(index, 1)
+function addParkingBinding() {
+  const firstPoint = inspectionPointOptions.value[0]
+  const firstParking = firstPoint?.parkingPoints?.[0]
+  parkingBindings.value.push({
+    id: `binding-${Date.now()}`,
+    localKey: `binding-${Date.now()}`,
+    inspectionPointId: firstPoint?.id || '',
+    inspectionPointName: firstPoint?.name || '',
+    parkingPointId: firstParking?.id || '',
+    parkingPointName: firstParking?.name || '',
+    componentIds: []
+  })
 }
 
-function findEndpointPath(endpointName: string): EndpointPath | undefined {
-  if (!endpointName) return undefined
-  for (const device of componentEndpointOptions.value) {
-    const component = device.children?.find(item => endpointName.includes(String(item.label)) || endpointName === item.value)
-    if (component) return [String(device.value), String(component.value)]
-  }
-  return undefined
+function onAreaChange(value: string) {
+  const area = areas.value.find(item => item.id === value)
+  form.areaName = area?.name || ''
 }
 
-function normalizeConnectionObject(item: any): Partial<ConnectionObjectRow> {
-  const sourcePath = item.endpointAPath || findEndpointPath(item.endpointA)
-  const sinkPath = item.endpointBPath || findEndpointPath(item.endpointB)
-  const sourceComponentId = item.sourceComponentId || sourcePath?.[1] || assetComponents.value[0]?.id
-  const sinkDeviceId = item.sinkDeviceId || sinkPath?.[0] || currentDeviceId.value
-  const sinkComponentId = item.sinkComponentId || sinkPath?.[1] || assetComponents.value[0]?.id
-  const sinkScope = item.sinkScope || (sinkDeviceId === currentDeviceId.value ? 'self' : 'other')
-  return {
-    sourceComponentId,
-    sinkScope,
-    sinkDeviceId: sinkScope === 'self' ? currentDeviceId.value : sinkDeviceId,
-    sinkComponentId,
-    ruleIds: Array.isArray(item.ruleIds) ? item.ruleIds : getRuleIdsFromUnifiedConfig('connection', item.id),
-    endpointAPath: sourceComponentId ? [currentDeviceId.value, sourceComponentId] : undefined,
-    endpointBPath: sinkComponentId ? [sinkScope === 'self' ? currentDeviceId.value : sinkDeviceId, sinkComponentId] : undefined,
-    endpointA: item.endpointA || formatSourceEndpoint(sourceComponentId),
-    endpointB: item.endpointB || formatSinkEndpoint(sinkScope, sinkDeviceId, sinkComponentId)
-  }
+function onBindingPointChange(record: ParkingBindingRow) {
+  const point = inspectionPointOptions.value.find(item => item.id === record.inspectionPointId)
+  record.inspectionPointName = point?.name || ''
+  const parking = point?.parkingPoints?.[0]
+  record.parkingPointId = parking?.id || ''
+  record.parkingPointName = parking?.name || ''
+}
+
+function onBindingParkingChange(record: ParkingBindingRow) {
+  const parking = getParkingOptions(record.inspectionPointId).find(item => item.id === record.parkingPointId)
+  record.parkingPointName = parking?.name || ''
+}
+
+function getParkingOptions(pointId?: string) {
+  return inspectionPointOptions.value.find(item => item.id === pointId)?.parkingPoints || []
+}
+
+function getInspectionModeText(pointId?: string) {
+  const point = inspectionPointOptions.value.find(item => item.id === pointId)
+  return point?.inspectionMode === 'area' ? '区域巡检点（不强制停车）' : '固定巡检点（停车检查）'
 }
 
 function formatSourceEndpoint(componentId?: string) {
@@ -544,10 +484,32 @@ function formatSinkEndpoint(scope: 'self' | 'other' = 'self', deviceId?: string,
   return `${device?.name || deviceId || ''}${device?.deviceNo ? `（${device.deviceNo}）` : ''} / ${component?.name || componentId || ''}`
 }
 
+function syncConnectionEndpoint(record: ConnectionObjectRow) {
+  record.endpointA = formatSourceEndpoint(record.sourceComponentId)
+  record.endpointB = formatSinkEndpoint(record.sinkScope, record.sinkDeviceId, record.sinkComponentId)
+}
+
+function onSinkScopeChange(record: ConnectionObjectRow) {
+  if (record.sinkScope === 'other') {
+    const firstOther = otherDeviceOptions.value[0]
+    record.sinkDeviceId = firstOther?.id
+    record.sinkComponentId = firstOther?.assetComponents?.[0]?.id
+  } else {
+    record.sinkDeviceId = currentDeviceId.value
+    record.sinkComponentId = assetComponents.value[0]?.id
+  }
+  syncConnectionEndpoint(record)
+}
+
+function onSinkDeviceChange(record: ConnectionObjectRow) {
+  const device = inspectionStore.inspectionDevices.find(item => item.id === record.sinkDeviceId)
+  record.sinkComponentId = device?.assetComponents?.[0]?.id
+  syncConnectionEndpoint(record)
+}
+
 function getSinkComponentOptions(record: ConnectionObjectRow) {
   if (record.sinkScope === 'other') {
-    const device = inspectionStore.inspectionDevices.find(item => item.id === record.sinkDeviceId)
-    return device?.assetComponents || []
+    return inspectionStore.inspectionDevices.find(item => item.id === record.sinkDeviceId)?.assetComponents || []
   }
   return assetComponents.value
 }
@@ -597,7 +559,6 @@ function buildObjectDetectionConfigs(deviceId: string): ObjectDetectionConfig[] 
   connectionObjects.value.forEach((connection) => {
     ;(connection.ruleIds || []).forEach(ruleId => createConfig('connection', connection.id, connection.name, ruleId))
   })
-
   return configs
 }
 
@@ -614,98 +575,52 @@ function isConnectionRule(rule: DetectionItemConfig) {
   return targetTypes.includes('连接部位') || targetDetails.includes('法兰') || targetDetails.includes('连接') || targetDetails.includes('管线')
 }
 
-function onSinkScopeChange(record: ConnectionObjectRow) {
-  if (record.sinkScope === 'other') {
-    const firstOther = otherDeviceOptions.value[0]
-    record.sinkDeviceId = firstOther?.id
-    record.sinkComponentId = firstOther?.assetComponents?.[0]?.id
-  } else {
-    record.sinkDeviceId = currentDeviceId.value
-    record.sinkComponentId = assetComponents.value[0]?.id
-  }
-  syncConnectionEndpoint(record)
-}
-
-function onSinkDeviceChange(record: ConnectionObjectRow) {
-  const device = inspectionStore.inspectionDevices.find(item => item.id === record.sinkDeviceId)
-  record.sinkComponentId = device?.assetComponents?.[0]?.id
-  syncConnectionEndpoint(record)
-}
-
-function syncConnectionEndpoint(record: ConnectionObjectRow) {
-  record.endpointAPath = record.sourceComponentId ? [currentDeviceId.value, record.sourceComponentId] : undefined
-  record.endpointBPath = record.sinkComponentId ? [record.sinkScope === 'self' ? currentDeviceId.value : String(record.sinkDeviceId || ''), record.sinkComponentId] : undefined
-  record.endpointA = formatSourceEndpoint(record.sourceComponentId)
-  record.endpointB = formatSinkEndpoint(record.sinkScope, record.sinkDeviceId, record.sinkComponentId)
-}
-
-function onPointChange(value: string) {
-  const point = inspectionStore.inspectionPoints.find((item: any) => item.id === value) as any
-  if (point?.areaId) {
-    form.areaId = point.areaId
-    form.areaName = point.areaName || ''
-  }
-}
-
-function onAreaChange(value: string) {
-  const area = areas.value.find(item => item.id === value)
-  form.areaName = area?.name || ''
+function normalizeParkingBindings() {
+  return parkingBindings.value.map(({ localKey, ...item }) => item)
 }
 
 function handleSave() {
-  if (!form.deviceNo || !form.deviceClassification || !form.owner || !form.name || !form.areaId || !form.deviceCategory || !form.inspectionPointId) {
-    message.error('请补充必填信息：设备编号、设备分类、责任人、设备名称、所在区域、设备类别、所在巡检点')
+  if (!form.deviceNo || !form.deviceClassification || !form.owner || !form.name || !form.areaId || !form.deviceCategory) {
+    message.error('请补充必填信息：设备编号、设备分类、责任人、设备名称、所属区域、设备类别')
     return
   }
 
-  if (!form.code) form.code = form.deviceNo
   const payloadId = form.id || `device-${Date.now()}`
-  const payload: any = {
+  const normalizedBindings = normalizeParkingBindings()
+  const primaryPointId = normalizedBindings[0]?.inspectionPointId || ''
+  const payload = {
     id: payloadId,
-    inspectionPointId: form.inspectionPointId,
+    inspectionPointId: primaryPointId,
     name: form.name,
-    code: form.code,
+    code: form.code || form.deviceNo,
     deviceNo: form.deviceNo,
     deviceClassification: form.deviceClassification,
     specModel: form.specModel,
     owner: form.owner,
     manufacturer: form.manufacturer,
-    expiryDate: form.expiryDate,
-    usageCertificateNo: form.usageCertificateNo,
-    authorityCertificateNo: form.authorityCertificateNo,
-    commissioningDate: form.commissioningDate,
-    lastInspectionTime: form.lastInspectionTime,
-    nextInspectionTime: form.nextInspectionTime,
-    expiryWarningDays: form.expiryWarningDays,
-    inspectionPostName: form.inspectionPostName,
-    mapCoordinate: form.mapCoordinate,
     areaId: form.areaId,
     areaName: form.areaName,
-    departmentName: form.departmentName,
     storageLocation: form.storageLocation,
-    outDate: form.outDate,
-    factoryNo: form.factoryNo,
-    issueDate: form.issueDate,
     systemName: form.systemName,
-    lastInspectionConclusion: form.lastInspectionConclusion,
-    inspectionWarningDays: form.inspectionWarningDays,
+    lastInspectionTime: form.lastInspectionTime,
+    nextInspectionTime: form.nextInspectionTime,
+    mapCoordinate: form.mapCoordinate,
     deviceCategory: form.deviceCategory,
-    custodianPostName: form.custodianPostName,
-    nfcId: form.nfcId,
+    referenceImageUrl: form.referenceImageUrl || defaultDeviceImage,
+    status: form.status as DeviceStatus,
+    source: form.source as 'manual' | 'synced',
     type: 'general',
     sequence: 1,
-    referenceImageUrl: form.referenceImageUrl || defaultDeviceImage,
-    status: form.status,
     assetComponents: assetComponents.value.map(({ localKey, ...item }) => ({ ...item, assetId: payloadId })),
     connectionObjects: connectionObjects.value.map(({ localKey, ...item }) => item),
+    parkingPointBindings: normalizedBindings,
     objectDetectionConfigs: buildObjectDetectionConfigs(payloadId),
     createdAt: new Date(),
     updatedAt: new Date()
   }
 
   inspectionStore.saveInspectionDevice(payload)
-
-  message.success('设备信息已保存')
+  message.success('设施信息已保存')
   router.push('/implementation/device/list')
 }
 
@@ -731,12 +646,8 @@ onMounted(loadDetail)
   justify-content: flex-end;
   margin-top: 16px;
 }
+
 .model-card {
   margin-top: 16px;
-}
-.model-section-title {
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #1f2937;
 }
 </style>

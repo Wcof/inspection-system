@@ -24,7 +24,7 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="所在巡检点" class="search-item">
+              <a-form-item label="关联巡检点" class="search-item">
                 <a-select v-model:value="searchForm.pointId" allow-clear placeholder="请选择巡检点">
                   <a-select-option v-for="point in points" :key="point.id" :value="point.id">{{ point.name }}</a-select-option>
                 </a-select>
@@ -70,7 +70,8 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'deviceNo'">{{ record.deviceNo || record.code || '-' }}</template>
           <template v-else-if="column.key === 'area'">{{ record.areaName || getPoint(record.inspectionPointId)?.areaName || '-' }}</template>
-          <template v-else-if="column.key === 'point'">{{ getPoint(record.inspectionPointId)?.name || '-' }}</template>
+          <template v-else-if="column.key === 'source'">{{ record.source === 'synced' ? '三方同步' : '手动维护' }}</template>
+          <template v-else-if="column.key === 'point'">{{ getLinkedPointNames(record) }}</template>
           <template v-else-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
           </template>
@@ -120,9 +121,10 @@ const columns = [
   { title: '设施名称', dataIndex: 'name', key: 'name', width: 150 },
   { title: '设施类别', dataIndex: 'deviceCategory', key: 'deviceCategory', width: 130 },
   { title: '设施分类', dataIndex: 'deviceClassification', key: 'deviceClassification', width: 130 },
+  { title: '来源', key: 'source', width: 110 },
   { title: '责任人', dataIndex: 'owner', key: 'owner', width: 110 },
   { title: '所在区域', key: 'area', width: 130 },
-  { title: '所在巡检点', key: 'point', width: 170 },
+  { title: '关联巡检点', key: 'point', width: 200 },
   { title: '存放位置', dataIndex: 'storageLocation', key: 'storageLocation', width: 150 },
   { title: '设备状态', key: 'status', width: 100 },
   { title: '最近检测时间', dataIndex: 'lastInspectionTime', key: 'lastInspectionTime', width: 130 },
@@ -152,10 +154,11 @@ const filteredDevices = computed(() => {
     const category = searchForm.deviceCategory.trim().toLowerCase()
     const owner = searchForm.owner.trim().toLowerCase()
     const point = getPoint(device.inspectionPointId)
+    const bindingPointIds = (device.parkingPointBindings || []).map(item => item.inspectionPointId)
     const matchName = !name || device.name.toLowerCase().includes(name)
     const matchDeviceNo = !deviceNo || String(device.deviceNo || device.code || '').toLowerCase().includes(deviceNo)
     const matchArea = !searchForm.areaId || device.areaId === searchForm.areaId || point?.areaId === searchForm.areaId
-    const matchPoint = !searchForm.pointId || device.inspectionPointId === searchForm.pointId
+    const matchPoint = !searchForm.pointId || device.inspectionPointId === searchForm.pointId || bindingPointIds.includes(searchForm.pointId)
     const matchClassification = !classification || String(device.deviceClassification || '').toLowerCase().includes(classification)
     const matchCategory = !category || String(device.deviceCategory || '').toLowerCase().includes(category)
     const matchOwner = !owner || String(device.owner || '').toLowerCase().includes(owner)
@@ -166,6 +169,12 @@ const filteredDevices = computed(() => {
 
 function getPoint(pointId: string) {
   return inspectionStore.inspectionPoints.find(point => point.id === pointId)
+}
+
+function getLinkedPointNames(device: any) {
+  const names = Array.from(new Set((device.parkingPointBindings || []).map((item: any) => item.inspectionPointName).filter(Boolean)))
+  if (names.length) return names.join('、')
+  return getPoint(device.inspectionPointId)?.name || '-'
 }
 
 function getCheckItemCount(deviceId: string) {

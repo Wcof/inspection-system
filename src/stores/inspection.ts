@@ -83,6 +83,8 @@ export const useInspectionStore = defineStore('inspection', () => {
       name: pointData.name,
       code: pointData.code,
       pointType: pointData.pointType || InspectionPointType.FIXED,
+      pointBizType: pointData.pointBizType || 'inspection',
+      inspectionMode: pointData.inspectionMode || (pointData.pointType === InspectionPointType.AREA ? 'area' : 'fixed'),
       description: pointData.description,
       mapId: pointData.mapId,
       location: pointData.location,
@@ -97,6 +99,9 @@ export const useInspectionStore = defineStore('inspection', () => {
       isCritical: pointData.isCritical,
       exceptionStrategy: pointData.exceptionStrategy,
       positionSource: pointData.positionSource || PositionSource.MAP_PICK,
+      coverageObjects: pointData.coverageObjects || [],
+      detectionConfigs: pointData.detectionConfigs || [],
+      executionRecords: pointData.executionRecords || [],
       lastMapPickAt: pointData.positionSource === PositionSource.MAP_PICK ? now : undefined,
       lastManualAdjustAt: pointData.positionSource === PositionSource.MANUAL_ADJUST ? now : undefined,
       createdAt: now,
@@ -275,8 +280,7 @@ export const useInspectionStore = defineStore('inspection', () => {
         })
 
         parking.collectionPoses.forEach((pose) => {
-          const devices = inspectionDevices.value.filter(device => device.inspectionPointId === point.id)
-          const configs = devices.flatMap(device => device.objectDetectionConfigs || [])
+          const configs = point.detectionConfigs || []
           const config = configs.find(item => !item.collectionPoseId || item.collectionPoseId === pose.id)
           collectionActions.push({
             id: `${task.id}-${pose.id}-${config?.ruleId || 'default'}`,
@@ -312,7 +316,10 @@ export const useInspectionStore = defineStore('inspection', () => {
         stayDurationSec: point.stayDurationSec
       })),
       devices: inspectionDevices.value
-        .filter(device => task.inspectionPointIds.includes(device.inspectionPointId))
+        .filter(device =>
+          (device.parkingPointBindings || []).some(binding => task.inspectionPointIds.includes(binding.inspectionPointId)) ||
+          task.inspectionPointIds.includes(device.inspectionPointId)
+        )
         .map(device => ({
           id: device.id,
           inspectionPointId: device.inspectionPointId,
@@ -480,7 +487,10 @@ export const useInspectionStore = defineStore('inspection', () => {
   }
   
   function getInspectionDevicesByInspectionPointId(inspectionPointId: string): InspectionDevice[] {
-    return MockService.getInspectionDevicesByInspectionPointId(inspectionPointId)
+    return MockService.getInspectionDevices().filter(device =>
+      device.inspectionPointId === inspectionPointId ||
+      (device.parkingPointBindings || []).some(binding => binding.inspectionPointId === inspectionPointId)
+    )
   }
   
   function saveInspectionDevice(deviceData: InspectionDevice | InspectionDeviceFormData) {
@@ -521,11 +531,13 @@ export const useInspectionStore = defineStore('inspection', () => {
       sequence: deviceData.sequence,
       ptzPreset: deviceData.ptzPreset,
       referenceImageUrl: deviceData.referenceImageUrl,
+      source: deviceData.source || 'manual',
       status: deviceData.status || DeviceStatus.ACTIVE,
       checkItems: [],
       assetComponents: deviceData.assetComponents,
       connectionObjects: deviceData.connectionObjects,
       objectDetectionConfigs: deviceData.objectDetectionConfigs,
+      parkingPointBindings: deviceData.parkingPointBindings,
       createdAt: new Date(),
       updatedAt: new Date()
     }

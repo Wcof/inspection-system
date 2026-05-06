@@ -11,12 +11,15 @@ import type {
   CollectionPose,
   InspectedAssetComponent,
   ConnectionObject,
+  FacilityParkingPointBinding,
+  InspectionPointCoverageObject,
+  InspectionPointDetectionConfig,
   DetectionCapabilityType,
   DetectionSubjectType
 } from '@/types/inspection'
 import { DeviceStatus, PositionSource } from '@/types/inspection'
 
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 const mapImageUrl = new URL('../地图.png', import.meta.url).href
 const workshopImageUrl = new URL('../车间.png', import.meta.url).href
 const deviceImageUrl = new URL('../设备.png', import.meta.url).href
@@ -164,13 +167,31 @@ function enrichFiveLayerModel(): void {
 }
 
 function enrichInspectionPoint(point: InspectionPoint): InspectionPoint {
-  if (point.parkingPoints?.length) return point
-  const spatialModel = buildSpatialModel(point)
-  return {
+  const normalized = {
     ...point,
-    workAreaName: point.workAreaName || spatialModel.workArea,
-    parkingPoints: spatialModel.parkingPoints
+    pointBizType: point.pointBizType || inferPointBizType(point),
+    inspectionMode: point.inspectionMode || (point.pointType === 'area' ? 'area' : 'fixed')
+  } as InspectionPoint
+  if (normalized.parkingPoints?.length && normalized.coverageObjects?.length && normalized.detectionConfigs?.length) return normalized
+  const spatialModel = buildSpatialModel(point)
+  const coverageObjects = normalized.coverageObjects?.length ? normalized.coverageObjects : buildCoverageObjects(normalized)
+  const detectionConfigs = normalized.detectionConfigs?.length ? normalized.detectionConfigs : buildPointDetectionConfigs(normalized, coverageObjects, spatialModel.parkingPoints)
+  return {
+    ...normalized,
+    workAreaName: normalized.workAreaName || spatialModel.workArea,
+    parkingPoints: normalized.parkingPoints?.length ? normalized.parkingPoints : spatialModel.parkingPoints,
+    coverageObjects,
+    detectionConfigs,
+    executionRecords: normalized.executionRecords?.length ? normalized.executionRecords : buildExecutionRecords(normalized)
   }
+}
+
+function inferPointBizType(point: InspectionPoint): InspectionPoint['pointBizType'] {
+  const tag = String(point.description || '').match(/^\[(巡检点|停车点|充电点|充电站|维修站|通行点|临停点)\]/)?.[1]
+  if (tag === '充电点' || tag === '充电站') return 'charging'
+  if (tag === '维修站') return 'maintenance'
+  if (tag === '通行点' || tag === '临停点') return 'standby'
+  return 'inspection'
 }
 
 function buildSpatialModel(point: InspectionPoint): { workArea: string; parkingPoints: ParkingPoint[] } {
@@ -248,10 +269,13 @@ function buildCollectionPoses(point: InspectionPoint, side: 'front' | 'side'): C
 }
 
 function enrichInspectionDevice(device: InspectionDevice): InspectionDevice {
+  const parkingPointBindings = device.parkingPointBindings?.length ? device.parkingPointBindings : buildParkingPointBindings(device)
   return {
     ...device,
+    source: device.source || 'manual',
     assetComponents: device.assetComponents?.length ? device.assetComponents : buildAssetComponents(device.id),
-    connectionObjects: device.connectionObjects?.length ? device.connectionObjects : buildConnectionObjects(device.id)
+    connectionObjects: device.connectionObjects?.length ? device.connectionObjects : buildConnectionObjects(device.id),
+    parkingPointBindings
   }
 }
 
@@ -269,6 +293,115 @@ function buildConnectionObjects(deviceId: string): ConnectionObject[] {
     { id: `${deviceId}-conn-valve-pipe`, name: '阀门-管线', endpointA: '入口阀门', endpointB: '入口管线', detectionFocus: '开闭状态/泄漏' },
     { id: `${deviceId}-conn-flange-pipe`, name: '法兰-管线', endpointA: '出口法兰', endpointB: '出口管线', detectionFocus: '紧密度/温升' },
     { id: `${deviceId}-conn-pump-out`, name: '泵出口-管线', endpointA: '泵出口', endpointB: '出口管线', detectionFocus: '振动/温升' }
+  ]
+}
+
+function buildParkingPointBindings(device: InspectionDevice): FacilityParkingPointBinding[] {
+  const points = storage.get<InspectionPoint[]>(STORAGE_KEYS.INSPECTION_POINTS) || []
+  const point = points.find(item => item.id === device.inspectionPointId)
+  const parkingPoints = point?.parkingPoints || []
+  const components = buildAssetComponents(device.id)
+  return parkingPoints.slice(0, 2).map((parking, index) => ({
+    id: `${device.id}-binding-${parking.id}`,
+    inspectionPointId: point?.id || device.inspectionPointId,
+    inspectionPointName: point?.name || device.inspectionPointId,
+    parkingPointId: parking.id,
+    parkingPointName: parking.name,
+    componentIds: components
+      .filter((_, componentIndex) => (componentIndex + index) % 2 === 0)
+      .map(component => component.id)
+  }))
+}
+
+function buildCoverageObjects(point: InspectionPoint): InspectionPointCoverageObject[] {
+  const devices = (storage.get<InspectionDevice[]>(STORAGE_KEYS.INSPECTION_DEVICES) || []).filter(device => device.inspectionPointId === point.id)
+  if (devices.length) {
+    return devices.flatMap((device) => {
+      const components: InspectionPointCoverageObject[] = (device.assetComponents || buildAssetComponents(device.id)).slice(0, 2).map((component, index) => ({
+        id: `${point.id}-coverage-component-${component.id}`,
+        type: 'component' as const,
+        name: component.name,
+        deviceId: device.id,
+        componentId: component.id,
+        coverageType: index === 0 ? 'primary' : 'secondary',
+        coverageStatus: 'coverable' as const,
+        requiredCoverage: index === 0
+      }))
+      const connections: InspectionPointCoverageObject[] = (device.connectionObjects || buildConnectionObjects(device.id)).slice(0, 1).map(connection => ({
+        id: `${point.id}-coverage-connection-${connection.id}`,
+        type: 'connection' as const,
+        name: connection.name,
+        deviceId: device.id,
+        connectionId: connection.id,
+        coverageType: 'backup' as const,
+        coverageStatus: 'partial' as const,
+        requiredCoverage: false
+      }))
+      return [
+        {
+          id: `${point.id}-coverage-asset-${device.id}`,
+          type: 'asset' as const,
+          name: device.name,
+          deviceId: device.id,
+          coverageType: 'primary' as const,
+          coverageStatus: 'coverable' as const,
+          requiredCoverage: true
+        },
+        ...components,
+        ...connections
+      ]
+    })
+  }
+
+  return [
+    {
+      id: `${point.id}-coverage-area`,
+      type: 'area_environment',
+      name: `${point.areaName || point.name}区域环境`,
+      areaName: point.areaName || point.name,
+      coverageType: 'primary',
+      coverageStatus: 'coverable',
+      requiredCoverage: true
+    }
+  ]
+}
+
+function buildPointDetectionConfigs(point: InspectionPoint, coverageObjects: InspectionPointCoverageObject[], parkingPoints: ParkingPoint[]): InspectionPointDetectionConfig[] {
+  const poseIds = parkingPoints.flatMap(parking => parking.collectionPoses.map(pose => pose.id))
+  return coverageObjects.slice(0, 4).map((item, index) => ({
+    id: `${point.id}-dc-${item.id}`,
+    inspectionPointId: point.id,
+    subjectType: item.type === 'component' || item.type === 'connection' || item.type === 'asset' || item.type === 'area_environment' ? item.type : 'area_environment',
+    subjectId: item.componentId || item.connectionId || item.deviceId || item.id,
+    subjectName: item.name,
+    ruleId: `mock-rule-${index + 1}`,
+    collectionPoseId: poseIds[index % Math.max(1, poseIds.length)],
+    requiredCoverage: item.requiredCoverage,
+    failureStrategy: index % 2 === 0 ? 'manual_review' : 'supplement_task',
+    enabled: true,
+    remark: index === 0 ? '默认关键检测配置' : '',
+    updatedAt: new Date().toISOString()
+  }))
+}
+
+function buildExecutionRecords(point: InspectionPoint) {
+  return [
+    {
+      id: `${point.id}-record-1`,
+      inspectionPointId: point.id,
+      taskName: `计划巡检-${point.name}`,
+      executedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      resultSummary: '已完成，存在 1 项需人工复核',
+      executor: '机器人A001'
+    },
+    {
+      id: `${point.id}-record-2`,
+      inspectionPointId: point.id,
+      taskName: `临时复检-${point.name}`,
+      executedAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+      resultSummary: '已完成，覆盖正常',
+      executor: '机器人A002'
+    }
   ]
 }
 
