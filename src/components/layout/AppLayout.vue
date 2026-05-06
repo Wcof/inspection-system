@@ -127,7 +127,7 @@
               </span>
             </template>
             <a-menu-item key="implementation-point">
-              <router-link to="/implementation/point/list">巡检点管理</router-link>
+              <router-link :to="{ path: '/implementation/map/point-manage', query: { tab: 'inspection' } }">巡检点管理</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-metric">
               <router-link to="/implementation/metric/list">检测项管理（旧）</router-link>
@@ -270,7 +270,9 @@ const currentKey = computed(() => {
 
   if (path.startsWith('/implementation/map/list')) return 'implementation-map-list'
   if (path.startsWith('/implementation/map/editor')) return 'implementation-map-list'
-  if (path.startsWith('/implementation/map/point-manage')) return 'implementation-map-point-manage'
+  if (path.startsWith('/implementation/map/point-manage')) {
+    return route.query.tab === 'inspection' ? 'implementation-point' : 'implementation-map-point-manage'
+  }
   if (path.startsWith('/implementation/map/area-manage')) return 'implementation-map-area-manage'
   if (path.startsWith('/implementation/robot/list')) return 'implementation-robot-list'
   if (path.startsWith('/implementation/robot/simulation')) return 'implementation-robot-simulation'

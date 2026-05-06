@@ -261,7 +261,7 @@ const routes: RouteRecordRaw[] = [
           {
             path: 'list',
             name: 'ImplementationPointList',
-            component: () => import('../views/inspection/InspectionPointList.vue'),
+            redirect: () => ({ path: '/implementation/map/point-manage', query: { tab: 'inspection' } }),
             meta: { title: '点位采集' }
           },
           {
