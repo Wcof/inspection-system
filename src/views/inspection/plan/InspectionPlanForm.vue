@@ -1,38 +1,52 @@
 
 <template>
   <div class="inspection-plan-form">
-    <a-page-header :title="isEdit ? '编辑巡检计划' : '新建巡检计划'" @back="goBack" />
+    <a-page-header :title="isEdit ? '编辑规划' : '新建规划'" @back="goBack" />
 
     <a-card style="margin-top: 16px">
       <a-alert
         type="info"
         show-icon
         style="margin-bottom: 16px"
-        message="人工计划 = 固定执行；自动调度计划 = 调度台根据周期、窗口与资源动态生成执行结果。"
+        message="执行规划定义业务场景、规划类型、巡检区域和设施覆盖范围；总调度台负责结合风险、资源和现场约束生成具体任务。"
       />
 
       <a-form layout="vertical">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="计划名称" required>
-              <a-input v-model:value="form.name" placeholder="请输入计划名称" />
+            <a-form-item label="规划名称" required>
+              <a-input v-model:value="form.name" placeholder="请输入规划名称" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="计划编码" required>
-              <a-input v-model:value="form.code" placeholder="请输入计划编码" />
+            <a-form-item label="规划编码" required>
+              <a-input v-model:value="form.code" placeholder="请输入规划编码" />
             </a-form-item>
           </a-col>
         </a-row>
 
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="计划类型" required>
-              <a-radio-group v-model:value="form.planType">
-                <a-radio-button value="manual">人工计划</a-radio-button>
-              </a-radio-group>
+            <a-form-item label="业务场景" required>
+              <a-select v-model:value="form.businessScene">
+                <a-select-option value="daily_inspection">日常巡检</a-select-option>
+                <a-select-option value="hazard_screening">隐患排查</a-select-option>
+                <a-select-option value="environment_check">环境检查</a-select-option>
+                <a-select-option value="operation_guard">作业监护</a-select-option>
+              </a-select>
             </a-form-item>
           </a-col>
+          <a-col :span="12">
+            <a-form-item label="规划类型" required>
+              <a-select v-model:value="form.planType">
+                <a-select-option value="manual">人工</a-select-option>
+                <a-select-option value="auto">自动</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="状态">
               <a-select v-model:value="form.status">
@@ -42,26 +56,54 @@
               </a-select>
             </a-form-item>
           </a-col>
+          <a-col :span="12">
+            <a-form-item label="风险优先级">
+              <a-select v-model:value="form.riskLevel">
+                <a-select-option value="normal">普通</a-select-option>
+                <a-select-option value="warning">预警</a-select-option>
+                <a-select-option value="alarm">告警</a-select-option>
+                <a-select-option value="critical_alarm">严重告警</a-select-option>
+                <a-select-option value="hazard">隐患</a-select-option>
+                <a-select-option value="major_hazard">重大隐患</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
         </a-row>
 
         <a-row :gutter="16">
-          <a-col :span="24">
-            <a-form-item label="巡检点范围" required>
+          <a-col :span="12">
+            <a-form-item label="巡检区域" required>
               <a-select
-                v-model:value="form.inspectionPointIds"
+                v-model:value="form.regionIds"
                 mode="multiple"
-                placeholder="请选择巡检点"
+                placeholder="请选择巡检区域"
                 :max-tag-count="6"
+                @change="handleRegionChange"
               >
-                <a-select-option v-for="point in inspectionStore.inspectionPoints" :key="point.id" :value="point.id">
-                  {{ point.name }}
+                <a-select-option v-for="region in regionOptions" :key="region.id" :value="region.id">
+                  {{ region.name }}
+                </a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="巡检设施" required>
+              <a-select
+                v-model:value="form.facilityIds"
+                mode="multiple"
+                placeholder="请先选择巡检区域，再选择设施"
+                :max-tag-count="6"
+                :disabled="!form.regionIds.length"
+              >
+                <a-select-option v-for="facility in facilityOptions" :key="facility.id" :value="facility.id">
+                  {{ facility.name }}
                 </a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
         </a-row>
 
-        <a-row v-if="form.planType === 'manual'" :gutter="16">
+        <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="开始日期">
               <a-input v-model:value="form.inspectionTimeStart" placeholder="例如 08:00" />
@@ -74,25 +116,12 @@
           </a-col>
         </a-row>
 
-        <a-alert
-          v-else
-          type="warning"
-          show-icon
-          style="margin-bottom: 16px"
-          message="自动调度计划不在计划层展示周期与固定执行时间，最终任务由总调度台按规则动态拆分 / 合并 / 重排。"
-        />
-
         <a-card size="small" title="计划覆盖预览" style="margin-bottom: 16px">
           <a-descriptions :column="4" size="small" bordered>
-            <a-descriptions-item label="巡检点">{{ coverageSummary.pointCount }}</a-descriptions-item>
-            <a-descriptions-item label="停车点">{{ coverageSummary.parkingPointCount }}</a-descriptions-item>
-            <a-descriptions-item label="采集位">{{ coverageSummary.collectionPoseCount }}</a-descriptions-item>
-            <a-descriptions-item label="检测配置">{{ coverageSummary.detectionConfigCount }}</a-descriptions-item>
-            <a-descriptions-item label="覆盖检查">
-              <a-tag :color="coverageSummary.hasMissingCoverage ? 'red' : 'green'">
-                {{ coverageSummary.hasMissingCoverage ? '存在漏检风险' : '覆盖完整' }}
-              </a-tag>
-            </a-descriptions-item>
+            <a-descriptions-item label="巡检区域">{{ coverageSummary.regionCount }}</a-descriptions-item>
+            <a-descriptions-item label="巡检设施数">{{ coverageSummary.facilityCount }}</a-descriptions-item>
+            <a-descriptions-item label="巡检部件/连接数">{{ coverageSummary.componentConnectionCount }}</a-descriptions-item>
+            <a-descriptions-item label="巡检规则数">{{ coverageSummary.ruleCount }}</a-descriptions-item>
           </a-descriptions>
         </a-card>
 
@@ -127,24 +156,43 @@ const form = reactive<any>({
   name: '',
   code: '',
   planType: 'manual',
+  businessScene: 'daily_inspection',
+  riskLevel: 'normal',
   status: 'active',
+  regionIds: [],
+  facilityIds: [],
   inspectionPointIds: [],
   inspectionTimeStart: '08:00',
   inspectionTimeEnd: '18:00',
   description: ''
 })
 
-const selectedPoints = computed(() => inspectionStore.inspectionPoints.filter(point => form.inspectionPointIds.includes(point.id)))
+const regionOptions = computed(() => {
+  const regionMap = new Map<string, string>()
+  inspectionStore.inspectionMaps.forEach((map: any) => {
+    ;(map.regions || []).forEach((region: any) => regionMap.set(region.id, `${map.name} / ${region.name}`))
+  })
+  return Array.from(regionMap.entries()).map(([id, name]) => ({ id, name }))
+})
+
+const selectedPoints = computed(() => inspectionStore.inspectionPoints.filter((point: any) => form.regionIds.includes(point.areaId)))
+const facilityOptions = computed(() => inspectionStore.inspectionDevices.filter((device: any) => form.regionIds.includes(device.areaId)))
+const selectedFacilities = computed(() => facilityOptions.value.filter((device: any) => form.facilityIds.includes(device.id)))
 const coverageSummary = computed(() => {
-  const parkingPointCount = selectedPoints.value.reduce((sum, point) => sum + (point.parkingPoints?.length || 0), 0)
-  const collectionPoseCount = selectedPoints.value.reduce((sum, point) => sum + (point.parkingPoints || []).reduce((poseSum, parking) => poseSum + parking.collectionPoses.length, 0), 0)
-  const detectionConfigCount = selectedPoints.value.reduce((sum, point) => sum + (point.detectionConfigs?.filter(config => config.enabled).length || 0), 0)
+  const ruleIds = new Set<string>()
+  const componentConnectionCount = selectedFacilities.value.reduce((sum: number, device: any) => {
+    ;(device.objectDetectionConfigs || []).forEach((config: any) => {
+      if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
+    })
+    ;(device.assetComponents || []).forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
+    ;(device.connectionObjects || []).forEach((connection: any) => (connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
+    return sum + (device.assetComponents?.length || 0) + (device.connectionObjects?.length || 0)
+  }, 0)
   return {
-    pointCount: selectedPoints.value.length,
-    parkingPointCount,
-    collectionPoseCount,
-    detectionConfigCount,
-    hasMissingCoverage: !selectedPoints.value.length || parkingPointCount === 0 || collectionPoseCount === 0 || detectionConfigCount === 0
+    regionCount: form.regionIds.length,
+    facilityCount: selectedFacilities.value.length,
+    componentConnectionCount,
+    ruleCount: ruleIds.size
   }
 })
 
@@ -157,18 +205,28 @@ function loadDetail() {
   form.name = detail.name
   form.code = detail.code
   form.planType = detail.planType || (detail.schedule ? 'manual' : 'auto')
+  form.businessScene = detail.businessScene || 'daily_inspection'
+  form.riskLevel = detail.riskLevel || 'normal'
   form.status = detail.status
-  form.inspectionPointIds = [...(detail.inspectionPointIds || [])]
+  const fallbackRegionIds = inspectionStore.inspectionPoints
+    .filter((point: any) => (detail.inspectionPointIds || []).includes(point.id) && point.areaId)
+    .map((point: any) => point.areaId)
+  form.regionIds = [...new Set(detail.regionIds?.length ? detail.regionIds : fallbackRegionIds)]
+  form.facilityIds = detail.facilityIds?.length
+    ? [...detail.facilityIds]
+    : inspectionStore.inspectionDevices.filter((device: any) => form.regionIds.includes(device.areaId)).map((device: any) => device.id)
+  form.inspectionPointIds = selectedPoints.value.map((point: any) => point.id)
   form.inspectionTimeStart = detail.inspectionTimeStart || detail.startTime || '08:00'
   form.inspectionTimeEnd = detail.inspectionTimeEnd || detail.endTime || '18:00'
   form.description = detail.description || ''
 }
 
 function handleSave() {
-  if (!form.name || !form.code || !form.inspectionPointIds.length) {
-    message.error('请补充计划名称、编码和巡检点范围')
+  if (!form.name || !form.code || !form.regionIds.length || !form.facilityIds.length) {
+    message.error('请补充规划名称、编码、巡检区域和巡检设施')
     return
   }
+  const inspectionPointIds = selectedPoints.value.map((point: any) => point.id)
 
   const payload: any = {
     id: form.id || `plan-${Date.now()}`,
@@ -177,24 +235,26 @@ function handleSave() {
     robotId: 'robot-001',
     mapId: inspectionStore.inspectionMaps[0]?.id || 'map-001',
     routeId: '',
-    pointIds: form.inspectionPointIds,
-    pointOrders: form.inspectionPointIds.map((id: string, index: number) => ({ pointId: id, order: index + 1 })),
+    pointIds: inspectionPointIds,
+    pointOrders: inspectionPointIds.map((id: string, index: number) => ({ pointId: id, order: index + 1 })),
     status: form.status,
     type: 'point',
-    inspectionPointIds: form.inspectionPointIds,
+    inspectionPointIds,
+    regionIds: [...form.regionIds],
+    facilityIds: [...form.facilityIds],
     planType: form.planType,
-    inspectionTimeStart: form.planType === 'manual' ? form.inspectionTimeStart : '',
-    inspectionTimeEnd: form.planType === 'manual' ? form.inspectionTimeEnd : '',
+    businessScene: form.businessScene,
+    riskLevel: form.riskLevel,
+    taskSource: form.planType,
+    inspectionTimeStart: form.inspectionTimeStart,
+    inspectionTimeEnd: form.inspectionTimeEnd,
     description: form.description,
-    hasMissingCoverage: coverageSummary.value.hasMissingCoverage,
     coverageSummary: coverageSummary.value,
-    schedule: form.planType === 'manual'
-      ? {
-          type: 'manual-window',
-          windowStart: form.inspectionTimeStart,
-          windowEnd: form.inspectionTimeEnd
-        }
-      : undefined,
+    schedule: {
+      type: form.planType,
+      windowStart: form.inspectionTimeStart,
+      windowEnd: form.inspectionTimeEnd
+    },
     config: {
       autoStart: true,
       notifyOnComplete: true,
@@ -211,12 +271,17 @@ function handleSave() {
   }
 
   inspectionStore.saveInspectionPlan(payload)
-  message.success('巡检计划已保存')
+  message.success('执行规划已保存')
   router.push('/management/plan/list')
 }
 
 function goBack() {
   router.push('/management/plan/list')
+}
+
+function handleRegionChange() {
+  const validFacilityIds = new Set(facilityOptions.value.map((device: any) => device.id))
+  form.facilityIds = form.facilityIds.filter((id: string) => validFacilityIds.has(id))
 }
 
 onMounted(loadDetail)

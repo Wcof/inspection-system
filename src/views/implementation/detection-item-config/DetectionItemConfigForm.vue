@@ -12,34 +12,6 @@
         </a-row>
         <a-form-item label="配置说明"><a-textarea v-model:value="form.description" :rows="3" /></a-form-item>
 
-        <a-divider orientation="left">适用对象范围</a-divider>
-        <a-alert
-          type="info"
-          show-icon
-          style="margin-bottom: 12px"
-          message="适用对象类别按层级分组选择：第一层是设施、设施部件、连接部位等对象层级，第二层是该层级下的标准类别。这里不选择具体设施实例。"
-        />
-        <a-form-item label="适用对象层级" required>
-          <a-select v-model:value="form.targetTypes" mode="multiple" @change="handleTargetTypeChange">
-            <a-select-option v-for="v in targetTypes" :key="v" :value="v">{{ v }}</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="适用对象类别" required>
-          <a-select
-            v-model:value="targetDetailList"
-            mode="multiple"
-            :disabled="!form.targetTypes.length"
-            placeholder="请先选择适用对象层级，再从分组中勾选标准类别"
-          >
-            <a-select-opt-group v-for="group in availableTargetGroups" :key="group.type" :label="group.type">
-              <a-select-option v-for="item in group.options" :key="`${group.type}-${item}`" :value="item">
-                {{ item }}
-              </a-select-option>
-            </a-select-opt-group>
-          </a-select>
-          <div class="field-tip">例如先选择“设施部件”，再在该分组下选择“压力表、阀门、法兰”。</div>
-        </a-form-item>
-
         <a-divider orientation="left">结果定义</a-divider>
         <a-alert
           type="info"
@@ -85,6 +57,47 @@
         </a-table>
         <a-button @click="addResult">新增结果</a-button>
 
+        <a-divider orientation="left">适用对象范围</a-divider>
+        <a-alert
+          type="info"
+          show-icon
+          style="margin-bottom: 12px"
+          message="这里仅回显设施管理中已经绑定这条规则的对象，数据来源于设施内的部件/连接检测规则配置；如需调整适用对象，请到设施管理中维护。"
+        />
+        <a-table
+          :data-source="applicableTargetRows"
+          row-key="id"
+          :pagination="false"
+          size="small"
+          :scroll="{ x: 920 }"
+          style="margin-bottom: 8px"
+        >
+          <a-table-column title="适用对象" width="280">
+            <template #default="{ record }">
+              {{ record.deviceName }}
+            </template>
+          </a-table-column>
+          <a-table-column title="适用部件/连接" width="300">
+            <template #default="{ record }">
+              {{ record.subjectName }}
+            </template>
+          </a-table-column>
+          <a-table-column title="部件类型/连接类型" width="180">
+            <template #default="{ record }">
+              {{ record.subjectTypeName || '-' }}
+            </template>
+          </a-table-column>
+          <a-table-column title="对象类型" width="120">
+            <template #default="{ record }">
+              <a-tag v-if="record.subjectType" :color="record.subjectType === 'connection' ? 'purple' : 'blue'">
+                {{ record.subjectType === 'connection' ? '连接' : '部件' }}
+              </a-tag>
+              <span v-else>-</span>
+            </template>
+          </a-table-column>
+        </a-table>
+        <a-empty v-if="!applicableTargetRows.length" description="设施管理中暂未绑定这条检测规则" />
+
         <div style="margin-top:16px;display:flex;justify-content:flex-end">
           <a-space>
             <a-button @click="goBack">取消</a-button>
@@ -98,19 +111,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { getDetectionItemConfigs, targetCategoryOptions, upsertDetectionItemConfig, type DetectionCategory, type DetectionItemConfig, type PublishStatus, type ResultDef, type TargetType } from './model'
+import { useInspectionStore } from '@/stores/inspection'
+import { getDetectionItemConfigs, upsertDetectionItemConfig, type DetectionCategory, type DetectionItemConfig, type PublishStatus, type ResultDef, type TargetType } from './model'
 
 const route = useRoute()
 const router = useRouter()
+const inspectionStore = useInspectionStore()
 const isEdit = computed(() => route.path.includes('/edit/'))
 const editId = computed(() => String(route.params.id || ''))
 
 const categories: DetectionCategory[] = ['视觉识别','热成像','气体检测','远传对比','安全行为','设备状态','环境监测','其他']
-const targetTypes: TargetType[] = ['设施','设施部件','连接部位','区域环境','人员行为','机器人自身']
-
 const source = isEdit.value ? getDetectionItemConfigs().find(item => item.id === editId.value) : undefined
 
 const form = reactive<DetectionItemConfig>(source ? JSON.parse(JSON.stringify(source)) : {
@@ -123,6 +136,7 @@ const form = reactive<DetectionItemConfig>(source ? JSON.parse(JSON.stringify(so
   needEvidence: true,
   targetTypes: [],
   targetDetails: '',
+  applicableTargets: [],
   collectMethod: '光学图像',
   collectDirection: '',
   collectDistance: '',
@@ -138,14 +152,6 @@ const form = reactive<DetectionItemConfig>(source ? JSON.parse(JSON.stringify(so
 })
 
 form.targetTypes = normalizeTargetTypes(form.targetTypes)
-const targetDetailList = ref(parseTargetDetails(form.targetDetails))
-const availableTargetGroups = computed(() => form.targetTypes
-  .map(type => ({ type, options: targetCategoryOptions[type] || [] }))
-  .filter(group => group.options.length))
-const availableTargetDetails = computed(() => {
-  const values = availableTargetGroups.value.flatMap(group => group.options)
-  return Array.from(new Set(values))
-})
 const resultDefinitionTip = computed(() => {
   if (form.category === '视觉识别') return '视觉识别类结果需要定义识别标签、判定口径和异常结果，例如正常、外观破损、目标缺失、无法读取。'
   if (form.category === '热成像') return '热成像类结果需要定义温度指标、单位、正常范围和预警/告警/严重阈值。'
@@ -154,6 +160,86 @@ const resultDefinitionTip = computed(() => {
   return '当前检测类别使用通用结果定义，重点维护判定指标、判定口径、风险等级和是否生成异常。'
 })
 
+interface ApplicableTargetRow {
+  id: string
+  deviceId: string
+  deviceName: string
+  subjectType?: 'component' | 'connection'
+  subjectId: string
+  subjectName: string
+  subjectTypeName: string
+}
+
+const applicableTargetRows = computed<ApplicableTargetRow[]>(() => {
+  const rows: ApplicableTargetRow[] = []
+  inspectionStore.inspectionDevices.forEach((device) => {
+    ;(device.assetComponents || []).forEach((component) => {
+      if (!(component.ruleIds || []).includes(form.id)) return
+      rows.push({
+        id: `${device.id}-component-${component.id}`,
+        deviceId: device.id,
+        deviceName: device.name,
+        subjectType: 'component',
+        subjectId: component.id,
+        subjectName: component.name,
+        subjectTypeName: getComponentDisplayType(component)
+      })
+    })
+    ;(device.connectionObjects || []).forEach((connection) => {
+      if (!(connection.ruleIds || []).includes(form.id)) return
+      rows.push({
+        id: `${device.id}-connection-${connection.id}`,
+        deviceId: device.id,
+        deviceName: device.name,
+        subjectType: 'connection',
+        subjectId: connection.id,
+        subjectName: connection.name,
+        subjectTypeName: connection.detectionFocus || getConnectionDisplayType(connection.name)
+      })
+    })
+  })
+  return rows
+})
+
+const componentTypeText: Record<string, string> = {
+  valve: '阀门',
+  meter: '压力表',
+  temperature_gauge: '温度表',
+  flange: '法兰',
+  motor: '电机',
+  pipe: '管体',
+  cable: '电缆',
+  joint: '接头',
+  sensor: '传感器',
+  screw: '螺杆',
+  other: '其他'
+}
+
+function getComponentDisplayType(component: { type?: string; subTypeName?: string; name?: string }) {
+  const baseType = componentTypeText[component.type || ''] || component.type || '部件'
+  const subTypeName = component.subTypeName || inferComponentSubTypeName(component.type || '', component.name || '')
+  return subTypeName ? `${baseType} / ${subTypeName}` : baseType
+}
+
+function inferComponentSubTypeName(type: string, name: string) {
+  if (type === 'valve') {
+    if (name.includes('压力')) return '压力阀'
+    if (name.includes('水')) return '普通水阀'
+    if (name.includes('气')) return '气动阀'
+    return '普通工艺阀'
+  }
+  if (type === 'meter') return name.includes('压力') ? '机械压力表' : '指针仪表'
+  if (type === 'flange') return '管道法兰'
+  return ''
+}
+
+function getConnectionDisplayType(name: string) {
+  if (name.includes('法兰')) return '法兰连接'
+  if (name.includes('阀')) return '阀门连接'
+  if (name.includes('管')) return '管线连接'
+  return '连接部位'
+}
+
 function goBack() { router.push('/implementation/detection-item-config/list') }
 function normalizeTargetTypes(values: string[]) {
   return values.map((value) => {
@@ -161,16 +247,6 @@ function normalizeTargetTypes(values: string[]) {
     if (value === '接口与连接') return '连接部位'
     return value
   }) as TargetType[]
-}
-function parseTargetDetails(value: string) {
-  return String(value || '')
-    .split(/[、,，]/)
-    .map(item => item.trim())
-    .filter(Boolean)
-}
-function handleTargetTypeChange() {
-  const allowed = new Set(availableTargetDetails.value)
-  targetDetailList.value = targetDetailList.value.filter(item => allowed.has(item))
 }
 function createResult(category: DetectionCategory, overrides: Partial<ResultDef> = {}) {
   const base = {
@@ -245,8 +321,24 @@ ensureResultFieldsForCategory()
 function addResult() { form.results.push(createResult(form.category)) }
 function removeResult(index: number) { form.results.splice(index, 1) }
 
+function syncLegacyTargetFields(targets: ApplicableTargetRow[]) {
+  if (!targets.length) return
+  const types = new Set<TargetType>()
+  const details = new Set<string>()
+  targets.forEach((target) => {
+    if (target.subjectType === 'connection') {
+      types.add('连接部位')
+    } else {
+      types.add('设施部件')
+    }
+    if (target.subjectName) details.add(target.subjectName)
+  })
+  form.targetTypes = Array.from(types)
+  form.targetDetails = Array.from(details).join('、')
+}
+
 function validateBeforePublish() {
-  if (!form.name || !form.code || !form.targetTypes.length || !targetDetailList.value.length || !form.results.length) {
+  if (!form.name || !form.code || !form.results.length) {
     return false
   }
   return form.results.every(isResultComplete)
@@ -272,16 +364,19 @@ function save(status: PublishStatus) {
     return
   }
   if (status === '已发布' && !validateBeforePublish()) {
-    message.error('发布校验未通过，请补全适用对象层级、适用对象类别，以及当前检测类别要求的结果定义字段')
+    message.error('发布校验未通过，请补全当前检测类别要求的结果定义字段')
     return
   }
 
-  if (!targetDetailList.value.length) {
-    message.error('请选择适用对象类别')
-    return
-  }
-
-  form.targetDetails = targetDetailList.value.join('、')
+  form.applicableTargets = applicableTargetRows.value.map(row => ({
+    id: row.id,
+    deviceId: row.deviceId,
+    deviceName: row.deviceName,
+    subjectType: row.subjectType || 'component',
+    subjectId: row.subjectId,
+    subjectName: row.subjectName
+  }))
+  syncLegacyTargetFields(applicableTargetRows.value)
   ensureResultFieldsForCategory()
   form.publishStatus = status
   form.enabled = status === '已发布'
@@ -293,6 +388,10 @@ function save(status: PublishStatus) {
   message.success(status === '已发布' ? '已保存并发布' : '草稿已保存')
   goBack()
 }
+
+onMounted(() => {
+  inspectionStore.initialize()
+})
 </script>
 
 <style scoped>

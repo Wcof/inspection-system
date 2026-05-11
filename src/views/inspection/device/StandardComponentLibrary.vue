@@ -7,7 +7,39 @@
     </a-page-header>
 
     <a-card style="margin-top: 16px">
-      <a-table :columns="columns" :data-source="inspectionStore.standardComponents" row-key="id">
+      <div class="search-panel">
+        <a-form layout="vertical" :model="searchForm" @submit.prevent>
+          <a-row :gutter="[16, 8]">
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="部件名称" class="search-item">
+                <a-input v-model:value="searchForm.name" placeholder="请输入部件名称" allow-clear />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="部件类型" class="search-item">
+                <a-select v-model:value="searchForm.type" placeholder="请选择部件类型" allow-clear>
+                  <a-select-option v-for="item in componentTypeOptions" :key="item.value" :value="item.value">
+                    {{ item.label }}
+                  </a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="说明" class="search-item">
+                <a-input v-model:value="searchForm.description" placeholder="请输入说明关键字" allow-clear />
+              </a-form-item>
+            </a-col>
+          </a-row>
+          <div class="search-actions">
+            <a-space>
+              <a-button type="primary" @click="handleSearch">搜索</a-button>
+              <a-button @click="handleReset">重置</a-button>
+            </a-space>
+          </div>
+        </a-form>
+      </div>
+
+      <a-table :columns="columns" :data-source="filteredComponents" row-key="id">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'type'">
             {{ getTypeText(record.type) }}
@@ -51,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
 import type { StandardComponent } from '@/types/inspection'
@@ -63,6 +95,16 @@ const editingId = ref('')
 const form = reactive({
   name: '',
   type: 'valve' as StandardComponent['type'],
+  description: ''
+})
+const searchForm = reactive({
+  name: '',
+  type: undefined as StandardComponent['type'] | undefined,
+  description: ''
+})
+const appliedSearch = reactive({
+  name: '',
+  type: undefined as StandardComponent['type'] | undefined,
   description: ''
 })
 
@@ -88,6 +130,19 @@ const componentTypeOptions: Array<{ value: StandardComponent['type']; label: str
   { value: 'other', label: '其他' }
 ]
 
+const filteredComponents = computed(() => {
+  const name = appliedSearch.name.trim().toLowerCase()
+  const description = appliedSearch.description.trim().toLowerCase()
+  return inspectionStore.standardComponents.filter((component) => {
+    const componentName = component.name.toLowerCase()
+    const componentDescription = String(component.description || '').toLowerCase()
+    const matchesName = !name || componentName.includes(name)
+    const matchesType = !appliedSearch.type || component.type === appliedSearch.type
+    const matchesDescription = !description || componentDescription.includes(description)
+    return matchesName && matchesType && matchesDescription
+  })
+})
+
 function formatDate(date?: Date | string) {
   if (!date) return '-'
   const next = new Date(date)
@@ -96,6 +151,21 @@ function formatDate(date?: Date | string) {
 
 function getTypeText(type: StandardComponent['type']) {
   return componentTypeOptions.find((item) => item.value === type)?.label || type
+}
+
+function handleSearch() {
+  appliedSearch.name = searchForm.name.trim()
+  appliedSearch.type = searchForm.type
+  appliedSearch.description = searchForm.description.trim()
+}
+
+function handleReset() {
+  searchForm.name = ''
+  searchForm.type = undefined
+  searchForm.description = ''
+  appliedSearch.name = ''
+  appliedSearch.type = undefined
+  appliedSearch.description = ''
 }
 
 function resetForm() {
@@ -159,3 +229,21 @@ onMounted(() => {
   inspectionStore.fetchAllStandardComponents()
 })
 </script>
+
+<style scoped lang="css">
+.search-panel {
+  margin-bottom: 12px;
+  padding: 12px 12px 4px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.search-item {
+  margin-bottom: 8px;
+}
+.search-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 8px;
+}
+</style>

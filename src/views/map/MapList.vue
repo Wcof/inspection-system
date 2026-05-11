@@ -51,8 +51,8 @@
           </template>
           <template v-if="column.key === 'actions'">
             <a-space>
-              <a-button type="link" size="small" @click="goToAreaManage(record.id)">区域管理</a-button>
-              <a-button type="link" size="small" @click="goToPointManage(record.id)">点位管理</a-button>
+              <a-button type="link" size="small" @click="goToAreaManage(record.id)">区域编辑</a-button>
+              <a-button type="link" size="small" @click="goToPointManage(record.id)">点位编辑</a-button>
               <a-button type="link" size="small" @click="goToEditor(record.id)">编辑</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
             </a-space>

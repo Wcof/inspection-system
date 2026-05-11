@@ -9,18 +9,7 @@
         style="height: 100%; border-right: 0"
       >
         <template v-if="currentSystem === 'management'">
-          <a-sub-menu key="management-plan">
-            <template #title>
-              <span>
-                <a-icon type="schedule" />
-                执行规划
-              </span>
-            </template>
-            <a-menu-item key="management-plan-list">
-              <router-link to="/management/plan/list">规划列表</router-link>
-            </a-menu-item>
-          </a-sub-menu>
-          <a-sub-menu key="management-dispatch">
+        <a-sub-menu key="management-dispatch">
             <template #title>
               <span>
                 <a-icon type="control" />
@@ -31,13 +20,16 @@
               <router-link to="/management/dispatch/center">总调度台</router-link>
             </a-menu-item>
           </a-sub-menu>
-          <a-sub-menu key="management-task">
+          <a-sub-menu key="management-plan">
             <template #title>
               <span>
-                <a-icon type="profile" />
-                任务中心
+                <a-icon type="schedule" />
+                规划与执行
               </span>
             </template>
+            <a-menu-item key="management-plan-list">
+              <router-link to="/management/plan/list">巡检规划</router-link>
+            </a-menu-item>
             <a-menu-item key="management-task-list">
               <router-link to="/management/task/list">执行任务</router-link>
             </a-menu-item>
@@ -123,12 +115,9 @@
             <template #title>
               <span>
                 <a-icon type="cluster" />
-                巡检采集
+                检测规则
               </span>
             </template>
-            <a-menu-item key="implementation-point">
-              <router-link :to="{ path: '/implementation/map/point-manage', query: { tab: 'inspection' } }">巡检点管理</router-link>
-            </a-menu-item>
             <a-menu-item key="implementation-detection-item-config">
               <router-link to="/implementation/detection-item-config/list">检测规则配置</router-link>
             </a-menu-item>
@@ -148,9 +137,6 @@
             </a-menu-item>
             <a-menu-item key="implementation-device-component-types">
               <router-link to="/implementation/device/component-types">部件类型配置</router-link>
-            </a-menu-item>
-            <a-menu-item key="implementation-device-standard-components">
-              <router-link to="/implementation/device/standard-components">标准部件库</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-dispatch-notify-config">
               <router-link to="/implementation/dispatch/notify-config">通知配置</router-link>
@@ -276,9 +262,9 @@ const currentKey = computed(() => {
   if (path.startsWith('/implementation/point/list')) return 'implementation-point'
   if (path.startsWith('/implementation/point/create')) return 'implementation-point'
   if (path.startsWith('/implementation/point/detail')) return 'implementation-point'
+  if (path.startsWith('/implementation/point/edit')) return 'implementation-point'
   if (path.startsWith('/implementation/point/form')) return 'implementation-point'
   if (path.startsWith('/implementation/device/list')) return 'implementation-device'
-  if (path.startsWith('/implementation/device/standard-components')) return 'implementation-device-standard-components'
   if (path.startsWith('/implementation/device/component-usage')) return 'implementation-device-component-usage'
   if (path.startsWith('/implementation/device/iot-list')) return 'implementation-device-iot-list'
   if (path.startsWith('/implementation/device/component-types')) return 'implementation-device-component-types'

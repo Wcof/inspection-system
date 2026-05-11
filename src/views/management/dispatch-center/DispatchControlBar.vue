@@ -101,10 +101,29 @@ function updateControl<K extends keyof DispatchControlState>(key: K, value: Disp
 .actions {
   display: flex;
   align-items: flex-start;
+  justify-content: flex-end;
+  min-width: 0;
 }
-@media (max-width: 1200px) {
+@media (max-width: 1440px), (max-height: 820px) {
   .control-row {
     flex-direction: column;
+  }
+  .actions {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 768px) {
+  .control-card :deep(.ant-card-body) {
+    padding: 12px;
+  }
+  .control-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .actions :deep(.ant-space) {
+    row-gap: 8px;
+    flex-wrap: wrap;
   }
 }
 </style>

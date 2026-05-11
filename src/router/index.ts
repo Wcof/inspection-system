@@ -274,12 +274,18 @@ const routes: RouteRecordRaw[] = [
             path: 'detail/:id',
             name: 'ImplementationPointDetail',
             component: () => import('../views/inspection/InspectionPointDetail.vue'),
-            meta: { title: '巡检点详情' }
+            meta: { title: '点位详情' }
+          },
+          {
+            path: 'edit/:id',
+            name: 'ImplementationPointEdit',
+            component: () => import('../views/inspection/InspectionPointDetail.vue'),
+            meta: { title: '点位编辑' }
           },
           {
             path: 'form/:id?',
             name: 'ImplementationPointForm',
-            redirect: to => ({ path: `/implementation/point/detail/${to.params.id || ''}` }),
+            redirect: to => ({ path: `/implementation/point/edit/${to.params.id || ''}` }),
             meta: { title: '点位编辑' }
           }
         ]
@@ -311,14 +317,20 @@ const routes: RouteRecordRaw[] = [
           {
             path: 'standard-components',
             name: 'ImplementationStandardComponentLibrary',
-            component: () => import('../views/inspection/device/StandardComponentLibrary.vue'),
-            meta: { title: '标准部件库' }
+            redirect: '/implementation/device/component-types',
+            meta: { title: '部件类型配置' }
           },
           {
             path: 'component-usage',
             name: 'ImplementationComponentUsageList',
             component: () => import('../views/inspection/device/ComponentUsageList.vue'),
             meta: { title: '设施部件' }
+          },
+          {
+            path: 'component-usage/detail/:deviceId/:objectType/:objectId',
+            name: 'ImplementationComponentUsageDetail',
+            component: () => import('../views/inspection/device/ComponentUsageDetail.vue'),
+            meta: { title: '设施部件详情' }
           },
           {
             path: 'iot-list',

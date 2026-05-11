@@ -211,11 +211,8 @@ const mapStageStyle = computed(() => ({
   backgroundColor: '#eff4ff'
 }))
 const fullscreenBodyStyle = computed(() => ({
-  backgroundImage: `url(${mapBackgroundUrl})`,
-  backgroundPosition: 'center',
-  backgroundSize: 'cover',
-  backgroundRepeat: 'no-repeat',
-  padding: '12px'
+  padding: '12px',
+  background: '#0f172a'
 }))
 
 function markerClass(marker: MapMarker) {
@@ -283,13 +280,20 @@ function isEnabled(type: MarkerType) {
 
 <style scoped lang="css">.map-card {
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .map-card :deep(.ant-card-body) {
   padding: 12px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .map-stage {
   position: relative;
-  height: 460px;
+  flex: 1;
+  min-height: clamp(420px, calc(100vh - 340px), 640px);
   border: 1px solid rgba(107, 142, 173, 0.26);
   border-radius: 8px;
   background-color: #05080e;
@@ -300,13 +304,15 @@ function isEnabled(type: MarkerType) {
 }
 .map-stage.fullscreen {
   height: 76vh;
-  background-image: none !important;
-  background-color: transparent;
+  min-height: 560px;
+  background-color: #05080e;
 }
 .map-mask {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, rgba(5, 8, 14, 0.12) 0%, rgba(5, 8, 14, 0.26) 100%);
+  pointer-events: none;
+  z-index: 1;
 }
 .map-grid {
   position: absolute;
@@ -315,6 +321,8 @@ function isEnabled(type: MarkerType) {
     linear-gradient(rgba(107, 142, 173, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(107, 142, 173, 0.08) 1px, transparent 1px);
   background-size: 42px 42px;
+  pointer-events: none;
+  z-index: 1;
 }
 .route-layer {
   position: absolute;
@@ -322,6 +330,7 @@ function isEnabled(type: MarkerType) {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  z-index: 2;
 }
 .route-backbone {
   stroke: #8ca0b9;
@@ -332,7 +341,7 @@ function isEnabled(type: MarkerType) {
 .marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  z-index: 2;
+  z-index: 3;
   cursor: pointer;
 }
 .marker-node {
@@ -414,7 +423,7 @@ function isEnabled(type: MarkerType) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  z-index: 3;
+  z-index: 4;
 }
 .tool-btn {
   width: 28px;
@@ -431,6 +440,27 @@ function isEnabled(type: MarkerType) {
   flex-wrap: wrap;
   margin-top: 10px;
   font-size: 12px;
+  flex: 0 0 auto;
+}
+@media (max-width: 1440px), (max-height: 820px) {
+  .map-stage {
+    min-height: clamp(360px, 48vh, 520px);
+  }
+}
+@media (max-width: 768px) {
+  .map-card :deep(.ant-card-body) {
+    padding: 8px;
+  }
+  .map-stage {
+    min-height: 340px;
+  }
+  .mini-text {
+    max-width: 180px;
+    white-space: normal;
+  }
+  .legend {
+    gap: 8px;
+  }
 }
 .legend-item {
   display: inline-flex;

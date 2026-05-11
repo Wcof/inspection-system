@@ -46,49 +46,77 @@
       @submit="submitTemporaryDispatch"
     />
 
-    <a-modal v-model:open="coverageVisible" title="检测覆盖检查" width="920px" :footer="null">
+    <a-modal
+      v-model:open="coverageVisible"
+      title="覆盖检查"
+      width="min(1320px, 94vw)"
+      :footer="null"
+      wrap-class-name="coverage-check-modal"
+    >
       <a-alert
         :type="coverageResult.hasMissing ? 'warning' : 'success'"
         show-icon
         style="margin-bottom: 12px"
-        :message="coverageResult.hasMissing ? '当前巡检体系存在遗漏，可自动补充或人工创建补充任务。' : '当前巡检体系覆盖完整。'"
+        :message="coverageResult.hasMissing ? '当前调度范围存在未覆盖对象或待人工确认项，可补充任务或人工确认。' : '当前调度范围覆盖完整。'"
       />
       <a-descriptions bordered :column="2" size="small" style="margin-bottom: 12px">
         <a-descriptions-item label="当前时间范围">{{ summary.timeRange }}</a-descriptions-item>
         <a-descriptions-item label="检测结果">{{ coverageResult.hasMissing ? '存在遗漏' : '覆盖正常' }}</a-descriptions-item>
-        <a-descriptions-item label="遗漏巡检点">{{ coverageResult.missingPoints.length }}</a-descriptions-item>
-        <a-descriptions-item label="遗漏检测项">{{ coverageResult.missingItems.length }}</a-descriptions-item>
-        <a-descriptions-item label="遗漏设备">{{ coverageResult.missingDevices.length }}</a-descriptions-item>
+        <a-descriptions-item label="遗漏区域">{{ coverageResult.missingRegions.length }}</a-descriptions-item>
+        <a-descriptions-item label="遗漏设施">{{ coverageResult.missingDevices.length }}</a-descriptions-item>
+        <a-descriptions-item label="遗漏部件/连接">{{ coverageResult.missingSubjects.length }}</a-descriptions-item>
+        <a-descriptions-item label="遗漏巡检规则">{{ coverageResult.missingRules.length }}</a-descriptions-item>
         <a-descriptions-item label="待人工确认">{{ coverageResult.pendingManual.length }}</a-descriptions-item>
       </a-descriptions>
 
-      <a-row :gutter="12">
-        <a-col :span="8">
-          <a-card size="small" title="遗漏巡检点">
-            <a-empty v-if="coverageResult.missingPoints.length === 0" description="无" />
-            <a-tag v-for="item in coverageResult.missingPoints" :key="item" style="margin-bottom: 8px">{{ item }}</a-tag>
+      <a-row :gutter="[16, 16]" class="coverage-card-grid">
+        <a-col :xs="24" :lg="12" :xl="6">
+          <a-card size="small" title="遗漏区域">
+            <a-empty v-if="coverageResult.missingRegions.length === 0" description="无遗漏区域" />
+            <div v-for="item in coverageResult.missingRegions" :key="item.regionId" class="coverage-missing-item">
+              <div class="coverage-title">{{ item.regionName }}</div>
+              <div class="coverage-meta">该区域在当前调度窗口内没有有效执行任务覆盖</div>
+            </div>
           </a-card>
         </a-col>
-        <a-col :span="8">
-          <a-card size="small" title="遗漏检测项">
-            <a-empty v-if="coverageResult.missingItems.length === 0" description="无" />
-            <a-tag v-for="item in coverageResult.missingItems" :key="item" color="orange" style="margin-bottom: 8px">{{ item }}</a-tag>
+        <a-col :xs="24" :lg="12" :xl="6">
+          <a-card size="small" title="遗漏设施">
+            <a-empty v-if="coverageResult.missingDevices.length === 0" description="无遗漏设施" />
+            <div v-for="item in coverageResult.missingDevices" :key="item.deviceId" class="coverage-missing-item danger">
+              <div class="coverage-title">{{ item.deviceName }}</div>
+              <div class="coverage-meta">所属区域：{{ item.regionName }}</div>
+            </div>
           </a-card>
         </a-col>
-        <a-col :span="8">
-          <a-card size="small" title="遗漏设备">
-            <a-empty v-if="coverageResult.missingDevices.length === 0" description="无" />
-            <a-tag v-for="item in coverageResult.missingDevices" :key="item" color="red" style="margin-bottom: 8px">{{ item }}</a-tag>
+        <a-col :xs="24" :lg="12" :xl="6">
+          <a-card size="small" title="遗漏部件/连接">
+            <a-empty v-if="coverageResult.missingSubjects.length === 0" description="无遗漏部件/连接" />
+            <div v-for="item in coverageResult.missingSubjects" :key="item.subjectId" class="coverage-missing-item warning">
+              <div class="coverage-title">{{ item.subjectName }}</div>
+              <div class="coverage-meta">{{ item.regionName }} / {{ item.deviceName }} / {{ item.subjectType }}</div>
+            </div>
+          </a-card>
+        </a-col>
+        <a-col :xs="24" :lg="12" :xl="6">
+          <a-card size="small" title="遗漏巡检规则">
+            <a-empty v-if="coverageResult.missingRules.length === 0" description="无遗漏巡检规则" />
+            <div v-for="item in coverageResult.missingRules" :key="item.id" class="coverage-missing-item warning">
+              <div class="coverage-title">{{ item.ruleName }}</div>
+              <div class="coverage-meta">{{ item.regionName }} / {{ item.deviceName }} / {{ item.subjectName }}</div>
+            </div>
           </a-card>
         </a-col>
       </a-row>
 
       <a-card size="small" title="待人工确认项" style="margin-top: 12px">
         <a-empty v-if="coverageResult.pendingManual.length === 0" description="无待人工确认项" />
-        <a-table v-else :columns="manualColumns" :data-source="coverageResult.pendingManual" row-key="id" size="small" :pagination="false">
+        <a-table v-else :columns="manualColumns" :data-source="coverageResult.pendingManual" row-key="id" size="small" :pagination="false" :scroll="{ x: 1180 }">
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'manualStatus'">
               <a-tag :color="getManualStatusColor(record.manualStatus)">{{ getManualStatusText(record.manualStatus) }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'riskLevel'">
+              <a-tag :color="getRiskColor(record.riskLevel)">{{ getRiskText(record.riskLevel) }}</a-tag>
             </template>
             <template v-else-if="column.key === 'assignedRobot'">
               {{ record.assignedRobotName || '-' }}
@@ -160,28 +188,56 @@ interface PendingManualItem {
   name: string
   type: string
   suggestion: string
+  suggestedAction: string
+  affectedTaskName: string
+  riskLevel: string
   assignedRobotId?: string
   assignedRobotName?: string
   manualStatus: PendingManualStatus
 }
+interface MissingRegionItem { regionId: string; regionName: string }
+interface MissingDeviceItem { deviceId: string; deviceName: string; regionName: string }
+interface MissingSubjectItem { subjectId: string; subjectName: string; subjectType: string; deviceName: string; regionName: string }
+interface MissingRuleItem { id: string; ruleName: string; subjectName: string; deviceName: string; regionName: string }
 
 const control = reactive<DispatchControlState>({ autoDispatchEnabled: true, allowAutoCreate: true, allowQueueJump: true, mode: 'auto', pointKeyword: '' })
 const temporaryVisible = ref(false)
 const temporaryPrefill = ref<Partial<TemporaryDispatchForm>>({})
 const coverageVisible = ref(false)
-const coverageResult = reactive<{ hasMissing: boolean; missingPoints: string[]; missingItems: string[]; missingDevices: string[]; pendingManual: PendingManualItem[] }>({
+const coverageResult = reactive<{
+  hasMissing: boolean
+  missingRegions: MissingRegionItem[]
+  missingDevices: MissingDeviceItem[]
+  missingSubjects: MissingSubjectItem[]
+  missingRules: MissingRuleItem[]
+  pendingManual: PendingManualItem[]
+}>({
   hasMissing: true,
-  missingPoints: ['巡检点-B05'],
-  missingItems: ['温度表计识别', '风机振动读数'],
-  missingDevices: ['配电柜A15'],
+  missingRegions: [
+    { regionId: 'region-b', regionName: '二期装置区 / B区' }
+  ],
+  missingDevices: [
+    { deviceId: 'device-a15', deviceName: '配电柜A15', regionName: '一期装置区 / A区' }
+  ],
+  missingSubjects: [
+    { subjectId: 'subject-valve-01', subjectName: '入口阀门', subjectType: '部件', deviceName: '1号循环泵', regionName: '一期装置区 / A区' },
+    { subjectId: 'subject-flange-02', subjectName: '出口法兰连接处', subjectType: '连接', deviceName: '2号反应釜', regionName: '二期装置区 / B区' }
+  ],
+  missingRules: [
+    { id: 'rule-missing-1', ruleName: '未配置阀门开闭识别规则', subjectName: '入口阀门', deviceName: '1号循环泵', regionName: '一期装置区 / A区' },
+    { id: 'rule-missing-2', ruleName: '未配置红外温升检测规则', subjectName: '电机轴承', deviceName: '风机F02', regionName: '公用工程区 / C区' }
+  ],
   pendingManual: [
-    { id: 'manual-1', name: '危化区临时复检', type: '临时任务', suggestion: '建议人工确认后插入执行队列', manualStatus: 'pending' },
-    { id: 'manual-2', name: '办公区计划顺延', type: '计划任务', suggestion: '建议延后执行并通知值班长', manualStatus: 'pending' }
+    { id: 'manual-1', name: '危化区临时复检', type: '补检任务', suggestion: '建议人工确认后插入执行队列', suggestedAction: '插单', affectedTaskName: '日常巡检-危化区', riskLevel: 'critical_alarm', manualStatus: 'pending' },
+    { id: 'manual-2', name: '办公区计划顺延', type: '计划任务', suggestion: '建议延后执行并通知值班长', suggestedAction: '顺延', affectedTaskName: '作业监护-办公区', riskLevel: 'warning', manualStatus: 'pending' }
   ]
 })
 const manualColumns = [
   { title: '名称', dataIndex: 'name', key: 'name' },
   { title: '类型', dataIndex: 'type', key: 'type', width: 120 },
+  { title: '建议动作', dataIndex: 'suggestedAction', key: 'suggestedAction', width: 100 },
+  { title: '影响任务', dataIndex: 'affectedTaskName', key: 'affectedTaskName', width: 160 },
+  { title: '风险等级', dataIndex: 'riskLevel', key: 'riskLevel', width: 120 },
   { title: '建议', dataIndex: 'suggestion', key: 'suggestion' },
   { title: '执行机器人', key: 'assignedRobot', width: 140 },
   { title: '处理状态', key: 'manualStatus', width: 120 },
@@ -194,15 +250,16 @@ const selectedRobotId = ref<string>()
 const robots = ref<RobotState[]>([
   { id: 'robot-001', name: '机器人A001', status: 'running' },
   { id: 'robot-002', name: '机器人A002', status: 'running' },
-  { id: 'robot-003', name: '机器人A003', status: 'idle' },
-  { id: 'robot-004', name: '机器人A004', status: 'charging' }
+  { id: 'robot-003', name: '机器人A003', status: 'running' },
+  { id: 'robot-004', name: '机器人A004', status: 'idle' },
+  { id: 'robot-005', name: '系统调度分配', status: 'running' }
 ])
 
 const tasks = ref<DispatchTask[]>([
-  { id: 'task-001', name: '计划巡检-变电站A区', type: 'plan', typeLabel: '计划任务', status: 'running', robotName: '机器人A001', priority: 'high', priorityLabel: '高', createdAt: '09:00', startedAt: '09:10', progressPercent: 75, doneCount: 9, totalCount: 12, etaTime: '12:30', changeFlag: true, changeReason: '因临时高优任务自动重排后改派至 A001' },
-  { id: 'task-002', name: '计划巡检-办公区', type: 'plan', typeLabel: '计划任务', status: 'pending', robotName: '机器人A003', priority: 'medium', priorityLabel: '中', createdAt: '09:30', scheduledAt: '13:00', queueOrder: 1 },
-  { id: 'task-003', name: '临时巡检-危化区', type: 'temp', typeLabel: '临时任务', status: 'pending', robotName: '机器人A002', priority: 'high', priorityLabel: '高', createdAt: '10:15', scheduledAt: '12:20', queueOrder: 2, changeFlag: true, changeReason: '人工插入后重排至第 2 位' },
-  { id: 'task-004', name: '自动调度-配电柜A15', type: 'auto', typeLabel: '自动调度', status: 'auto_pending', robotName: '机器人A004', priority: 'high', priorityLabel: '高', createdAt: '10:45', reason: '漏检补偿', affectedTaskName: '计划巡检-办公区' }
+  { id: 'task-001', name: '日常巡检-变电站A区', type: 'plan', typeLabel: '执行规划生成', businessScene: 'daily_inspection', riskLevel: 'normal', suggestedAction: '排队', constraintSummary: '电量82% / 区域可进入 / 作业窗口正常', status: 'running', robotName: '机器人A001', priority: 'high', priorityLabel: '高', createdAt: '09:00', startedAt: '09:10', progressPercent: 75, doneCount: 9, totalCount: 12, etaTime: '12:30', changeFlag: true, changeReason: '因临时高优任务自动重排后改派至 A001' },
+  { id: 'task-002', name: '作业监护-办公区', type: 'plan', typeLabel: '执行规划生成', businessScene: 'operation_guard', riskLevel: 'warning', suggestedAction: '顺延', constraintSummary: '机器人适配 / 作业窗口13:00-15:00', status: 'pending', robotName: '机器人A003', priority: 'medium', priorityLabel: '中', createdAt: '09:30', scheduledAt: '13:00', queueOrder: 1 },
+  { id: 'task-003', name: '隐患排查-危化区', type: 'temp', typeLabel: '总调度台插单', businessScene: 'hazard_screening', riskLevel: 'critical_alarm', suggestedAction: '插单', constraintSummary: '电量64% / 危化区允许进入 / 需人工确认', status: 'pending', robotName: '机器人A002', priority: 'high', priorityLabel: '高', createdAt: '10:15', scheduledAt: '12:20', queueOrder: 2, changeFlag: true, changeReason: '人工插入后重排至第 2 位' },
+  { id: 'task-004', name: '自动补检-配电柜A15', type: 'auto', typeLabel: '自动补检', businessScene: 'recheck', riskLevel: 'alarm', suggestedAction: '补检', dispatchReason: '漏检补偿', constraintSummary: '机器人充电中 / 建议替换机器人', status: 'auto_pending', robotName: '机器人A004', priority: 'high', priorityLabel: '高', createdAt: '10:45', reason: '漏检补偿', affectedTaskName: '作业监护-办公区' }
 ])
 
 const records = ref<DispatchRecordItem[]>([
@@ -276,7 +333,10 @@ function openTemporaryFromMap(payload: any) {
   const marker = payload?.marker
   const markerType = marker?.markerType || 'inspection'
   const markerId = marker?.id || ''
+  const dispatchType = markerType === 'charging' ? 'charging' : markerType === 'parking' ? 'parking' : 'insert'
   temporaryPrefill.value = {
+    dispatchType,
+    businessScene: dispatchType === 'charging' || dispatchType === 'parking' ? 'daily_inspection' : 'hazard_screening',
     taskType: markerType === 'inspection' ? 'inspection' : markerType === 'charging' ? 'charging' : 'parking',
     targetPointId: markerId,
     targetPointIds: markerType === 'inspection' && markerId ? [markerId] : [],
@@ -295,6 +355,15 @@ function getManualStatusText(status: PendingManualStatus) {
 }
 function getManualStatusColor(status: PendingManualStatus) {
   return ({ pending: 'default', processing: 'processing', resolved: 'green' } as Record<PendingManualStatus, string>)[status]
+}
+function getRiskText(level?: string) {
+  return ({ normal: '普通', warning: '预警', alarm: '告警', critical_alarm: '严重告警', hazard: '隐患', major_hazard: '重大隐患' } as Record<string, string>)[level || ''] || '普通'
+}
+function getRiskColor(level?: string) {
+  return ({ normal: 'default', warning: 'gold', alarm: 'orange', critical_alarm: 'red', hazard: 'volcano', major_hazard: 'magenta' } as Record<string, string>)[level || ''] || 'default'
+}
+function getSceneText(scene?: string) {
+  return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护', recheck: '补检' } as Record<string, string>)[scene || ''] || '日常巡检'
 }
 function openReplaceRobot(item: PendingManualItem) {
   replaceTarget.value = item
@@ -333,7 +402,12 @@ function autoAdjustPendingManual(item: PendingManualItem) {
       id: `auto-manual-${Date.now()}`,
       name: `自动调整-${item.name}`,
       type: 'auto',
-      typeLabel: '自动调度',
+      typeLabel: '自动补检',
+      businessScene: 'recheck',
+      riskLevel: 'alarm',
+      suggestedAction: '补检',
+      dispatchReason: `待人工确认项自动调整：${item.name}`,
+      constraintSummary: '自动调整后进入待确认队列',
       status: 'auto_pending',
       robotName: robot.name,
       priority: 'high',
@@ -362,12 +436,18 @@ function autoAdjustPendingManual(item: PendingManualItem) {
   message.success('已完成自动调整')
 }
 function autoSupplementCoverage() {
-  const taskName = `自动补充-${coverageResult.missingDevices[0] || coverageResult.missingPoints[0] || '漏检任务'}`
+  const missingTarget = coverageResult.missingDevices[0]?.deviceName || coverageResult.missingSubjects[0]?.subjectName || coverageResult.missingRules[0]?.subjectName || coverageResult.missingRegions[0]?.regionName || '漏检任务'
+  const taskName = `自动补充-${missingTarget}`
   tasks.value.unshift({
     id: `auto-${Date.now()}`,
     name: taskName,
     type: 'auto',
-    typeLabel: '自动调度',
+    typeLabel: '自动补检',
+    businessScene: 'recheck',
+    riskLevel: 'alarm',
+    suggestedAction: '补检',
+    dispatchReason: '覆盖检查自动补充',
+    constraintSummary: '待调度台确认机器人资源',
     status: 'auto_pending',
     robotName: '机器人A003',
     priority: 'high',
@@ -378,15 +458,18 @@ function autoSupplementCoverage() {
   })
   records.value.unshift({ id: `record-${Date.now()}`, time: new Date().toLocaleTimeString(), event: `覆盖检查自动补充：${taskName}`, taskName, resultStatus: 'pending', source: 'auto' })
   coverageResult.hasMissing = false
-  coverageResult.missingPoints = []
-  coverageResult.missingItems = []
+  coverageResult.missingRegions = []
   coverageResult.missingDevices = []
+  coverageResult.missingSubjects = []
+  coverageResult.missingRules = []
   message.success('已自动补充调度任务')
 }
 function manualSupplementCoverage() {
   const firstPoint = inspectionPointOptions.value[0]?.value
   temporaryPrefill.value = {
     name: '人工补充任务',
+    dispatchType: 'recheck',
+    businessScene: 'hazard_screening',
     taskType: 'inspection',
     targetPointIds: firstPoint ? [firstPoint] : [],
     reason: '覆盖检查发现遗漏，需人工补充'
@@ -399,11 +482,20 @@ function submitTemporaryDispatch(form: TemporaryDispatchForm) {
   const matchedRobot = robotOptions.value.find((item) => item.value === form.robotId)
   const impacted = conflictCandidates.value.filter((item) => item.robotId === form.robotId).map((item) => item.name)
   const hasConflict = Boolean(impacted.length)
+  const typeText = getTemporaryDispatchTypeText(form.dispatchType)
   tasks.value.unshift({
     id: `temp-${Date.now()}`,
     name: form.name,
     type: 'temp',
-    typeLabel: '临时任务',
+    typeLabel: `总调度台${typeText}`,
+    businessScene: form.businessScene,
+    dispatchType: form.dispatchType,
+    tempTaskType: form.taskType,
+    taskSource: 'dispatch_insert',
+    riskLevel: form.dispatchType === 'recheck' ? 'alarm' : 'normal',
+    suggestedAction: hasConflict ? `${typeText}后顺延` : typeText,
+    dispatchReason: form.reason,
+    constraintSummary: hasConflict ? '存在机器人资源冲突，需人工确认' : '机器人资源可用',
     status: hasConflict ? 'auto_pending' : (control.mode === 'auto' ? 'pending' : 'pending'),
     robotName: matchedRobot?.label || form.robotId,
     priority: 'high',
@@ -415,14 +507,19 @@ function submitTemporaryDispatch(form: TemporaryDispatchForm) {
     changeFlag: hasConflict,
     changeReason: hasConflict ? `冲突处理：${form.conflictStrategy === 'delay' ? '延后执行' : '暂停执行'}；受影响任务 ${impacted.join('、')}` : undefined
   })
-  records.value.unshift({ id: `record-${Date.now()}`, time: new Date().toLocaleTimeString(), event: `人工创建临时任务：${form.name}`, taskName: form.name, resultStatus: hasConflict ? 'pending' : 'running', source: 'temp' })
+  records.value.unshift({ id: `record-${Date.now()}`, time: new Date().toLocaleTimeString(), event: `人工创建临时任务：${form.name}（${typeText} / ${getSceneText(form.businessScene)}）`, taskName: form.name, resultStatus: hasConflict ? 'pending' : 'running', source: 'temp' })
   temporaryVisible.value = false
   message.success('临时任务已创建')
+}
+
+function getTemporaryDispatchTypeText(type?: TemporaryDispatchForm['dispatchType']) {
+  return ({ insert: '插单', recheck: '补检', charging: '充电', parking: '停车', replace_robot: '替换机器人' } as Record<string, string>)[type || ''] || '插单'
 }
 </script>
 
 <style scoped lang="css">.dispatch-center {
   width: 100%;
+  min-width: 0;
 }
 .page-header {
   display: flex;
@@ -440,24 +537,77 @@ function submitTemporaryDispatch(form: TemporaryDispatchForm) {
 }
 .content-layout {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: minmax(560px, 1.15fr) minmax(440px, 0.95fr);
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
 }
 .map-panel {
   min-width: 0;
+  display: flex;
 }
 .left-side {
   min-width: 0;
+}
+.map-panel :deep(.map-card) {
+  width: 100%;
 }
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
 }
+.dispatch-center :deep(.coverage-check-modal .ant-modal-body) {
+  max-height: 78vh;
+  overflow-y: auto;
+}
+.coverage-card-grid :deep(.ant-card) {
+  height: 100%;
+}
+.coverage-card-grid :deep(.ant-card-body) {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.coverage-missing-item {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid #e6f4ff;
+  border-radius: 6px;
+  background: #f6fbff;
+}
+.coverage-missing-item.warning {
+  border-color: #ffe7ba;
+  background: #fffaf0;
+}
+.coverage-missing-item.danger {
+  border-color: #ffccc7;
+  background: #fff2f0;
+}
+.coverage-title {
+  color: #1f2937;
+  font-weight: 600;
+}
+.coverage-meta {
+  margin-top: 2px;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-word;
+}
 @media (max-width: 1200px) {
   .content-layout {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 1440px), (max-height: 820px) {
+  .content-layout {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 768px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 }
 </style>

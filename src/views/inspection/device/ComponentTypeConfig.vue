@@ -7,7 +7,37 @@
     </a-page-header>
 
     <a-card style="margin-top: 16px">
-      <a-table :columns="columns" :data-source="types" row-key="id" :pagination="false">
+      <div class="search-panel">
+        <a-form layout="vertical" :model="searchForm" @submit.prevent>
+          <a-row :gutter="[16, 8]" align="bottom">
+            <a-col :xs="24" :sm="12" :md="8">
+              <a-form-item label="类型编码" class="search-item">
+                <a-input v-model:value="searchForm.code" placeholder="请输入类型编码" allow-clear />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8">
+              <a-form-item label="类型名称" class="search-item">
+                <a-input v-model:value="searchForm.name" placeholder="请输入类型名称" allow-clear />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8">
+              <a-form-item label="描述关键词" class="search-item">
+                <a-input v-model:value="searchForm.description" placeholder="请输入描述关键词" allow-clear />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="24" :md="24">
+              <div class="search-actions">
+                <a-space>
+                  <a-button type="primary">搜索</a-button>
+                  <a-button @click="resetSearch">重置</a-button>
+                </a-space>
+              </div>
+            </a-col>
+          </a-row>
+        </a-form>
+      </div>
+
+      <a-table :columns="columns" :data-source="filteredTypes" row-key="id" :pagination="false">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'updatedAt'">{{ formatDate(record.updatedAt) }}</template>
           <template v-else-if="column.key === 'actions'">
@@ -42,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 
 interface ComponentTypeRow {
@@ -64,6 +94,11 @@ const form = reactive({
   name: '',
   description: ''
 })
+const searchForm = reactive({
+  code: '',
+  name: '',
+  description: ''
+})
 
 const columns = [
   { title: '类型编码', dataIndex: 'code', key: 'code', width: 180 },
@@ -72,6 +107,18 @@ const columns = [
   { title: '更新时间', key: 'updatedAt', width: 180 },
   { title: '操作', key: 'actions', width: 140 }
 ]
+
+const filteredTypes = computed(() => {
+  const code = searchForm.code.trim().toLowerCase()
+  const name = searchForm.name.trim().toLowerCase()
+  const description = searchForm.description.trim().toLowerCase()
+  return types.value.filter((item) => {
+    const matchesCode = !code || item.code.toLowerCase().includes(code)
+    const matchesName = !name || item.name.toLowerCase().includes(name)
+    const matchesDescription = !description || item.description.toLowerCase().includes(description)
+    return matchesCode && matchesName && matchesDescription
+  })
+})
 
 function loadInitial() {
   const raw = localStorage.getItem(STORAGE_KEY)
@@ -161,4 +208,31 @@ function formatDate(date: string) {
   const d = new Date(date)
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('zh-CN', { hour12: false })
 }
+
+function resetSearch() {
+  searchForm.code = ''
+  searchForm.name = ''
+  searchForm.description = ''
+}
 </script>
+
+<style scoped lang="css">
+.search-panel {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.search-item {
+  margin-bottom: 0;
+}
+
+.search-actions {
+  min-height: 32px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+</style>

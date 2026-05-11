@@ -1,12 +1,12 @@
 <template>
   <div class="point-manage">
     <a-page-header
-      :title="isListMode ? '点位管理' : `点位管理 - ${currentMap?.name || '未命名地图'}`"
+      :title="isListMode ? '点位管理' : `点位编辑 - ${currentMap?.name || '未命名地图'}`"
       :sub-title="isListMode ? '统一管理巡检点、充电站、维修站、通行点，并通过 Tab 切换不同业务类型。' : '维护当前地图内的点位位置与基础属性。'"
     >
       <template #extra>
         <a-space v-if="isListMode">
-          <a-button type="primary" @click="openCreateFromList">新增点位</a-button>
+          <a-button type="primary" @click="openCreateFromList">编辑点位</a-button>
         </a-space>
         <a-space v-else>
           <a-button @click="backToList">返回点位列表</a-button>
@@ -17,6 +17,59 @@
     <a-card v-if="isListMode" style="margin-top: 16px">
       <a-tabs v-model:activeKey="activeListTab">
         <a-tab-pane key="all" tab="全部">
+          <div class="search-panel">
+            <a-form layout="vertical" :model="listSearchForm" @submit.prevent>
+              <a-row :gutter="[16, 8]" align="bottom">
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="点位名称" class="search-item">
+                    <a-input v-model:value="listSearchForm.name" placeholder="请输入点位名称" allow-clear />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="点位编码" class="search-item">
+                    <a-input v-model:value="listSearchForm.code" placeholder="请输入点位编码" allow-clear />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="点位类型" class="search-item">
+                    <a-select v-model:value="listSearchForm.type" placeholder="请选择点位类型" allow-clear>
+                      <a-select-option value="inspection">巡检点</a-select-option>
+                      <a-select-option value="charging">充电站</a-select-option>
+                      <a-select-option value="maintenance">维修站</a-select-option>
+                      <a-select-option value="transit">通行点</a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="所属地图" class="search-item">
+                    <a-select v-model:value="listSearchForm.mapId" placeholder="请选择所属地图" allow-clear>
+                      <a-select-option v-for="map in inspectionStore.inspectionMaps" :key="map.id" :value="map.id">
+                        {{ map.name }}
+                      </a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="24" :md="16" :lg="18">
+                  <a-form-item label="所属区域" class="search-item">
+                    <a-select v-model:value="listSearchForm.areaId" placeholder="请选择所属区域" allow-clear>
+                      <a-select-option v-for="area in listAreaOptions" :key="area.id" :value="area.id">
+                        {{ area.name }}
+                      </a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="24" :md="8" :lg="6">
+                  <div class="search-actions inline">
+                    <a-space>
+                      <a-button type="primary">搜索</a-button>
+                      <a-button @click="resetListSearch">重置</a-button>
+                    </a-space>
+                  </div>
+                </a-col>
+              </a-row>
+            </a-form>
+          </div>
+
           <a-table :columns="allColumns" :data-source="allTabRows" row-key="id">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'pointType'">
@@ -33,14 +86,9 @@
               </template>
               <template v-else-if="column.key === 'actions'">
                 <a-space>
-                  <a-button type="link" size="small" @click="openTypeTab(record.bizType)">查看同类点位</a-button>
-                  <a-button type="link" size="small" @click="goToMapScopedPage(record.mapId)">进入地图配置</a-button>
-                  <a-button
-                    v-if="record.bizType === 'inspection'"
-                    type="link"
-                    size="small"
-                    @click="goToInspectionConfig(record.id)"
-                  >
+                  <a-button type="link" size="small" @click="goToPointPosition(record)">查看位置</a-button>
+                  <a-button type="link" size="small" @click="goToPointDetail(record.id)">详情</a-button>
+                  <a-button type="link" size="small" :disabled="record.bizType !== 'inspection'" @click="goToInspectionConfig(record.id)">
                     巡检配置
                   </a-button>
                 </a-space>
@@ -192,6 +240,43 @@
         </a-tab-pane>
 
         <a-tab-pane key="charging" tab="充电站">
+          <div class="search-panel">
+            <a-form layout="vertical" :model="chargingSearchForm" @submit.prevent>
+              <a-row :gutter="[16, 8]">
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="名称" class="search-item">
+                    <a-input v-model:value="chargingSearchForm.name" placeholder="请输入点位名称" allow-clear />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="编码" class="search-item">
+                    <a-input v-model:value="chargingSearchForm.code" placeholder="请输入点位编码" allow-clear />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="所属区域" class="search-item">
+                    <a-select v-model:value="chargingSearchForm.areaId" placeholder="请选择所属区域" allow-clear>
+                      <a-select-option v-for="area in listAreaOptions" :key="area.id" :value="area.id">
+                        {{ area.name }}
+                      </a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="更新时间" class="search-item">
+                    <a-input v-model:value="chargingSearchForm.updatedAt" placeholder="YYYY-MM-DD" allow-clear />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <div class="search-actions">
+                <a-space>
+                  <a-button type="primary">搜索</a-button>
+                  <a-button @click="resetChargingSearch">重置</a-button>
+                </a-space>
+              </div>
+            </a-form>
+          </div>
+
           <a-table :columns="baseTypeColumns" :data-source="chargingTabRows" row-key="id">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'coordinate'">
@@ -211,26 +296,44 @@
         </a-tab-pane>
 
         <a-tab-pane key="maintenance" tab="维修站">
-          <a-table :columns="baseTypeColumns" :data-source="maintenanceTabRows" row-key="id">
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'coordinate'">
-                {{ formatCoordinate(record.raw.mapPosition) }}
-              </template>
-              <template v-else-if="column.key === 'updatedAt'">
-                {{ formatDate(record.raw.updatedAt) || '-' }}
-              </template>
-              <template v-else-if="column.key === 'actions'">
+          <div class="search-panel">
+            <a-form layout="vertical" :model="maintenanceSearchForm" @submit.prevent>
+              <a-row :gutter="[16, 8]">
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="名称" class="search-item">
+                    <a-input v-model:value="maintenanceSearchForm.name" placeholder="请输入点位名称" allow-clear />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="编码" class="search-item">
+                    <a-input v-model:value="maintenanceSearchForm.code" placeholder="请输入点位编码" allow-clear />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="所属区域" class="search-item">
+                    <a-select v-model:value="maintenanceSearchForm.areaId" placeholder="请选择所属区域" allow-clear>
+                      <a-select-option v-for="area in listAreaOptions" :key="area.id" :value="area.id">
+                        {{ area.name }}
+                      </a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="更新时间" class="search-item">
+                    <a-input v-model:value="maintenanceSearchForm.updatedAt" placeholder="YYYY-MM-DD" allow-clear />
+                  </a-form-item>
+                </a-col>
+              </a-row>
+              <div class="search-actions">
                 <a-space>
-                  <a-button type="link" size="small" @click="goToMapScopedPage(record.mapId)">地图配置</a-button>
-                  <a-button type="link" size="small" @click="goToPointDetail(record.id)">详情</a-button>
+                  <a-button type="primary">搜索</a-button>
+                  <a-button @click="resetMaintenanceSearch">重置</a-button>
                 </a-space>
-              </template>
-            </template>
-          </a-table>
-        </a-tab-pane>
+              </div>
+            </a-form>
+          </div>
 
-        <a-tab-pane key="transit" tab="通行点">
-          <a-table :columns="baseTypeColumns" :data-source="transitTabRows" row-key="id">
+          <a-table :columns="baseTypeColumns" :data-source="maintenanceTabRows" row-key="id">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'coordinate'">
                 {{ formatCoordinate(record.raw.mapPosition) }}
@@ -251,14 +354,14 @@
     </a-card>
 
     <template v-else>
-      <div class="layout-grid">
+      <div class="layout-stack">
         <a-card class="map-card" title="位置管理">
           <template #extra>
-            <a-space v-if="mode !== 'moving'">
-              <a-button type="primary" @click="enterAddMode">新增点位</a-button>
+            <a-space v-if="mode !== 'moving'" class="card-actions">
+              <a-button type="primary" :disabled="mode === 'adding'" @click="enterAddMode">新增点位</a-button>
               <a-button @click="enterMoveMode">移动点位</a-button>
             </a-space>
-            <a-space v-else>
+            <a-space v-else class="card-actions">
               <a-button type="primary" @click="confirmMove">确认</a-button>
               <a-button @click="cancelMove">取消</a-button>
             </a-space>
@@ -270,6 +373,15 @@
               <template v-if="mode === 'adding'">新增模式：在地图中点击位置后填写点位信息。</template>
               <template v-else-if="mode === 'moving'">移动模式：先点击一个点位，再点击地图新位置。</template>
               <template v-else>查看模式：可点击点位高亮，或切换到新增/移动模式。</template>
+            </div>
+
+            <div
+              v-if="pendingAddPreview"
+              class="marker pending"
+              :style="{ left: `${pendingAddPreview.mapX}%`, top: `${pendingAddPreview.mapY}%` }"
+            >
+              <span class="marker-dot">新</span>
+              <span class="marker-text">{{ addForm.name || pendingAddPreview.name || '待新增点位' }}</span>
             </div>
 
             <div
@@ -286,8 +398,37 @@
           </div>
         </a-card>
 
-        <a-card title="属性管理列表">
-          <a-table :columns="mapColumns" :data-source="points" row-key="id" :pagination="false" :scroll="{ y: 520 }">
+        <a-card class="list-card" title="点位列表">
+          <div class="search-panel compact">
+            <a-form layout="vertical" :model="mapSearchForm" @submit.prevent>
+              <a-row :gutter="[12, 8]" align="bottom">
+                <a-col :xs="24" :sm="12" :md="10">
+                  <a-form-item label="点位名称" class="search-item">
+                    <a-input v-model:value="mapSearchForm.name" placeholder="请输入点位名称" allow-clear />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8">
+                  <a-form-item label="点位类型" class="search-item">
+                    <a-select v-model:value="mapSearchForm.type" placeholder="请选择点位类型" allow-clear>
+                      <a-select-option value="inspection">巡检点</a-select-option>
+                      <a-select-option value="charging">充电站</a-select-option>
+                      <a-select-option value="maintenance">维修站</a-select-option>
+                      <a-select-option value="transit">通行点</a-select-option>
+                    </a-select>
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="24" :md="6">
+                  <div class="search-actions inline">
+                    <a-space>
+                      <a-button type="primary">搜索</a-button>
+                      <a-button @click="resetMapSearch">重置</a-button>
+                    </a-space>
+                  </div>
+                </a-col>
+              </a-row>
+            </a-form>
+          </div>
+          <a-table :columns="mapColumns" :data-source="filteredMapPoints" row-key="id" :pagination="false" :scroll="{ x: 900, y: 360 }" size="small">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'pointType'">
                 <template v-if="editingId === record.id">
@@ -371,6 +512,67 @@
       </a-form>
     </a-modal>
 
+    <a-modal
+      v-model:open="locationModalVisible"
+      title="查看点位位置"
+      width="960px"
+      :footer="null"
+      destroy-on-close
+    >
+      <div v-if="locationPreviewPoint" class="location-preview">
+        <div class="location-preview-header">
+          <div>
+            <div class="location-preview-title">{{ locationPreviewPoint.name }}</div>
+            <div class="location-preview-meta">
+              {{ locationPreviewPoint.mapName }} / {{ locationPreviewPoint.areaName || '未分区' }}
+            </div>
+          </div>
+          <a-space>
+            <a-tag :color="getPointTypeColor(locationPreviewPoint.bizType)">
+              {{ pointTypeText(locationPreviewPoint.bizType) }}
+            </a-tag>
+            <a-tag color="red">当前点位</a-tag>
+          </a-space>
+        </div>
+
+        <div class="location-preview-stage" :style="locationPreviewMapStyle">
+          <div class="map-mask" />
+          <div class="location-preview-tip">
+            坐标：{{ locationPreviewPoint.mapX.toFixed(2) }}, {{ locationPreviewPoint.mapY.toFixed(2) }}
+          </div>
+          <div
+            v-for="point in locationPreviewContextPoints"
+            :key="point.id"
+            class="marker location-marker"
+            :class="{ dimmed: point.id !== locationPreviewPoint.id }"
+            :style="{ left: `${point.mapX}%`, top: `${point.mapY}%` }"
+          >
+            <span class="marker-dot">{{ getShortType(point.bizType) }}</span>
+            <span class="marker-text">{{ point.name }}</span>
+          </div>
+
+          <div
+            class="current-location-pin"
+            :style="{ left: `${locationPreviewPoint.mapX}%`, top: `${locationPreviewPoint.mapY}%` }"
+          >
+            <span class="pin-pulse" />
+            <span class="pin-head">{{ getShortType(locationPreviewPoint.bizType) }}</span>
+            <span class="pin-tail" />
+            <span class="pin-label">当前点位：{{ locationPreviewPoint.name }}</span>
+          </div>
+        </div>
+
+        <a-descriptions size="small" :column="3" bordered class="location-preview-descriptions">
+          <a-descriptions-item label="点位编码">{{ locationPreviewPoint.code || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="所属地图">{{ locationPreviewPoint.mapName }}</a-descriptions-item>
+          <a-descriptions-item label="所属区域">{{ locationPreviewPoint.areaName || '未分区' }}</a-descriptions-item>
+          <a-descriptions-item label="点位类型">{{ pointTypeText(locationPreviewPoint.bizType) }}</a-descriptions-item>
+          <a-descriptions-item label="是否可达">{{ getReachableText(locationPreviewPoint) }}</a-descriptions-item>
+          <a-descriptions-item label="更新时间">{{ formatDate(locationPreviewPoint.raw.updatedAt) || '-' }}</a-descriptions-item>
+        </a-descriptions>
+      </div>
+    </a-modal>
+
     <a-modal v-model:open="calibrationModalVisible" title="校准坐标" width="600px" footer="">
       <div class="calibration-modal">
         <a-form layout="vertical" style="margin-bottom: 12px">
@@ -431,7 +633,7 @@ import { ExceptionStrategy } from '@/types'
 import type { CollectionMethod, CollectionPose, InspectionPoint, MapRegion } from '@/types/inspection'
 
 type BizPointType = 'inspection' | 'charging' | 'maintenance' | 'transit'
-type ListTabKey = 'all' | 'inspection' | 'charging' | 'maintenance' | 'transit'
+type ListTabKey = 'all' | 'inspection' | 'charging' | 'maintenance'
 type Mode = 'normal' | 'adding' | 'moving'
 
 interface PointRow {
@@ -459,6 +661,7 @@ const route = useRoute()
 const router = useRouter()
 
 const selectedMapId = computed(() => (typeof route.query.mapId === 'string' ? route.query.mapId : ''))
+const selectedQueryPointId = computed(() => (typeof route.query.pointId === 'string' ? route.query.pointId : ''))
 const isListMode = computed(() => !selectedMapId.value)
 
 const points = ref<PointRow[]>([])
@@ -482,6 +685,7 @@ const editingId = ref('')
 const inlineEdit = reactive({ name: '', type: 'inspection' as BizPointType })
 
 const addModalVisible = ref(false)
+const pendingAddPreview = ref<{ mapX: number; mapY: number; name?: string } | null>(null)
 const addForm = reactive({
   name: '',
   type: 'inspection' as BizPointType,
@@ -489,10 +693,16 @@ const addForm = reactive({
   mapX: 0,
   mapY: 0
 })
+const mapSearchForm = reactive({
+  name: '',
+  type: '' as '' | BizPointType
+})
 
 const createFromListVisible = ref(false)
 const selectedMapForCreate = ref('')
 const moveDraft = ref<Record<string, { x: number; y: number }>>({})
+const locationModalVisible = ref(false)
+const locationPreviewPoint = ref<PointRow | null>(null)
 
 const inspectionSearchForm = reactive({
   name: '',
@@ -500,6 +710,25 @@ const inspectionSearchForm = reactive({
   areaId: '',
   calibrationStatus: '',
   updatedAt: ''
+})
+const chargingSearchForm = reactive({
+  name: '',
+  code: '',
+  areaId: '',
+  updatedAt: ''
+})
+const maintenanceSearchForm = reactive({
+  name: '',
+  code: '',
+  areaId: '',
+  updatedAt: ''
+})
+const listSearchForm = reactive({
+  name: '',
+  code: '',
+  type: '' as '' | BizPointType,
+  mapId: '',
+  areaId: ''
 })
 
 const activeListTab = computed<ListTabKey>({
@@ -516,12 +745,11 @@ const activeListTab = computed<ListTabKey>({
 })
 
 const mapColumns = [
-  { title: '点位名称', dataIndex: 'name', key: 'name' },
-  { title: '点位编码', dataIndex: 'code', key: 'code', width: 160 },
-  { title: '点位类型', key: 'pointType', width: 140 },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 150 },
-  { title: '地图坐标', key: 'location', width: 170 },
-  { title: '操作', key: 'actions', width: 140 }
+  { title: '点位名称', dataIndex: 'name', key: 'name', width: 220, ellipsis: true },
+  { title: '点位类型', key: 'pointType', width: 110 },
+  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 140, ellipsis: true },
+  { title: '地图坐标', key: 'location', width: 150 },
+  { title: '操作', key: 'actions', width: 150 }
 ]
 
 const allColumns = [
@@ -529,11 +757,11 @@ const allColumns = [
   { title: '点位编码', dataIndex: 'code', key: 'code', width: 150 },
   { title: '点位类型', key: 'pointType', width: 110 },
   { title: '所属地图', dataIndex: 'mapName', key: 'mapName', width: 170 },
-  { title: '所属区域 / 分区', dataIndex: 'areaName', key: 'areaName', width: 170 },
+  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 170 },
   { title: '坐标', key: 'coordinate', width: 140 },
   { title: '是否可达', key: 'reachable', width: 100 },
   { title: '更新时间', key: 'updatedAt', width: 170 },
-  { title: '操作', key: 'actions', width: 260 }
+  { title: '操作', key: 'actions', width: 220 }
 ]
 
 const inspectionColumns = [
@@ -575,11 +803,56 @@ const allPointRows = computed<PointRow[]>(() =>
   inspectionStore.inspectionPoints.map((point) => buildPointRow(point))
 )
 
-const allTabRows = computed(() => allPointRows.value)
-const inspectionBaseRows = computed(() => allPointRows.value.filter(point => point.bizType === 'inspection'))
-const chargingTabRows = computed(() => allPointRows.value.filter(point => point.bizType === 'charging'))
-const maintenanceTabRows = computed(() => allPointRows.value.filter(point => point.bizType === 'maintenance'))
-const transitTabRows = computed(() => allPointRows.value.filter(point => point.bizType === 'transit'))
+const filteredListRows = computed(() => {
+  const name = listSearchForm.name.trim().toLowerCase()
+  const code = listSearchForm.code.trim().toLowerCase()
+  const type = listSearchForm.type
+  const mapId = listSearchForm.mapId
+  const areaId = listSearchForm.areaId
+  return allPointRows.value.filter((point) => {
+    const matchesName = !name || point.name.toLowerCase().includes(name)
+    const matchesCode = !code || point.code.toLowerCase().includes(code)
+    const matchesType = !type || point.bizType === type
+    const matchesMap = !mapId || point.mapId === mapId
+    const matchesArea = !areaId || point.areaId === areaId
+    return matchesName && matchesCode && matchesType && matchesMap && matchesArea
+  })
+})
+
+const allTabRows = computed(() => filteredListRows.value)
+const inspectionBaseRows = computed(() => filteredListRows.value.filter(point => point.bizType === 'inspection'))
+const chargingBaseRows = computed(() => filteredListRows.value.filter(point => point.bizType === 'charging'))
+const maintenanceBaseRows = computed(() => filteredListRows.value.filter(point => point.bizType === 'maintenance'))
+
+const chargingTabRows = computed(() => {
+  const name = chargingSearchForm.name.trim().toLowerCase()
+  const code = chargingSearchForm.code.trim().toLowerCase()
+  const areaId = chargingSearchForm.areaId
+  const updatedAt = chargingSearchForm.updatedAt.trim()
+  return chargingBaseRows.value.filter((point) => {
+    const matchesName = !name || point.name.toLowerCase().includes(name)
+    const matchesCode = !code || point.code.toLowerCase().includes(code)
+    const matchesArea = !areaId || point.areaId === areaId
+    const updatedText = point.raw.updatedAt ? new Date(point.raw.updatedAt).toISOString().slice(0, 10) : ''
+    const matchesUpdated = !updatedAt || updatedText.includes(updatedAt)
+    return matchesName && matchesCode && matchesArea && matchesUpdated
+  })
+})
+
+const maintenanceTabRows = computed(() => {
+  const name = maintenanceSearchForm.name.trim().toLowerCase()
+  const code = maintenanceSearchForm.code.trim().toLowerCase()
+  const areaId = maintenanceSearchForm.areaId
+  const updatedAt = maintenanceSearchForm.updatedAt.trim()
+  return maintenanceBaseRows.value.filter((point) => {
+    const matchesName = !name || point.name.toLowerCase().includes(name)
+    const matchesCode = !code || point.code.toLowerCase().includes(code)
+    const matchesArea = !areaId || point.areaId === areaId
+    const updatedText = point.raw.updatedAt ? new Date(point.raw.updatedAt).toISOString().slice(0, 10) : ''
+    const matchesUpdated = !updatedAt || updatedText.includes(updatedAt)
+    return matchesName && matchesCode && matchesArea && matchesUpdated
+  })
+})
 
 const inspectionTabRows = computed(() => {
   const name = inspectionSearchForm.name.trim().toLowerCase()
@@ -604,8 +877,39 @@ const mapStageStyle = computed(() => ({
   backgroundColor: '#eef3ff'
 }))
 
+const locationPreviewMap = computed(() => {
+  if (!locationPreviewPoint.value) return null
+  return inspectionStore.inspectionMaps.find(map => map.id === locationPreviewPoint.value?.mapId) || null
+})
+
+const locationPreviewMapStyle = computed(() => ({
+  backgroundImage: `url(${locationPreviewMap.value?.imageUrl || fallbackMapBackgroundUrl})`,
+  backgroundColor: '#eef3ff'
+}))
+
+const locationPreviewContextPoints = computed(() => {
+  if (!locationPreviewPoint.value) return []
+  const currentId = locationPreviewPoint.value.id
+  return allPointRows.value
+    .filter(point => point.mapId === locationPreviewPoint.value?.mapId)
+    .filter(point => point.id !== currentId)
+    .sort((left, right) => {
+      return left.name.localeCompare(right.name)
+    })
+})
+
+const filteredMapPoints = computed(() => {
+  const name = mapSearchForm.name.trim().toLowerCase()
+  const type = mapSearchForm.type
+  return points.value.filter((point) => {
+    const matchesName = !name || point.name.toLowerCase().includes(name)
+    const matchesType = !type || point.bizType === type
+    return matchesName && matchesType
+  })
+})
+
 function normalizeListTab(value: unknown): ListTabKey {
-  if (value === 'inspection' || value === 'charging' || value === 'maintenance' || value === 'transit') return value
+  if (value === 'inspection' || value === 'charging' || value === 'maintenance') return value
   return 'all'
 }
 
@@ -655,10 +959,6 @@ function getShortType(type: BizPointType) {
   if (type === 'maintenance') return '维'
   if (type === 'transit') return '通'
   return '巡'
-}
-
-function isMapExecutionPoint(point: InspectionPoint) {
-  return !point.parkingPoints?.length
 }
 
 function buildPointRow(point: InspectionPoint): PointRow {
@@ -788,16 +1088,17 @@ function loadPoints() {
     return
   }
 
-  const all = inspectionStore.inspectionPoints.filter(point => point.mapId === selectedMapId.value && isMapExecutionPoint(point))
+  const all = inspectionStore.inspectionPoints.filter(point => point.mapId === selectedMapId.value)
   points.value = all.map((point) => buildPointRow(point))
+
+  if (selectedQueryPointId.value && points.value.some(point => point.id === selectedQueryPointId.value)) {
+    selectedPointId.value = selectedQueryPointId.value
+    return
+  }
 
   if (!selectedPointId.value && points.value[0]) {
     selectedPointId.value = points.value[0].id
   }
-}
-
-function openTypeTab(type: BizPointType) {
-  activeListTab.value = type
 }
 
 function goToMapScopedPage(mapId: string, action?: 'create') {
@@ -805,6 +1106,11 @@ function goToMapScopedPage(mapId: string, action?: 'create') {
     path: '/implementation/map/point-manage',
     query: action ? { mapId, action } : { mapId }
   })
+}
+
+function goToPointPosition(record: PointRow) {
+  locationPreviewPoint.value = record
+  locationModalVisible.value = true
 }
 
 function backToList() {
@@ -943,6 +1249,11 @@ function handleStageClick(event: MouseEvent) {
     addForm.type = activeListTab.value === 'all' ? 'inspection' : activeListTab.value
     addForm.mapX = position.x
     addForm.mapY = position.y
+    pendingAddPreview.value = {
+      mapX: position.x,
+      mapY: position.y,
+      name: ''
+    }
     const area = detectAreaByPoint(position.x, position.y)
     addForm.areaId = area?.id || ''
     addModalVisible.value = true
@@ -965,6 +1276,7 @@ function handleStageClick(event: MouseEvent) {
 
 function cancelAdd() {
   addModalVisible.value = false
+  pendingAddPreview.value = null
   if (mode.value === 'adding') {
     mode.value = 'normal'
   }
@@ -1009,6 +1321,7 @@ function createPoint() {
 
   inspectionStore.saveInspectionPoint(newPoint)
   addModalVisible.value = false
+  pendingAddPreview.value = null
   mode.value = 'normal'
   message.success('点位新增成功')
   loadPoints()
@@ -1042,6 +1355,11 @@ function cancelMove() {
   loadPoints()
 }
 
+function resetMapSearch() {
+  mapSearchForm.name = ''
+  mapSearchForm.type = ''
+}
+
 function handleRouteIntent() {
   if (isListMode.value) return
   if (route.query.action === 'create') {
@@ -1068,6 +1386,28 @@ function resetInspectionSearch() {
   inspectionSearchForm.areaId = ''
   inspectionSearchForm.calibrationStatus = ''
   inspectionSearchForm.updatedAt = ''
+}
+
+function resetChargingSearch() {
+  chargingSearchForm.name = ''
+  chargingSearchForm.code = ''
+  chargingSearchForm.areaId = ''
+  chargingSearchForm.updatedAt = ''
+}
+
+function resetMaintenanceSearch() {
+  maintenanceSearchForm.name = ''
+  maintenanceSearchForm.code = ''
+  maintenanceSearchForm.areaId = ''
+  maintenanceSearchForm.updatedAt = ''
+}
+
+function resetListSearch() {
+  listSearchForm.name = ''
+  listSearchForm.code = ''
+  listSearchForm.type = ''
+  listSearchForm.mapId = ''
+  listSearchForm.areaId = ''
 }
 
 function handleCalibrate(record: InspectionPoint) {
@@ -1174,30 +1514,105 @@ onMounted(() => {
   background: #fafafa;
 }
 
+.point-manage .search-panel.compact {
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
 .point-manage .search-item {
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
 
 .point-manage .search-actions {
   display: flex;
   justify-content: flex-end;
-  margin: 4px 0 8px;
+  margin: 0;
 }
 
-.layout-grid {
+.point-manage .search-actions.inline {
+  min-height: 32px;
+  align-items: flex-end;
+}
+
+.point-manage .card-actions {
+  display: inline-flex;
+  align-items: center;
+}
+
+.point-manage :deep(.map-card .ant-card-head),
+.point-manage :deep(.list-card .ant-card-head) {
+  min-height: 52px;
+  padding: 0 16px;
+}
+
+.point-manage :deep(.map-card .ant-card-head-wrapper),
+.point-manage :deep(.list-card .ant-card-head-wrapper) {
+  align-items: center;
+}
+
+.point-manage :deep(.map-card .ant-card-head-title),
+.point-manage :deep(.list-card .ant-card-head-title) {
+  padding: 12px 0;
+  line-height: 28px;
+}
+
+.point-manage :deep(.map-card .ant-card-extra),
+.point-manage :deep(.list-card .ant-card-extra) {
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.point-manage :deep(.ant-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.point-manage :deep(.search-actions .ant-space),
+.point-manage :deep(.card-actions.ant-space),
+.point-manage :deep(.ant-table-cell .ant-space) {
+  align-items: center;
+}
+
+.layout-stack {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 12px;
+  grid-template-rows: auto auto;
+  gap: 16px;
   margin-top: 16px;
 }
 
 .map-card {
   min-width: 0;
+  overflow: hidden;
+}
+
+.list-card {
+  min-width: 0;
+}
+
+.point-manage :deep(.map-card .ant-card-body) {
+  padding: 12px;
+}
+
+.point-manage :deep(.list-card .ant-card-body) {
+  padding: 12px;
+}
+
+.point-manage :deep(.list-card .ant-table-thead > tr > th) {
+  white-space: nowrap;
+}
+
+.point-manage :deep(.list-card .ant-table-tbody > tr > td) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  vertical-align: middle;
 }
 
 .map-stage {
   position: relative;
-  min-height: 620px;
+  height: clamp(480px, 58vh, 640px);
+  min-height: 0;
   border-radius: 12px;
   border: 1px solid #b4c9ff;
   background-position: center;
@@ -1209,6 +1624,7 @@ onMounted(() => {
 .map-mask {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: linear-gradient(180deg, rgba(4, 12, 26, 0.12) 0%, rgba(4, 12, 26, 0.26) 100%);
 }
 
@@ -1217,12 +1633,18 @@ onMounted(() => {
   top: 12px;
   left: 12px;
   z-index: 2;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: min(520px, calc(100% - 24px));
   padding: 10px 12px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.9);
   color: #1f2937;
   font-size: 13px;
   line-height: 1.4;
+  max-width: 520px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .marker {
@@ -1231,9 +1653,16 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  max-width: min(260px, calc(100% - 24px));
   transform: translate(-50%, -50%);
   cursor: pointer;
   user-select: none;
+}
+
+.marker.active,
+.marker.moving,
+.marker.pending {
+  z-index: 4;
 }
 
 .marker-dot {
@@ -1251,11 +1680,15 @@ onMounted(() => {
 }
 
 .marker-text {
+  max-width: 190px;
   padding: 4px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   box-shadow: 0 6px 20px rgba(15, 23, 42, 0.18);
 }
 
@@ -1263,6 +1696,168 @@ onMounted(() => {
 .marker.moving .marker-dot {
   background: #ef4444;
   box-shadow: 0 8px 16px rgba(239, 68, 68, 0.35);
+}
+
+.marker.pending .marker-dot {
+  background: #fa8c16;
+  box-shadow: 0 8px 16px rgba(250, 140, 22, 0.35);
+}
+
+.marker.pending .marker-text {
+  border: 1px dashed rgba(250, 140, 22, 0.45);
+}
+
+.location-preview {
+  display: grid;
+  gap: 14px;
+}
+
+.location-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.location-preview-title {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.location-preview-meta {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.location-preview-stage {
+  position: relative;
+  height: 520px;
+  border: 1px solid #b4c9ff;
+  border-radius: 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  overflow: hidden;
+}
+
+.location-preview-tip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2937;
+  font-size: 13px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
+
+.location-marker {
+  pointer-events: none;
+}
+
+.location-marker.dimmed {
+  opacity: 0.42;
+}
+
+.location-preview-descriptions {
+  margin-top: 2px;
+}
+
+.current-location-pin {
+  position: absolute;
+  z-index: 8;
+  display: grid;
+  justify-items: center;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+.pin-pulse {
+  position: absolute;
+  top: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.22);
+  animation: pin-pulse 1.6s ease-out infinite;
+}
+
+.pin-head {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(127, 29, 29, 0.42);
+  line-height: 1;
+}
+
+.pin-head::after {
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-top: 14px solid #ef4444;
+  border-right: 9px solid transparent;
+  border-left: 9px solid transparent;
+  content: '';
+  transform: translateX(-50%);
+}
+
+.pin-tail {
+  width: 10px;
+  height: 10px;
+  margin-top: 10px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 4px 10px rgba(127, 29, 29, 0.32);
+}
+
+.pin-label {
+  position: absolute;
+  left: 50%;
+  top: 46px;
+  min-width: 150px;
+  max-width: 260px;
+  padding: 6px 10px;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+  transform: translateX(-50%);
+}
+
+@keyframes pin-pulse {
+  0% {
+    opacity: 0.75;
+    transform: scale(0.62);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
 }
 
 .spatial-detail {
@@ -1321,8 +1916,8 @@ onMounted(() => {
 }
 
 @media (max-width: 992px) {
-  .layout-grid {
-    grid-template-columns: 1fr;
+  .map-stage {
+    height: 480px;
   }
 }
 </style>

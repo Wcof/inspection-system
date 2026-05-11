@@ -29,6 +29,15 @@ export interface ResultDef {
   judgmentBasis?: string
 }
 
+export interface ApplicableTarget {
+  id: string
+  deviceId: string
+  deviceName: string
+  subjectType: 'component' | 'connection'
+  subjectId: string
+  subjectName: string
+}
+
 export interface DetectionItemConfig {
   id: string
   name: string
@@ -39,6 +48,7 @@ export interface DetectionItemConfig {
   needEvidence: boolean
   targetTypes: TargetType[]
   targetDetails: string
+  applicableTargets?: ApplicableTarget[]
   collectMethod: CollectMethod
   collectDirection: string
   collectDistance: string

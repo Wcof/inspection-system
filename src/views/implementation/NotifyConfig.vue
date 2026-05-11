@@ -64,11 +64,11 @@ const form = reactive({
 
 const smsPreview = computed(() => {
   return form.smsContent
-    .replaceAll('{告警类型}', '任务执行异常')
-    .replaceAll('{任务名称}', 'A区日常巡检')
-    .replaceAll('{区域}', 'A区')
-    .replaceAll('{机器人}', '巡检机器人 A')
-    .replaceAll('{发生时间}', '2026-05-09 10:30')
+    .replace(/\{告警类型\}/g, '任务执行异常')
+    .replace(/\{任务名称\}/g, 'A区日常巡检')
+    .replace(/\{区域\}/g, 'A区')
+    .replace(/\{机器人\}/g, '巡检机器人 A')
+    .replace(/\{发生时间\}/g, '2026-05-09 10:30')
 })
 
 function save() {

@@ -1,6 +1,6 @@
 <template>
   <div class="facility-device-list">
-    <a-page-header title="设施管理" sub-title="支持设备维度查询、检测项数量统计与参考图预览" />
+    <a-page-header title="设施管理" sub-title="支持设备维度查询、部件连接与检测规则统计、参考图预览" />
 
     <a-card style="margin-top: 16px">
       <div class="search-panel">
@@ -75,16 +75,15 @@
           <template v-else-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
           </template>
-          <template v-else-if="column.key === 'checkItemCount'">{{ getCheckItemCount(record.id) }}</template>
+          <template v-else-if="column.key === 'componentCount'">{{ getComponentCount(record) }}</template>
+          <template v-else-if="column.key === 'connectionCount'">{{ getConnectionCount(record) }}</template>
+          <template v-else-if="column.key === 'ruleCount'">{{ getDetectionRuleCount(record) }}</template>
           <template v-else-if="column.key === 'reference'">
             <img :src="record.referenceImageUrl || defaultDeviceImage" alt="参考图" class="thumb" />
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button type="link" size="small" @click="goToDetail(record.id)">详情</a-button>
-              <a-button type="link" size="small" @click="goToDetectionConfig(record.id)">检测配置</a-button>
-              <a-button type="link" size="small" @click="goToComponents(record.id)">部件</a-button>
-              <a-button type="link" size="small" @click="goToConnections(record.id)">连接部位</a-button>
               <a-button type="link" size="small" @click="goToForm(record.id)">编辑</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">删除</a-button>
             </a-space>
@@ -123,16 +122,18 @@ const columns = [
   { title: '设施分类', dataIndex: 'deviceClassification', key: 'deviceClassification', width: 130 },
   { title: '来源', key: 'source', width: 110 },
   { title: '责任人', dataIndex: 'owner', key: 'owner', width: 110 },
-  { title: '所在区域', key: 'area', width: 130 },
+  { title: '所属区域', key: 'area', width: 130 },
   { title: '关联巡检点', key: 'point', width: 200 },
   { title: '存放位置', dataIndex: 'storageLocation', key: 'storageLocation', width: 150 },
   { title: '设备状态', key: 'status', width: 100 },
   { title: '最近检测时间', dataIndex: 'lastInspectionTime', key: 'lastInspectionTime', width: 130 },
   { title: '下次检测时间', dataIndex: 'nextInspectionTime', key: 'nextInspectionTime', width: 130 },
   { title: '最近检测结论', dataIndex: 'lastInspectionConclusion', key: 'lastInspectionConclusion', width: 130 },
-  { title: '检测项数量', key: 'checkItemCount', width: 110 },
+  { title: '部件数量', key: 'componentCount', width: 100 },
+  { title: '连接数量', key: 'connectionCount', width: 100 },
+  { title: '检测规则数量', key: 'ruleCount', width: 120 },
   { title: '参考图', key: 'reference', width: 110, fixed: 'right' as const },
-  { title: '操作', key: 'actions', width: 380, fixed: 'right' as const }
+  { title: '操作', key: 'actions', width: 220, fixed: 'right' as const }
 ]
 
 const points = computed(() => inspectionStore.inspectionPoints)
@@ -177,8 +178,23 @@ function getLinkedPointNames(device: any) {
   return getPoint(device.inspectionPointId)?.name || '-'
 }
 
-function getCheckItemCount(deviceId: string) {
-  return inspectionStore.inspectionDeviceCheckItems.filter(item => item.deviceId === deviceId).length
+function getComponentCount(device: any) {
+  return device.assetComponents?.length || 0
+}
+
+function getConnectionCount(device: any) {
+  return device.connectionObjects?.length || 0
+}
+
+function getDetectionRuleCount(device: any) {
+  const ruleIds = new Set<string>()
+  ;(device.assetComponents || []).forEach((component: any) => {
+    ;(component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId))
+  })
+  ;(device.connectionObjects || []).forEach((connection: any) => {
+    ;(connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId))
+  })
+  return ruleIds.size
 }
 
 function goToForm(id?: string) {
@@ -187,18 +203,6 @@ function goToForm(id?: string) {
 
 function goToDetail(id: string) {
   router.push(`/implementation/device/detail/${id}`)
-}
-
-function goToDetectionConfig(id: string) {
-  router.push(`/implementation/device/detection-config/${id}`)
-}
-
-function goToComponents(id: string) {
-  router.push(`/implementation/device/detail/${id}?tab=components`)
-}
-
-function goToConnections(id: string) {
-  router.push(`/implementation/device/detail/${id}?tab=connections`)
 }
 
 function noopSearch() {

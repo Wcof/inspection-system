@@ -112,7 +112,12 @@ export interface InspectedAssetComponent {
   assetId: string
   name: string
   type: 'valve' | 'meter' | 'temperature_gauge' | 'flange' | 'motor' | 'pipe' | 'cable' | 'joint' | 'sensor' | 'screw' | 'other'
+  subType?: string
+  subTypeName?: string
   ruleIds?: string[]
+  priority?: 'high' | 'medium' | 'low'
+  inspectionCycle?: string
+  inspectionWindow?: string
 }
 
 export interface ConnectionObject {
@@ -127,6 +132,9 @@ export interface ConnectionObject {
   endpointAPath?: [string, string]
   endpointBPath?: [string, string]
   ruleIds?: string[]
+  priority?: 'high' | 'medium' | 'low'
+  inspectionCycle?: string
+  inspectionWindow?: string
   detectionFocus: string
 }
 
@@ -179,6 +187,10 @@ export interface FacilityParkingPointBinding {
   parkingPointId: string
   parkingPointName: string
   componentIds: string[]
+  inspectionMode?: 'fixed' | 'area'
+  parkingPointIds?: string[]
+  parkingPointNames?: string[]
+  targetObjectRefs?: string[]
 }
 
 export interface StandardComponent {
@@ -219,6 +231,7 @@ export interface MapRegion {
   y: number
   width: number
   height: number
+  polygonPoints?: string
 }
 
 export interface InspectionMap {
@@ -338,13 +351,19 @@ export interface InspectionDevice {
   outDate?: string
   factoryNo?: string
   issueDate?: string
+  certificateIssueDate?: string
   systemName?: string
+  usageDepartmentName?: string
   detectionCycle?: string
+  inspectionCycle?: string
+  inspectionWindow?: string
   lastInspectionConclusion?: string
   inspectionWarningDays?: number
   deviceCategory?: string
   custodianPostName?: string
   nfcId?: string
+  institutionApprovalCertificate?: string
+  failureWarningDays?: number
   type: string
   sequence: number
   ptzPreset?: PTZPreset
@@ -389,13 +408,19 @@ export interface InspectionDeviceFormData {
   outDate?: string
   factoryNo?: string
   issueDate?: string
+  certificateIssueDate?: string
   systemName?: string
+  usageDepartmentName?: string
   detectionCycle?: string
+  inspectionCycle?: string
+  inspectionWindow?: string
   lastInspectionConclusion?: string
   inspectionWarningDays?: number
   deviceCategory?: string
   custodianPostName?: string
   nfcId?: string
+  institutionApprovalCertificate?: string
+  failureWarningDays?: number
   type: string
   sequence: number
   ptzPreset?: PTZPreset
@@ -745,6 +770,12 @@ export interface InspectionTask {
   robotId: string
   routeId: string
   snapshotId?: string
+  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard'
+  taskSource?: 'manual_plan' | 'auto_plan' | 'dispatch_insert' | 'auto_recheck' | 'ehs' | 'manual'
+  riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+  exceptionCount?: number
+  uninspectableCount?: number
+  reviewPendingCount?: number
   type: InspectionTaskType
   status: InspectionTaskInstanceStatus
   inspectionPointIds: string[]
@@ -795,6 +826,13 @@ export interface InspectionPlan {
   id: string
   name: string
   code: string
+  planType?: 'manual' | 'auto'
+  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard'
+  riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+  regionIds?: string[]
+  facilityIds?: string[]
+  componentConnectionIds?: string[]
+  ruleIds?: string[]
   startTime?: string
   endTime?: string
   robotId: string
