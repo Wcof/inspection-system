@@ -160,24 +160,6 @@
       </div>
     </a-card>
 
-    <a-card class="panel panel-record">
-      <template #title>
-        <div class="panel-title-wrap">
-          <span>调度记录（今日）</span>
-          <a-tag>{{ records.length }}</a-tag>
-        </div>
-      </template>
-      <a-empty v-if="records.length === 0" description="暂无调度记录" />
-      <a-timeline v-else>
-        <a-timeline-item v-for="record in records" :key="record.id">
-          <div class="record-line">
-            <span class="time">{{ record.time }}</span>
-            <span class="event">{{ record.event }}</span>
-            <a-tag size="small">{{ record.resultStatus }}</a-tag>
-          </div>
-        </a-timeline-item>
-      </a-timeline>
-    </a-card>
   </div>
 </template>
 
@@ -215,15 +197,6 @@ export interface DispatchTask {
   changeReason?: string
 }
 
-export interface DispatchRecordItem {
-  id: string
-  time: string
-  event: string
-  taskName: string
-  resultStatus: 'pending' | 'running' | 'done' | 'rejected'
-  source: 'auto' | 'manual' | 'temp'
-}
-
 type ActionType = 'view-detail' | 'replace-robot' | 'move-up' | 'move-down' | 'cancel-task' | 'accept-auto' | 'view-reason'
 
 defineProps<{
@@ -231,7 +204,6 @@ defineProps<{
   pendingTasks: DispatchTask[]
   pendingProcessTasks: DispatchTask[]
   temporaryTasks: DispatchTask[]
-  records: DispatchRecordItem[]
   mode: 'auto' | 'manual'
   activeFilter?: string
 }>()
@@ -263,7 +235,7 @@ function getFilterText(filter: string) {
 <style scoped lang="css">.board-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas: 'filter filter' 'running running' 'temporary temporary' 'pending pendingProcess' 'record record';
+  grid-template-areas: 'filter filter' 'running running' 'temporary temporary' 'pending pending' 'pendingProcess pendingProcess';
   gap: 12px;
   min-width: 0;
 }
@@ -281,9 +253,6 @@ function getFilterText(filter: string) {
 }
 .panel-process {
   grid-area: pendingProcess;
-}
-.panel-record {
-  grid-area: record;
 }
 .panel-title-wrap {
   display: inline-flex;
@@ -338,19 +307,10 @@ function getFilterText(filter: string) {
   gap: 8px;
   margin-top: 8px;
 }
-.record-line {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.time {
-  color: #999;
-}
 @media (max-width: 1200px) {
   .board-grid {
     grid-template-columns: 1fr;
-    grid-template-areas: 'running' 'pending' 'pendingProcess' 'record';
+    grid-template-areas: 'filter' 'running' 'temporary' 'pending' 'pendingProcess';
   }
 }
 @media (max-width: 768px) {

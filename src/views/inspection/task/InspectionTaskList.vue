@@ -162,6 +162,7 @@ const pageSubTitle = computed(() => {
 const columns = [
   { title: '任务名称', dataIndex: 'name', key: 'name', width: 220 },
   { title: '编码', dataIndex: 'code', key: 'code', width: 160 },
+  { title: '状态', key: 'status', width: 100 },
   { title: '所属规划', key: 'planSource', width: 180 },
   { title: '规划类型', key: 'planType', width: 110 },
   { title: '任务场景', key: 'businessScene', width: 130 },
@@ -172,7 +173,6 @@ const columns = [
   { title: '巡检规则数', dataIndex: 'ruleCount', key: 'ruleCount', width: 120 },
   { title: '执行机器人', key: 'robot', width: 150 },
   { title: '异常数', dataIndex: 'exceptionCount', key: 'exceptionCount', width: 90 },
-  { title: '状态', key: 'status', width: 100 },
   { title: '执行时间', key: 'timeRange', width: 280 },
   { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 180 },
   { title: '操作', key: 'actions', width: 100, fixed: 'right' }

@@ -214,13 +214,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
 
 type PlanRow = any
 
 const router = useRouter()
+const route = useRoute()
 const inspectionStore = useInspectionStore()
 const loading = ref(false)
 const plans = ref<PlanRow[]>([])
@@ -492,6 +493,13 @@ function deletePlan(record: PlanRow) {
 }
 
 onMounted(fetchPlans)
+
+onMounted(() => {
+  const name = String(route.query.name || '').trim()
+  if (name) {
+    searchForm.name = name
+  }
+})
 </script>
 
 <style scoped lang="css">.inspection-plan-list {

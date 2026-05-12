@@ -56,46 +56,48 @@
         </a-table>
         <a-button @click="addResult">新增结果</a-button>
 
-        <a-divider orientation="left">适用对象范围</a-divider>
-        <a-alert
-          type="info"
-          show-icon
-          style="margin-bottom: 12px"
-          message="这里仅回显设施管理中已经绑定这条规则的对象，数据来源于设施内的部件/连接检测规则配置；如需调整适用对象，请到设施管理中维护。"
-        />
-        <a-table
-          :data-source="applicableTargetRows"
-          row-key="id"
-          :pagination="false"
-          size="small"
-          :scroll="{ x: 920 }"
-          style="margin-bottom: 8px"
-        >
-          <a-table-column title="适用对象" width="280">
-            <template #default="{ record }">
-              {{ record.deviceName }}
-            </template>
-          </a-table-column>
-          <a-table-column title="适用部件/连接" width="300">
-            <template #default="{ record }">
-              {{ record.subjectName }}
-            </template>
-          </a-table-column>
-          <a-table-column title="部件类型/连接类型" width="180">
-            <template #default="{ record }">
-              {{ record.subjectTypeName || '-' }}
-            </template>
-          </a-table-column>
-          <a-table-column title="对象类型" width="120">
-            <template #default="{ record }">
-              <a-tag v-if="record.subjectType" :color="record.subjectType === 'connection' ? 'purple' : 'blue'">
-                {{ record.subjectType === 'connection' ? '连接' : '部件' }}
-              </a-tag>
-              <span v-else>-</span>
-            </template>
-          </a-table-column>
-        </a-table>
-        <a-empty v-if="!applicableTargetRows.length" description="设施管理中暂未绑定这条检测规则" />
+        <template v-if="isEdit">
+          <a-divider orientation="left">适用对象范围</a-divider>
+          <a-alert
+            type="info"
+            show-icon
+            style="margin-bottom: 12px"
+            message="这里仅回显设施管理中已经绑定这条规则的对象，数据来源于设施内的部件/连接检测规则配置；如需调整适用对象，请到设施管理中维护。"
+          />
+          <a-table
+            :data-source="applicableTargetRows"
+            row-key="id"
+            :pagination="false"
+            size="small"
+            :scroll="{ x: 920 }"
+            style="margin-bottom: 8px"
+          >
+            <a-table-column title="适用对象" width="280">
+              <template #default="{ record }">
+                {{ record.deviceName }}
+              </template>
+            </a-table-column>
+            <a-table-column title="适用部件/连接" width="300">
+              <template #default="{ record }">
+                {{ record.subjectName }}
+              </template>
+            </a-table-column>
+            <a-table-column title="部件类型/连接类型" width="180">
+              <template #default="{ record }">
+                {{ record.subjectTypeName || '-' }}
+              </template>
+            </a-table-column>
+            <a-table-column title="对象类型" width="120">
+              <template #default="{ record }">
+                <a-tag v-if="record.subjectType" :color="record.subjectType === 'connection' ? 'purple' : 'blue'">
+                  {{ record.subjectType === 'connection' ? '连接' : '部件' }}
+                </a-tag>
+                <span v-else>-</span>
+              </template>
+            </a-table-column>
+          </a-table>
+          <a-empty v-if="!applicableTargetRows.length" description="设施管理中暂未绑定这条检测规则" />
+        </template>
 
         <div style="margin-top:16px;display:flex;justify-content:flex-end">
           <a-space>

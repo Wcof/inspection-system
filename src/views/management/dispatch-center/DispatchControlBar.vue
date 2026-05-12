@@ -16,19 +16,9 @@
           </div>
           <div class="control-item">
             <span class="label">统计范围</span>
-            <a-select :value="control.robotId" style="width: 210px" @update:value="(value?: string) => updateControl('robotId', value || '')" allow-clear placeholder="所有机器人今日任务">
+            <a-select :value="control.robotId" style="width: 210px" @update:value="(value?: string) => updateControl('robotId', value || '__all__')" allow-clear placeholder="全部（全部机器人）今日任务">
               <a-select-option v-for="robot in robotOptions" :key="robot.value" :value="robot.value">{{ robot.label }}</a-select-option>
             </a-select>
-          </div>
-          <div class="control-item">
-            <a-checkbox :checked="control.allowAutoCreate" :disabled="control.autoDispatchEnabled" @update:checked="(value: boolean) => updateControl('allowAutoCreate', value)">
-              允许自动创建任务
-            </a-checkbox>
-          </div>
-          <div class="control-item">
-            <a-checkbox :checked="control.allowQueueJump" :disabled="control.autoDispatchEnabled" @update:checked="(value: boolean) => updateControl('allowQueueJump', value)">
-              允许任务插队
-            </a-checkbox>
           </div>
         </a-space>
         <div class="mode-hint">

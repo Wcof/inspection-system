@@ -24,7 +24,7 @@
 
           <a-row :gutter="16">
             <a-col :span="8"><a-form-item label="责任人" required><a-input v-model:value="form.owner" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="设备状态"><a-select v-model:value="form.status"><a-select-option value="active">在用</a-select-option><a-select-option value="inactive">停用</a-select-option><a-select-option value="maintenance">维护中</a-select-option><a-select-option value="scrapped">报废</a-select-option></a-select></a-form-item></a-col>
+            <a-col :span="8"><a-form-item label="设施状态"><a-select v-model:value="form.status"><a-select-option value="active">在用</a-select-option><a-select-option value="inactive">停用</a-select-option><a-select-option value="maintenance">维护中</a-select-option><a-select-option value="scrapped">报废</a-select-option></a-select></a-form-item></a-col>
             <a-col :span="8"><a-form-item label="出厂厂家"><a-input v-model:value="form.manufacturer" /></a-form-item></a-col>
           </a-row>
 
@@ -117,11 +117,6 @@
                     </a-select>
                   </template>
                 </a-table-column>
-                <a-table-column title="检测规则" width="340">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.ruleIds" mode="multiple" style="width: 100%" :options="getComponentRuleOptions(record)" option-filter-prop="label" show-search />
-                  </template>
-                </a-table-column>
                 <a-table-column title="优先级" width="130">
                   <template #default="{ record }">
                     <a-select v-model:value="record.priority" style="width: 100%" allow-clear placeholder="继承设施">
@@ -129,6 +124,11 @@
                       <a-select-option value="medium">中</a-select-option>
                       <a-select-option value="low">低</a-select-option>
                     </a-select>
+                  </template>
+                </a-table-column>
+                <a-table-column title="检测规则" width="340">
+                  <template #default="{ record }">
+                    <a-select v-model:value="record.ruleIds" mode="multiple" style="width: 100%" :options="getComponentRuleOptions(record)" option-filter-prop="label" show-search />
                   </template>
                 </a-table-column>
                 <a-table-column title="巡检周期" width="150">
@@ -179,11 +179,6 @@
                     </a-select>
                   </template>
                 </a-table-column>
-                <a-table-column title="检测规则" width="320">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.ruleIds" mode="multiple" style="width: 100%" :options="connectionRuleOptions" option-filter-prop="label" show-search />
-                  </template>
-                </a-table-column>
                 <a-table-column title="优先级" width="130">
                   <template #default="{ record }">
                     <a-select v-model:value="record.priority" style="width: 100%" allow-clear placeholder="继承设施">
@@ -191,6 +186,11 @@
                       <a-select-option value="medium">中</a-select-option>
                       <a-select-option value="low">低</a-select-option>
                     </a-select>
+                  </template>
+                </a-table-column>
+                <a-table-column title="检测规则" width="320">
+                  <template #default="{ record }">
+                    <a-select v-model:value="record.ruleIds" mode="multiple" style="width: 100%" :options="connectionRuleOptions" option-filter-prop="label" show-search />
                   </template>
                 </a-table-column>
                 <a-table-column title="巡检周期" width="150">
@@ -407,7 +407,7 @@ const route = useRoute()
 const router = useRouter()
 const inspectionStore = useInspectionStore()
 const isEdit = computed(() => Boolean(route.params.id))
-const defaultDeviceImage = new URL('../../../设备.png', import.meta.url).href
+const defaultDeviceImage = new URL('../../../设施.png', import.meta.url).href
 const fallbackMapBackgroundUrl = new URL('../../../地图.png', import.meta.url).href
 
 const form = reactive<any>({

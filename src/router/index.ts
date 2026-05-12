@@ -336,7 +336,7 @@ const routes: RouteRecordRaw[] = [
             path: 'iot-list',
             name: 'ImplementationIoTDeviceList',
             component: () => import('../views/inspection/device/IoTDeviceList.vue'),
-            meta: { title: '设备管理' }
+            meta: { title: '网络设备管理' }
           },
           {
             path: 'component-types',

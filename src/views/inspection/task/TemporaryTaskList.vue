@@ -131,6 +131,7 @@ const searchForm = reactive({
 const columns = [
   { title: '任务名称', dataIndex: 'name', key: 'name', width: 220 },
   { title: '编码', dataIndex: 'code', key: 'code', width: 160 },
+  { title: '状态', key: 'status', width: 100 },
   { title: '任务类型', key: 'taskType', width: 110 },
   { title: '任务场景', key: 'businessScene', width: 130 },
   { title: '巡检区域', key: 'regionNames', width: 220 },
@@ -139,7 +140,6 @@ const columns = [
   { title: '巡检规则数', dataIndex: 'ruleCount', key: 'ruleCount', width: 120 },
   { title: '执行机器人', key: 'robot', width: 150 },
   { title: '异常数', dataIndex: 'exceptionCount', key: 'exceptionCount', width: 90 },
-  { title: '状态', key: 'status', width: 100 },
   { title: '执行时间', key: 'timeRange', width: 280 },
   { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 180 },
   { title: '操作', key: 'actions', width: 100, fixed: 'right' }
@@ -258,7 +258,7 @@ function enrichTemporaryTask(task: any, index: number) {
     businessScene: task.businessScene || (task.dispatchType === 'recheck' ? 'hazard_screening' : 'daily_inspection'),
     taskSource: task.taskSource || (task.dispatchType === 'recheck' ? 'auto_recheck' : 'dispatch_insert'),
     riskLevel: task.riskLevel || (task.dispatchType === 'recheck' ? 'alarm' : 'normal'),
-    robotName: task.robotName || robotStore.robots.find((robot: any) => robot.id === task.robotId)?.name || '机器人A001',
+    robotName: task.robotName || robotStore.robots.find((robot: any) => robot.id === task.robotId)?.name || '巡检机器人-01',
     regionNames: regionIds.map((id) => getRegionName(String(id))),
     facilityCount: facilities.length,
     componentConnectionCount: facilities.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0) + (device.connectionObjects?.length || 0), 0),
@@ -281,8 +281,8 @@ function fetchTasks() {
         tempTaskType: task.tempTaskType || inferTempTaskType(task),
         dispatchType: task.dispatchType || inferDispatchType(task),
         targetObject: task.targetObject || inferTargetObject(task),
-        affectedTaskName: task.affectedTaskName || '计划巡检-反应装置区',
-        robotName: task.robotName || '机器人A001',
+        affectedTaskName: task.affectedTaskName || '每日例行巡检',
+        robotName: task.robotName || '巡检机器人-01',
         targetPointName: task.targetPointName || inferTargetPointName(task),
         initiator: task.initiator || '调度员-王磊',
         schedule: {
@@ -319,26 +319,28 @@ function inferDispatchType(task: any): 'insert' | 'recheck' | 'charging' | 'park
 
 function inferTargetObject(task: any): string {
   const name = String(task?.name || '')
-  if (name.includes('配电柜')) return '配电柜A15'
-  if (name.includes('电机')) return '电机B07'
-  if (name.includes('危化')) return '危化区环境'
+  if (name.includes('反应釜')) return '1号反应釜温度计'
+  if (name.includes('压力')) return '1号反应釜压力表'
+  if (name.includes('储罐') || name.includes('液位')) return '储罐液位计'
   return '巡检对象'
 }
 
 function inferTargetPointName(task: any): string {
   const ids = task?.inspectionPointIds || []
-  if (ids.length === 0) return '站内临时点'
+  if (ids.includes('point-001')) return '反应釜车间巡检点'
+  if (ids.includes('point-002')) return '储罐区巡检点'
+  if (ids.length === 0) return '机器人充电区'
   return `巡检点-${ids[0]}`
 }
 
 function buildMockTemporaryTasks(count: number): any[] {
   const templates = [
-    { type: 'inspection', name: '临时复检-配电柜A15', target: 'A区配电房-巡检点A12', initiator: '系统自动派发', status: 'pending' },
-    { type: 'inspection', name: '临时巡检-危化仓入口', target: '危化区-巡检点C03', initiator: '值班长-李航', status: 'running' },
-    { type: 'charging', name: '临时充电-机器人A003', target: '北侧充电站-C2', initiator: '调度员-赵敏', status: 'completed' },
-    { type: 'parking', name: '临时停车-机器人A001', target: '应急停车点-P1', initiator: '系统安全策略', status: 'pending' },
-    { type: 'inspection', name: '临时补检-电机B07', target: 'B区机房-巡检点B07', initiator: '调度员-王磊', status: 'failed' },
-    { type: 'inspection', name: '临时巡检-消防通道', target: '生产车间2层-巡检点D11', initiator: '安全员-周晨', status: 'cancelled' }
+    { type: 'inspection', name: '临时复检-1号反应釜温度计', target: '反应釜车间巡检点', pointIds: ['point-001'], initiator: '系统自动派发', status: 'pending' },
+    { type: 'inspection', name: '临时复检-储罐液位计', target: '储罐区巡检点', pointIds: ['point-002'], initiator: '值班长-李航', status: 'running' },
+    { type: 'charging', name: '临时充电-巡检机器人-02', target: '机器人充电区', pointIds: [], initiator: '调度员-赵敏', status: 'completed' },
+    { type: 'parking', name: '临时停车-巡检机器人-01', target: '机器人充电区', pointIds: [], initiator: '系统安全策略', status: 'pending' },
+    { type: 'inspection', name: '临时补检-1号反应釜压力表', target: '反应釜车间巡检点', pointIds: ['point-001'], initiator: '调度员-王磊', status: 'failed' },
+    { type: 'inspection', name: '临时巡检-储罐区巡检点', target: '储罐区巡检点', pointIds: ['point-002'], initiator: '安全员-周晨', status: 'cancelled' }
   ]
 
   return Array.from({ length: count }).map((_, index) => {
@@ -350,16 +352,16 @@ function buildMockTemporaryTasks(count: number): any[] {
       name: t.name,
       code: `TEMP-${String(index + 1).padStart(3, '0')}`,
       planId: undefined,
-      robotId: `robot-00${(index % 3) + 1}`,
-      inspectionPointIds: t.type === 'inspection' ? [`point-${String(index + 11).padStart(3, '0')}`] : [],
+      robotId: `robot-00${(index % 2) + 1}`,
+      inspectionPointIds: t.pointIds,
       status: t.status,
       tempTaskType: t.type,
       dispatchType: inferDispatchType({ name: t.name }),
       targetObject: inferTargetObject({ name: t.name }),
       targetPointName: t.target,
       initiator: t.initiator,
-      affectedTaskName: index % 2 === 0 ? '日常巡检-反应装置区' : '隐患排查-阀门法兰组',
-      robotName: `机器人A00${(index % 3) + 1}`,
+      affectedTaskName: index % 2 === 0 ? '每日例行巡检' : '每周安全巡检',
+      robotName: `巡检机器人-0${(index % 2) + 1}`,
       createdAt: start.toISOString(),
       schedule: {
         startTime: start.toISOString(),
