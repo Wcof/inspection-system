@@ -232,6 +232,7 @@ export interface MapRegion {
   width: number
   height: number
   polygonPoints?: string
+  showName?: boolean
 }
 
 export interface InspectionMap {

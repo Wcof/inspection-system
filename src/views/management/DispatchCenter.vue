@@ -10,13 +10,18 @@
 
     <DispatchControlBar
       :control="control"
+      :robot-options="robotOptions"
       @update:control="onControlUpdate"
       @create-temporary="openTemporary()"
       @coverage-check="showCoverageCheck"
       @refresh="refreshData"
     />
 
-    <DispatchSummaryCards :summary="summary" />
+    <DispatchSummaryCards :summary="summary" :active-filter="activeSummaryFilter" @filter="handleSummaryFilter" />
+    <div class="scope-bar">
+      当前统计范围：{{ currentScopeText }}
+      <a-button v-if="activeSummaryFilter" type="link" size="small" @click="activeSummaryFilter = ''">清除列表过滤</a-button>
+    </div>
 
     <div class="content-layout">
       <div class="map-panel">
@@ -27,8 +32,10 @@
           :running-tasks="runningTasks"
           :pending-tasks="pendingTasks"
           :pending-process-tasks="pendingProcessTasks"
+          :temporary-tasks="temporaryTasks"
           :records="records"
           :mode="control.mode"
+          :active-filter="activeSummaryFilter"
           @task-action="handleTaskAction"
         />
       </div>
@@ -75,7 +82,12 @@
             <a-empty v-if="coverageResult.missingRegions.length === 0" description="无遗漏区域" />
             <div v-for="item in coverageResult.missingRegions" :key="item.regionId" class="coverage-missing-item">
               <div class="coverage-title">{{ item.regionName }}</div>
-              <div class="coverage-meta">该区域在当前调度窗口内没有有效执行任务覆盖</div>
+              <div class="coverage-meta">所属任务：{{ item.taskName }}（{{ item.taskNo }}）</div>
+              <div class="coverage-meta">所属规划：{{ item.planName }}</div>
+              <a-space size="small" style="margin-top: 6px">
+                <a-button size="small" type="link" @click="goTask(item.taskId)">任务</a-button>
+                <a-button size="small" type="link" @click="goPlan(item.planId)">规划</a-button>
+              </a-space>
             </div>
           </a-card>
         </a-col>
@@ -85,6 +97,8 @@
             <div v-for="item in coverageResult.missingDevices" :key="item.deviceId" class="coverage-missing-item danger">
               <div class="coverage-title">{{ item.deviceName }}</div>
               <div class="coverage-meta">所属区域：{{ item.regionName }}</div>
+              <div class="coverage-meta">所属任务：{{ item.taskName }}（{{ item.taskNo }}）</div>
+              <div class="coverage-meta">所属规划：{{ item.planName }}</div>
             </div>
           </a-card>
         </a-col>
@@ -94,6 +108,8 @@
             <div v-for="item in coverageResult.missingSubjects" :key="item.subjectId" class="coverage-missing-item warning">
               <div class="coverage-title">{{ item.subjectName }}</div>
               <div class="coverage-meta">{{ item.regionName }} / {{ item.deviceName }} / {{ item.subjectType }}</div>
+              <div class="coverage-meta">所属任务：{{ item.taskName }}（{{ item.taskNo }}）</div>
+              <div class="coverage-meta">所属规划：{{ item.planName }}</div>
             </div>
           </a-card>
         </a-col>
@@ -103,6 +119,8 @@
             <div v-for="item in coverageResult.missingRules" :key="item.id" class="coverage-missing-item warning">
               <div class="coverage-title">{{ item.ruleName }}</div>
               <div class="coverage-meta">{{ item.regionName }} / {{ item.deviceName }} / {{ item.subjectName }}</div>
+              <div class="coverage-meta">所属任务：{{ item.taskName }}（{{ item.taskNo }}）</div>
+              <div class="coverage-meta">所属规划：{{ item.planName }}</div>
             </div>
           </a-card>
         </a-col>
@@ -141,6 +159,36 @@
     </a-modal>
 
     <a-modal
+      v-model:open="cancelVisible"
+      title="取消任务"
+      ok-text="确认取消"
+      cancel-text="返回"
+      :ok-button-props="{ disabled: !cancelReason.trim() }"
+      @ok="confirmCancelTask"
+    >
+      <a-alert type="warning" show-icon style="margin-bottom: 12px" :message="`取消任务：${cancelTarget?.name || '-'}`" />
+      <a-form layout="vertical">
+        <a-form-item label="取消原因" required>
+          <a-textarea v-model:value="cancelReason" :rows="4" placeholder="请填写取消原因，作为人工确认不再补检的依据" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
+      v-model:open="supplementLevelVisible"
+      title="人工补充任务"
+      ok-text="继续创建"
+      cancel-text="取消"
+      @ok="confirmManualSupplementCoverage"
+    >
+      <a-alert type="info" show-icon style="margin-bottom: 12px" message="重复漏检或长期缺失请选择巡检规划；单次缺失、补检、临时处置请选择临时任务。" />
+      <a-radio-group v-model:value="manualHandlingLevel">
+        <a-radio value="temporary">临时任务</a-radio>
+        <a-radio value="plan">巡检规划</a-radio>
+      </a-radio-group>
+    </a-modal>
+
+    <a-modal
       v-model:open="replaceRobotVisible"
       title="替换机器人"
       ok-text="确认替换"
@@ -176,12 +224,12 @@ import DispatchBoardColumns from './dispatch-center/DispatchBoardColumns.vue'
 import DispatchMapPanel from './dispatch-center/DispatchMapPanel.vue'
 import TemporaryDispatchModal from './dispatch-center/TemporaryDispatchModal.vue'
 import type { DispatchControlState } from './dispatch-center/DispatchControlBar.vue'
-import type { DispatchSummary } from './dispatch-center/DispatchSummaryCards.vue'
+import type { DispatchSummary, SummaryFilter } from './dispatch-center/DispatchSummaryCards.vue'
 import type { DispatchTask, DispatchRecordItem } from './dispatch-center/DispatchBoardColumns.vue'
 import type { MapMarker } from './dispatch-center/DispatchMapPanel.vue'
 import type { TemporaryDispatchForm, ConflictTaskItem } from './dispatch-center/TemporaryDispatchModal.vue'
 
-interface RobotState { id: string; name: string; status: 'idle' | 'running' | 'charging' }
+interface RobotState { id: string; name: string; status: 'idle' | 'running' | 'charging'; dailyCapacity: number }
 type PendingManualStatus = 'pending' | 'processing' | 'resolved'
 interface PendingManualItem {
   id: string
@@ -195,14 +243,21 @@ interface PendingManualItem {
   assignedRobotName?: string
   manualStatus: PendingManualStatus
 }
-interface MissingRegionItem { regionId: string; regionName: string }
-interface MissingDeviceItem { deviceId: string; deviceName: string; regionName: string }
-interface MissingSubjectItem { subjectId: string; subjectName: string; subjectType: string; deviceName: string; regionName: string }
-interface MissingRuleItem { id: string; ruleName: string; subjectName: string; deviceName: string; regionName: string }
+interface CoverageLinkMeta { taskId: string; taskName: string; taskNo: string; planId: string; planName: string }
+interface MissingRegionItem extends CoverageLinkMeta { regionId: string; regionName: string }
+interface MissingDeviceItem extends CoverageLinkMeta { deviceId: string; deviceName: string; regionName: string }
+interface MissingSubjectItem extends CoverageLinkMeta { subjectId: string; subjectName: string; subjectType: string; deviceName: string; regionName: string }
+interface MissingRuleItem extends CoverageLinkMeta { id: string; ruleName: string; subjectName: string; deviceName: string; regionName: string }
 
-const control = reactive<DispatchControlState>({ autoDispatchEnabled: true, allowAutoCreate: true, allowQueueJump: true, mode: 'auto', pointKeyword: '' })
+const control = reactive<DispatchControlState>({ autoDispatchEnabled: true, allowAutoCreate: true, allowQueueJump: true, mode: 'auto', pointKeyword: '', robotId: '' })
+const activeSummaryFilter = ref<SummaryFilter | ''>('')
 const temporaryVisible = ref(false)
 const temporaryPrefill = ref<Partial<TemporaryDispatchForm>>({})
+const supplementLevelVisible = ref(false)
+const manualHandlingLevel = ref<'temporary' | 'plan'>('temporary')
+const cancelVisible = ref(false)
+const cancelTarget = ref<DispatchTask | null>(null)
+const cancelReason = ref('')
 const coverageVisible = ref(false)
 const coverageResult = reactive<{
   hasMissing: boolean
@@ -214,18 +269,18 @@ const coverageResult = reactive<{
 }>({
   hasMissing: true,
   missingRegions: [
-    { regionId: 'region-b', regionName: '二期装置区 / B区' }
+    { regionId: 'region-b', regionName: '二期装置区 / B区', taskId: 'task-002', taskName: '作业监护-办公区', taskNo: 'TASK-20260512-002', planId: 'plan-002', planName: '今日执行规划-办公区' }
   ],
   missingDevices: [
-    { deviceId: 'device-a15', deviceName: '配电柜A15', regionName: '一期装置区 / A区' }
+    { deviceId: 'device-a15', deviceName: '配电柜A15', regionName: '一期装置区 / A区', taskId: 'task-004', taskName: '自动补检-配电柜A15', taskNo: 'TASK-20260512-004', planId: 'plan-004', planName: '配电柜补检规划' }
   ],
   missingSubjects: [
-    { subjectId: 'subject-valve-01', subjectName: '入口阀门', subjectType: '部件', deviceName: '1号循环泵', regionName: '一期装置区 / A区' },
-    { subjectId: 'subject-flange-02', subjectName: '出口法兰连接处', subjectType: '连接', deviceName: '2号反应釜', regionName: '二期装置区 / B区' }
+    { subjectId: 'subject-valve-01', subjectName: '入口阀门', subjectType: '部件', deviceName: '1号循环泵', regionName: '一期装置区 / A区', taskId: 'task-001', taskName: '日常巡检-变电站A区', taskNo: 'TASK-20260512-001', planId: 'plan-001', planName: 'A区日常巡检规划' },
+    { subjectId: 'subject-flange-02', subjectName: '出口法兰连接处', subjectType: '连接', deviceName: '2号反应釜', regionName: '二期装置区 / B区', taskId: 'task-002', taskName: '作业监护-办公区', taskNo: 'TASK-20260512-002', planId: 'plan-002', planName: '今日执行规划-办公区' }
   ],
   missingRules: [
-    { id: 'rule-missing-1', ruleName: '未配置阀门开闭识别规则', subjectName: '入口阀门', deviceName: '1号循环泵', regionName: '一期装置区 / A区' },
-    { id: 'rule-missing-2', ruleName: '未配置红外温升检测规则', subjectName: '电机轴承', deviceName: '风机F02', regionName: '公用工程区 / C区' }
+    { id: 'rule-missing-1', ruleName: '未配置阀门开闭识别规则', subjectName: '入口阀门', deviceName: '1号循环泵', regionName: '一期装置区 / A区', taskId: 'task-001', taskName: '日常巡检-变电站A区', taskNo: 'TASK-20260512-001', planId: 'plan-001', planName: 'A区日常巡检规划' },
+    { id: 'rule-missing-2', ruleName: '未配置红外温升检测规则', subjectName: '电机轴承', deviceName: '风机F02', regionName: '公用工程区 / C区', taskId: 'task-004', taskName: '自动补检-配电柜A15', taskNo: 'TASK-20260512-004', planId: 'plan-004', planName: '配电柜补检规划' }
   ],
   pendingManual: [
     { id: 'manual-1', name: '危化区临时复检', type: '补检任务', suggestion: '建议人工确认后插入执行队列', suggestedAction: '插单', affectedTaskName: '日常巡检-危化区', riskLevel: 'critical_alarm', manualStatus: 'pending' },
@@ -248,11 +303,11 @@ const replaceTarget = ref<PendingManualItem | null>(null)
 const selectedRobotId = ref<string>()
 
 const robots = ref<RobotState[]>([
-  { id: 'robot-001', name: '机器人A001', status: 'running' },
-  { id: 'robot-002', name: '机器人A002', status: 'running' },
-  { id: 'robot-003', name: '机器人A003', status: 'running' },
-  { id: 'robot-004', name: '机器人A004', status: 'idle' },
-  { id: 'robot-005', name: '系统调度分配', status: 'running' }
+  { id: 'robot-001', name: '机器人A001', status: 'running', dailyCapacity: 8 },
+  { id: 'robot-002', name: '机器人A002', status: 'running', dailyCapacity: 7 },
+  { id: 'robot-003', name: '机器人A003', status: 'running', dailyCapacity: 6 },
+  { id: 'robot-004', name: '机器人A004', status: 'idle', dailyCapacity: 8 },
+  { id: 'robot-005', name: '系统调度分配', status: 'running', dailyCapacity: 10 }
 ])
 
 const tasks = ref<DispatchTask[]>([
@@ -279,12 +334,23 @@ const mapMarkers = ref<MapMarker[]>([
 
 const visibleMapMarkers = computed(() => {
   const keyword = control.pointKeyword.trim().toLowerCase()
-  if (!keyword) return mapMarkers.value
-  return mapMarkers.value.filter((marker) => marker.markerType !== 'inspection' || marker.label.toLowerCase().includes(keyword))
+  const robotId = control.robotId
+  return mapMarkers.value.filter((marker) => {
+    const matchesKeyword = !keyword || marker.markerType !== 'inspection' || marker.label.toLowerCase().includes(keyword)
+    const matchesRobot = !robotId || marker.relatedRobotId === robotId || marker.markerType !== 'robot'
+    return matchesKeyword && matchesRobot
+  })
 })
-const runningTasks = computed(() => tasks.value.filter((task) => task.status === 'running'))
-const pendingTasks = computed(() => tasks.value.filter((task) => task.status === 'pending').sort((a, b) => (a.queueOrder || 99) - (b.queueOrder || 99)))
-const pendingProcessTasks = computed(() => tasks.value.filter((task) => task.status === 'auto_pending' || task.status === 'conflict'))
+const scopedTasks = computed(() => {
+  if (!control.robotId) return tasks.value
+  const robot = robots.value.find(item => item.id === control.robotId)
+  if (!robot) return tasks.value
+  return tasks.value.filter(task => task.robotName === robot.name)
+})
+const runningTasks = computed(() => filterTasks(scopedTasks.value.filter((task) => task.status === 'running'), 'running'))
+const pendingTasks = computed(() => filterTasks(scopedTasks.value.filter((task) => task.status === 'pending').sort((a, b) => (a.queueOrder || 99) - (b.queueOrder || 99)), 'pending'))
+const pendingProcessTasks = computed(() => filterTasks(scopedTasks.value.filter((task) => task.status === 'auto_pending' || task.status === 'conflict'), 'processing'))
+const temporaryTasks = computed(() => filterTasks(scopedTasks.value.filter(task => task.type === 'temp'), 'temporary'))
 const robotOptions = computed(() => robots.value.map((robot) => ({ value: robot.id, label: robot.name })))
 const inspectionPointOptions = computed(() => mapMarkers.value.filter((m) => m.markerType === 'inspection').map((m) => ({ value: m.id, label: m.label })))
 const chargingPointOptions = computed(() => mapMarkers.value.filter((m) => m.markerType === 'charging').map((m) => ({ value: m.id, label: m.label })))
@@ -292,7 +358,7 @@ const parkingPointOptions = computed(() => mapMarkers.value.filter((m) => m.mark
 const conflictCandidates = computed<ConflictTaskItem[]>(() => [...runningTasks.value, ...pendingTasks.value].map((task) => ({ id: task.id, name: task.name, robotId: robotOptions.value.find((item) => item.label === task.robotName)?.value || task.robotName, robotName: task.robotName, scheduledAt: task.scheduledAt || task.startedAt || '-', status: task.status === 'running' ? 'running' : 'pending', typeLabel: task.typeLabel })))
 const robotLoadMap = computed(() => {
   const map = new Map<string, number>()
-  tasks.value.forEach((task) => {
+  scopedTasks.value.forEach((task) => {
     if (!['running', 'pending', 'auto_pending', 'conflict'].includes(task.status)) return
     const robot = robots.value.find((item) => item.name === task.robotName)
     if (!robot) return
@@ -311,17 +377,37 @@ const replaceRobotOptions = computed(() => {
     })
     .map((robot) => ({
       value: robot.id,
-      label: `${robot.name}（${getRobotStatusText(robot.status)} / 负载${robotLoadMap.value.get(robot.id) || 0}）`
+      label: `${robot.name}（${getRobotStatusText(robot.status)} / 负载${robotLoadMap.value.get(robot.id) || 0}/${robot.dailyCapacity}）`
     }))
 })
 const recommendedRobotId = computed(() => replaceRobotOptions.value[0]?.value as string | undefined)
 
 const summary = computed<DispatchSummary>(() => ({
-  timeRange: control.pointKeyword ? `今日 / 15:42:02 / 关键字：${control.pointKeyword}` : '今日 / 15:42:02',
-  task: { total: tasks.value.length, running: runningTasks.value.length, pending: pendingTasks.value.length, processing: pendingProcessTasks.value.length },
+  timeRange: currentScopeText.value,
+  task: {
+    total: scopedTasks.value.length,
+    running: scopedTasks.value.filter(task => task.status === 'running').length,
+    pending: scopedTasks.value.filter(task => task.status === 'pending').length,
+    processing: scopedTasks.value.filter(task => task.status === 'auto_pending' || task.status === 'conflict').length
+  },
   plan: { total: 18, manual: 6, auto: 12 },
-  temporary: { total: tasks.value.filter((task) => task.type === 'temp').length, pending: pendingProcessTasks.value.length, dispatched: tasks.value.filter((task) => task.type === 'temp' && task.status !== 'auto_pending').length }
+  temporary: { total: scopedTasks.value.filter((task) => task.type === 'temp').length, pending: scopedTasks.value.filter((task) => task.type === 'temp' && task.status === 'auto_pending').length, dispatched: scopedTasks.value.filter((task) => task.type === 'temp' && task.status !== 'auto_pending').length }
 }))
+
+const currentScopeText = computed(() => {
+  const robot = robots.value.find(item => item.id === control.robotId)
+  const scope = robot ? `${robot.name}今日任务` : '所有机器人今日任务'
+  return control.pointKeyword ? `${scope} / 关键字：${control.pointKeyword}` : scope
+})
+
+function filterTasks(source: DispatchTask[], ownFilter: SummaryFilter) {
+  if (!activeSummaryFilter.value || activeSummaryFilter.value === ownFilter) return source
+  return []
+}
+
+function handleSummaryFilter(value: SummaryFilter) {
+  activeSummaryFilter.value = activeSummaryFilter.value === value ? '' : value
+}
 
 function onControlUpdate(value: DispatchControlState) {
   const prevMode = control.mode
@@ -346,7 +432,15 @@ function openTemporaryFromMap(payload: any) {
 }
 function refreshData() { message.success('调度数据已刷新') }
 function showCoverageCheck() { coverageVisible.value = true }
-function handleTaskAction(payload: { type: string; task: DispatchTask }) { message.info(`已触发操作：${payload.type} / ${payload.task.name}`) }
+function handleTaskAction(payload: { type: string; task: DispatchTask }) {
+  if (payload.type === 'cancel-task') {
+    cancelTarget.value = payload.task
+    cancelReason.value = ''
+    cancelVisible.value = true
+    return
+  }
+  message.info(`已触发操作：${payload.type} / ${payload.task.name}`)
+}
 function getRobotStatusText(status: RobotState['status']) {
   return ({ idle: '空闲', running: '执行中', charging: '充电中' } as Record<RobotState['status'], string>)[status]
 }
@@ -465,6 +559,17 @@ function autoSupplementCoverage() {
   message.success('已自动补充调度任务')
 }
 function manualSupplementCoverage() {
+  manualHandlingLevel.value = 'temporary'
+  supplementLevelVisible.value = true
+}
+function confirmManualSupplementCoverage() {
+  if (manualHandlingLevel.value === 'plan') {
+    records.value.unshift({ id: `record-${Date.now()}`, time: new Date().toLocaleTimeString(), event: '覆盖检查人工确认：进入巡检规划调整', taskName: '巡检规划调整', resultStatus: 'pending', source: 'manual' })
+    supplementLevelVisible.value = false
+    coverageVisible.value = false
+    message.success('已记录为巡检规划级处理')
+    return
+  }
   const firstPoint = inspectionPointOptions.value[0]?.value
   temporaryPrefill.value = {
     name: '人工补充任务',
@@ -475,8 +580,32 @@ function manualSupplementCoverage() {
     reason: '覆盖检查发现遗漏，需人工补充'
   }
   coverageVisible.value = false
+  supplementLevelVisible.value = false
   temporaryVisible.value = true
   message.info('已打开手动创建任务弹窗，可补充遗漏任务')
+}
+function confirmCancelTask() {
+  if (!cancelTarget.value || !cancelReason.value.trim()) return
+  const task = cancelTarget.value
+  task.status = 'cancelled'
+  records.value.unshift({
+    id: `record-${Date.now()}`,
+    time: new Date().toLocaleTimeString(),
+    event: `取消任务：${task.name}，原因：${cancelReason.value.trim()}`,
+    taskName: task.name,
+    resultStatus: 'rejected',
+    source: 'manual'
+  })
+  cancelVisible.value = false
+  cancelTarget.value = null
+  cancelReason.value = ''
+  message.success('任务已取消，取消原因已记录为人工确认依据')
+}
+function goTask(taskId: string) {
+  message.info(`跳转到任务：${taskId}`)
+}
+function goPlan(planId: string) {
+  message.info(`跳转到执行规划：${planId}`)
 }
 function submitTemporaryDispatch(form: TemporaryDispatchForm) {
   const matchedRobot = robotOptions.value.find((item) => item.value === form.robotId)
@@ -533,6 +662,14 @@ function getTemporaryDispatchTypeText(type?: TemporaryDispatchForm['dispatchType
 .header-sub {
   margin: 4px 0 0;
   color: #666;
+  font-size: 13px;
+}
+.scope-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 12px;
+  color: #4b5563;
   font-size: 13px;
 }
 .content-layout {

@@ -1,7 +1,10 @@
 <template>
   <a-card class="map-card" title="地图">
     <template #extra>
-      <a-button type="link" @click="fullscreenVisible = true">全屏</a-button>
+      <a-space>
+        <a-segmented v-model:value="routeScope" size="small" :options="routeScopeOptions" />
+        <a-button type="link" @click="fullscreenVisible = true">全屏</a-button>
+      </a-space>
     </template>
 
     <div class="map-stage" :style="mapStageStyle" @contextmenu.prevent="handleContextCreate">
@@ -194,11 +197,19 @@ const emit = defineEmits<{
 }>()
 
 const enabledTypes = ref<MarkerType[]>(['robot', 'inspection', 'charging', 'parking'])
+const routeScope = ref<'running' | 'today'>('running')
+const routeScopeOptions = [
+  { label: '执行中线路', value: 'running' },
+  { label: '今日全部任务线路', value: 'today' }
+]
 const fullscreenVisible = ref(false)
 const mapBackgroundUrl = new URL('../../../地图.png', import.meta.url).href
 
 const visibleMarkers = computed(() => props.markers.filter(marker => enabledTypes.value.includes(marker.markerType)))
-const pointMarkers = computed(() => props.markers.filter(marker => ['inspection', 'charging', 'parking'].includes(marker.markerType)).sort((a, b) => a.x - b.x))
+const pointMarkers = computed(() => props.markers
+  .filter(marker => ['inspection', 'charging', 'parking'].includes(marker.markerType))
+  .filter(marker => routeScope.value === 'today' || marker.status === 'running')
+  .sort((a, b) => a.x - b.x))
 
 const routeLines = computed(() => {
   const points = pointMarkers.value

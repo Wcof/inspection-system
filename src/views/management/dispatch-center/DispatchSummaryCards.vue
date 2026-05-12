@@ -1,51 +1,47 @@
 <template>
   <div class="summary-grid">
-    <a-card size="small">
-      <div class="title">当前时间范围</div>
-      <div class="value small">{{ summary.timeRange }}</div>
-      <div class="sub">当前页面数据按该时间范围统计</div>
+    <a-card size="small" class="summary-card" :class="{ active: activeFilter === 'plan' }" @click="emitFilter('plan')">
+      <div class="title">今日计划</div>
+      <div class="value">{{ summary.plan.total }}</div>
+      <div class="sub">人工计划 {{ summary.plan.manual }} | 自动调度 {{ summary.plan.auto }}</div>
     </a-card>
 
-    <a-card size="small" class="chart-card">
-      <div class="title">任务统计</div>
-      <div class="value">{{ summary.task.total }}</div>
-      <div class="sub">执行中 {{ summary.task.running }} | 待执行 {{ summary.task.pending }} | 待处理 {{ summary.task.processing }}</div>
+    <a-card size="small" class="summary-card chart-card" :class="{ active: activeFilter === 'running' }" @click="emitFilter('running')">
+      <div class="title">执行中</div>
+      <div class="value">{{ summary.task.running }}</div>
+      <div class="sub">当前正在执行的机器人任务</div>
       <div class="mini-chart bars">
         <span class="bar running" :style="{ height: `${barHeight(summary.task.running, summary.task.total)}%` }" />
+      </div>
+    </a-card>
+
+    <a-card size="small" class="summary-card chart-card" :class="{ active: activeFilter === 'pending' }" @click="emitFilter('pending')">
+      <div class="title">待执行</div>
+      <div class="value">{{ summary.task.pending }}</div>
+      <div class="sub">已生成，等待进入执行队列</div>
+      <div class="mini-chart bars">
         <span class="bar pending" :style="{ height: `${barHeight(summary.task.pending, summary.task.total)}%` }" />
+      </div>
+    </a-card>
+
+    <a-card size="small" class="summary-card chart-card" :class="{ active: activeFilter === 'processing' }" @click="emitFilter('processing')">
+      <div class="title">待处理</div>
+      <div class="value">{{ summary.task.processing }}</div>
+      <div class="sub">冲突、漏检或待人工确认</div>
+      <div class="mini-chart bars">
         <span class="bar processing" :style="{ height: `${barHeight(summary.task.processing, summary.task.total)}%` }" />
       </div>
     </a-card>
 
-    <a-card size="small" class="chart-card">
+    <a-card size="small" class="summary-card chart-card" :class="{ active: activeFilter === 'temporary' }" @click="emitFilter('temporary')">
       <div class="title">临时任务</div>
       <div class="value">{{ summary.temporary.total }}</div>
       <div class="sub">待处理 {{ summary.temporary.pending }} | 已下发 {{ summary.temporary.dispatched }}</div>
-      <div class="mini-chart ring-wrap">
-        <div class="ring" :style="ringStyle" />
-        <div class="ring-text">{{ tempPendingRatio }}%</div>
-      </div>
-    </a-card>
-
-    <a-card size="small" class="chart-card">
-      <div class="title">计划统计</div>
-      <div class="value">{{ summary.plan.total }}</div>
-      <div class="sub">人工计划 {{ summary.plan.manual }} | 自动调度 {{ summary.plan.auto }}</div>
-      <div class="mini-chart line-chart">
-        <span
-          v-for="(point, idx) in planTrend"
-          :key="`trend-${idx}`"
-          class="line-dot"
-          :style="{ left: `${idx * 24}%`, bottom: `${point}%` }"
-        />
-      </div>
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-
 export interface DispatchSummary {
   timeRange: string
   task: { total: number; running: number; pending: number; processing: number }
@@ -53,43 +49,26 @@ export interface DispatchSummary {
   temporary: { total: number; pending: number; dispatched: number }
 }
 
-const props = defineProps<{ summary: DispatchSummary }>()
+export type SummaryFilter = 'plan' | 'running' | 'pending' | 'processing' | 'temporary'
+
+defineProps<{ summary: DispatchSummary; activeFilter?: SummaryFilter | '' }>()
+const emit = defineEmits<{ (e: 'filter', value: SummaryFilter): void }>()
+
+function emitFilter(value: SummaryFilter) {
+  emit('filter', value)
+}
 
 function barHeight(value: number, total: number) {
   if (!total) return 18
   return Math.max(18, Math.round((value / total) * 100))
 }
 
-const tempPendingRatio = computed(() => {
-  if (!props.summary.temporary.total) return 0
-  return Math.round((props.summary.temporary.pending / props.summary.temporary.total) * 100)
-})
-
-const ringStyle = computed(() => {
-  const ratio = tempPendingRatio.value
-  return {
-    background: `conic-gradient(#fa8c16 ${ratio}%, #d9d9d9 ${ratio}% 100%)`
-  }
-})
-
-const planTrend = computed(() => {
-  const manual = props.summary.plan.manual
-  const auto = props.summary.plan.auto
-  const total = Math.max(1, props.summary.plan.total)
-  return [
-    Math.max(16, Math.round((manual / total) * 72)),
-    Math.max(22, Math.round(((manual + auto * 0.3) / total) * 72)),
-    Math.max(28, Math.round((auto / total) * 72)),
-    Math.max(20, Math.round(((manual + auto) / total) * 52)),
-    Math.max(18, Math.round((auto / total) * 58))
-  ]
-})
 </script>
 
 <style scoped lang="css">
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -121,6 +100,15 @@ const planTrend = computed(() => {
 .chart-card {
   position: relative;
 }
+.summary-card {
+  cursor: pointer;
+  border: 1px solid #f0f0f0;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.summary-card.active {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.12);
+}
 
 .mini-chart {
   margin-top: 10px;
@@ -150,60 +138,6 @@ const planTrend = computed(() => {
 
 .bar.processing {
   background: linear-gradient(180deg, #13c2c2 0%, #08979c 100%);
-}
-
-.ring-wrap {
-  position: relative;
-  height: 40px;
-}
-
-.ring {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  position: relative;
-}
-
-.ring::after {
-  content: '';
-  position: absolute;
-  inset: 7px;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.ring-text {
-  position: absolute;
-  left: 50px;
-  top: 9px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #fa8c16;
-}
-
-.line-chart {
-  position: relative;
-  height: 38px;
-  border-top: 1px dashed #e5e7eb;
-}
-
-.line-chart::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 10px;
-  border-top: 1px solid #bfd3ff;
-}
-
-.line-dot {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #1677ff;
-  transform: translateX(-50%);
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.16);
 }
 
 @media (max-width: 1200px) {

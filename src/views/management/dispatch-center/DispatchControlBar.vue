@@ -15,6 +15,12 @@
             </a-select>
           </div>
           <div class="control-item">
+            <span class="label">统计范围</span>
+            <a-select :value="control.robotId" style="width: 210px" @update:value="(value?: string) => updateControl('robotId', value || '')" allow-clear placeholder="所有机器人今日任务">
+              <a-select-option v-for="robot in robotOptions" :key="robot.value" :value="robot.value">{{ robot.label }}</a-select-option>
+            </a-select>
+          </div>
+          <div class="control-item">
             <a-checkbox :checked="control.allowAutoCreate" :disabled="control.autoDispatchEnabled" @update:checked="(value: boolean) => updateControl('allowAutoCreate', value)">
               允许自动创建任务
             </a-checkbox>
@@ -27,6 +33,7 @@
         </a-space>
         <div class="mode-hint">
           当前说明：{{ control.mode === 'auto' ? '自动调度下，待执行任务可能被拆分、合并、重排或改派。' : '手动执行模式，待执行任务按既定顺序执行，变更需人工确认。' }}
+          <span class="policy-hint">自动创建和插队策略由租户/主账号统一控制，当前账号仅按角色权限查看和执行。</span>
         </div>
       </div>
       <div class="actions">
@@ -49,9 +56,10 @@ export interface DispatchControlState {
   allowQueueJump: boolean
   mode: DispatchMode
   pointKeyword: string
+  robotId?: string
 }
 
-const props = defineProps<{ control: DispatchControlState }>()
+const props = defineProps<{ control: DispatchControlState; robotOptions: Array<{ value: string; label: string }> }>()
 const emit = defineEmits<{
   (e: 'update:control', value: DispatchControlState): void
   (e: 'create-temporary'): void
@@ -97,6 +105,10 @@ function updateControl<K extends keyof DispatchControlState>(key: K, value: Disp
   margin-top: 10px;
   color: #666;
   font-size: 12px;
+}
+.policy-hint {
+  margin-left: 10px;
+  color: #8c8c8c;
 }
 .actions {
   display: flex;

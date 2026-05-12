@@ -96,8 +96,7 @@ const resultColumns = computed(() => {
     columns.push({ title: '严重阈值', dataIndex: 'severeThreshold', key: 'severeThreshold', width: 120 })
   }
   columns.push(
-    { title: '判定口径', dataIndex: 'judgmentBasis', key: 'judgmentBasis', width: 220 },
-    { title: '风险等级', dataIndex: 'riskLevel', key: 'riskLevel', width: 120 },
+    { title: '判断口径', dataIndex: 'judgmentBasis', key: 'judgmentBasis', width: 220 },
     { title: '生成异常', key: 'generateException', width: 100, customRender: ({ record }: any) => (record.generateException ? '是' : '否') },
     { title: '人工复核', key: 'needReview', width: 100, customRender: ({ record }: any) => (record.needReview ? '是' : '否') }
   )

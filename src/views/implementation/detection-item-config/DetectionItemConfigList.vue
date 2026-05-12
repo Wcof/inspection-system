@@ -95,7 +95,7 @@ function goDetail(id: string) { router.push(`/implementation/detection-item-conf
 
 function copyItem(record: DetectionItemConfig) {
   const now = new Date().toISOString()
-  rows.value.push({ ...record, id: `dic-${Date.now()}`, name: `${record.name} 副本`, code: `${record.code}_COPY`, publishStatus: '草稿', enabled: false, referenceCount: 0, version: 'V1.0', createdAt: now, updatedAt: now })
+  rows.value.unshift({ ...record, id: `dic-${Date.now()}`, name: `${record.name} 副本`, code: `${record.code}_COPY`, publishStatus: '草稿', enabled: false, referenceCount: 0, version: 'V1.0', createdAt: now, updatedAt: now })
   saveDetectionItemConfigs(rows.value)
   message.success('已复制为草稿配置')
   refresh()
@@ -119,7 +119,7 @@ function togglePublish(record: DetectionItemConfig) {
 }
 
 function isResultComplete(category: DetectionCategory, result: ResultDef) {
-  if (!result.name || !result.code || !result.riskLevel) return false
+  if (!result.name || !result.code) return false
   if (category === '视觉识别' || category === '安全行为') {
     return Boolean(result.indicator && result.judgmentBasis)
   }

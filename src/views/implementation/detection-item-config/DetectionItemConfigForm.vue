@@ -49,10 +49,9 @@
           <a-table-column v-if="form.category === '热成像' || form.category === '气体检测'" title="严重阈值" width="130">
             <template #default="{ record }"><a-input v-model:value="record.severeThreshold" placeholder="如 >100" /></template>
           </a-table-column>
-          <a-table-column title="判定口径" width="220">
+          <a-table-column title="判断口径" width="220">
             <template #default="{ record }"><a-input v-model:value="record.judgmentBasis" placeholder="说明该结果如何判定" /></template>
           </a-table-column>
-          <a-table-column title="风险等级" width="120"><template #default="{ record }"><a-input v-model:value="record.riskLevel" /></template></a-table-column>
           <a-table-column title="操作" width="80"><template #default="{ index }"><a-button danger type="link" size="small" @click="removeResult(index)">删除</a-button></template></a-table-column>
         </a-table>
         <a-button @click="addResult">新增结果</a-button>
@@ -153,11 +152,11 @@ const form = reactive<DetectionItemConfig>(source ? JSON.parse(JSON.stringify(so
 
 form.targetTypes = normalizeTargetTypes(form.targetTypes)
 const resultDefinitionTip = computed(() => {
-  if (form.category === '视觉识别') return '视觉识别类结果需要定义识别标签、判定口径和异常结果，例如正常、外观破损、目标缺失、无法读取。'
+  if (form.category === '视觉识别') return '视觉识别类结果需要定义识别标签、判断口径和异常结果，例如正常、外观破损、目标缺失、无法读取。'
   if (form.category === '热成像') return '热成像类结果需要定义温度指标、单位、正常范围和预警/告警/严重阈值。'
   if (form.category === '气体检测') return '气体检测类结果需要定义气体类型、单位、正常范围和分级阈值。'
-  if (form.category === '安全行为') return '安全行为类结果需要定义行为标签和判定口径，例如未戴安全帽、闯入危险区。'
-  return '当前检测类别使用通用结果定义，重点维护判定指标、判定口径、风险等级和是否生成异常。'
+  if (form.category === '安全行为') return '安全行为类结果需要定义行为标签和判断口径，例如未戴安全帽、闯入危险区。'
+  return '当前检测类别使用通用结果定义，重点维护判定指标、判断口径和是否生成异常。风险等级字段仅作为后续告警触达预留，不在前端展示。'
 })
 
 interface ApplicableTargetRow {
@@ -345,7 +344,7 @@ function validateBeforePublish() {
 }
 
 function isResultComplete(result: ResultDef) {
-  if (!result.name || !result.code || !result.riskLevel) return false
+  if (!result.name || !result.code) return false
   if (form.category === '视觉识别' || form.category === '安全行为') {
     return Boolean(result.indicator && result.judgmentBasis)
   }

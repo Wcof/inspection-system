@@ -124,12 +124,12 @@ const basicInfoItems = computed(() => {
   const current = device.value
   if (!current) return []
   return [
-    { label: '设备名称', value: current.name || '-' },
-    { label: '设备分类', value: current.deviceClassification || '-' },
-    { label: '设备编号', value: current.deviceNo || '-' },
+    { label: '设施名称', value: current.name || '-' },
+    { label: '设施分类', value: current.deviceClassification || '-' },
+    { label: '设施编号', value: current.deviceNo || '-' },
     { label: '规格型号', value: current.specModel || '-' },
     { label: '所在区域', value: current.areaName || '-' },
-    { label: '设备类别', value: current.deviceCategory || '-' },
+    { label: '设施类别', value: current.deviceCategory || '-' },
     { label: '责任人', value: current.owner || '-' },
     { label: '设备状态', value: statusText.value },
     { label: '出厂厂家', value: current.manufacturer || '-' },
@@ -155,7 +155,7 @@ const basicInfoItems = computed(() => {
     { label: '最近检测结论', value: current.lastInspectionConclusion || '-' },
     { label: '检测预警天数', value: current.inspectionWarningDays ?? '-' },
     { label: '巡检窗口', value: current.inspectionWindow || '-' },
-    { label: '设备编码', value: current.code || current.deviceNo || '-' },
+    { label: '设施编码', value: current.code || current.deviceNo || '-' },
     { label: '来源', value: current.source === 'synced' ? '三方同步' : '手动维护' }
   ]
 })

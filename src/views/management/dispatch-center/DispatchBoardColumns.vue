@@ -1,6 +1,7 @@
 
 <template>
   <div class="board-grid">
+    <a-alert v-if="activeFilter" class="filter-alert" type="info" show-icon :message="`当前列表过滤：${getFilterText(activeFilter)}`" />
     <a-card class="panel panel-running">
       <template #title>
         <div class="panel-title-wrap">
@@ -37,6 +38,40 @@
           <div class="actions">
             <a-button size="small" @click="emitTaskAction('view-detail', task)">查看详情</a-button>
             <a-button size="small" @click="emitTaskAction('replace-robot', task)">替换机器人</a-button>
+          </div>
+        </div>
+      </div>
+    </a-card>
+
+    <a-card class="panel panel-temporary">
+      <template #title>
+        <div class="panel-title-wrap">
+          <span>临时任务</span>
+          <a-tag color="purple">{{ temporaryTasks.length }}</a-tag>
+        </div>
+      </template>
+      <a-empty v-if="temporaryTasks.length === 0" description="暂无临时任务" />
+      <div v-else class="task-list">
+        <div v-for="task in temporaryTasks" :key="task.id" class="task-item">
+          <div class="task-title-wrap">
+            <div class="task-title">{{ task.name }}</div>
+            <div>
+              <a-tag color="purple">{{ task.typeLabel || '临时任务' }}</a-tag>
+              <a-tag :color="getRiskColor(task.riskLevel)">{{ task.riskLevelLabel || getRiskText(task.riskLevel) }}</a-tag>
+              <a-tag>{{ task.status === 'auto_pending' ? '待处理' : task.status === 'running' ? '执行中' : '待执行' }}</a-tag>
+            </div>
+          </div>
+          <div class="meta">
+            <span>执行机器人：{{ task.robotName }}</span>
+            <span>创建时间：{{ task.createdAt }}</span>
+          </div>
+          <div class="meta">
+            <span>调度原因：{{ task.dispatchReason || task.reason || '-' }}</span>
+            <span>建议动作：{{ task.suggestedAction || '-' }}</span>
+          </div>
+          <div class="actions">
+            <a-button size="small" @click="emitTaskAction('view-detail', task)">查看详情</a-button>
+            <a-button size="small" danger @click="emitTaskAction('cancel-task', task)">取消</a-button>
           </div>
         </div>
       </div>
@@ -195,8 +230,10 @@ defineProps<{
   runningTasks: DispatchTask[]
   pendingTasks: DispatchTask[]
   pendingProcessTasks: DispatchTask[]
+  temporaryTasks: DispatchTask[]
   records: DispatchRecordItem[]
   mode: 'auto' | 'manual'
+  activeFilter?: string
 }>()
 
 const emit = defineEmits<{ (e: 'task-action', payload: { type: ActionType; task: DispatchTask }): void }>()
@@ -217,17 +254,27 @@ function getRiskText(level?: string) {
 function getRiskColor(level?: string) {
   return ({ normal: 'default', warning: 'gold', alarm: 'orange', critical_alarm: 'red', hazard: 'volcano', major_hazard: 'magenta' } as Record<string, string>)[level || ''] || 'default'
 }
+
+function getFilterText(filter: string) {
+  return ({ plan: '今日计划', running: '执行中', pending: '待执行', processing: '待处理', temporary: '临时任务' } as Record<string, string>)[filter] || filter
+}
 </script>
 
 <style scoped lang="css">.board-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas: 'running running' 'pending pendingProcess' 'record record';
+  grid-template-areas: 'filter filter' 'running running' 'temporary temporary' 'pending pendingProcess' 'record record';
   gap: 12px;
   min-width: 0;
 }
+.filter-alert {
+  grid-area: filter;
+}
 .panel-running {
   grid-area: running;
+}
+.panel-temporary {
+  grid-area: temporary;
 }
 .panel-pending {
   grid-area: pending;

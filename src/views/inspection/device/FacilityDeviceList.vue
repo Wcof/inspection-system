@@ -7,13 +7,13 @@
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备名称" class="search-item">
-                <a-input v-model:value="searchForm.name" allow-clear placeholder="请输入设备名称" />
+              <a-form-item label="设施名称" class="search-item">
+                <a-input v-model:value="searchForm.name" allow-clear placeholder="请输入设施名称" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备编号" class="search-item">
-                <a-input v-model:value="searchForm.deviceNo" allow-clear placeholder="请输入设备编号" />
+              <a-form-item label="设施编号" class="search-item">
+                <a-input v-model:value="searchForm.deviceNo" allow-clear placeholder="请输入设施编号" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
@@ -60,7 +60,7 @@
             <a-space>
               <a-button type="primary" @click="noopSearch">搜索</a-button>
               <a-button @click="resetSearch">重置</a-button>
-              <a-button type="primary" @click="goToForm()">新增设备</a-button>
+              <a-button type="primary" @click="goToForm()">新增设施</a-button>
             </a-space>
           </div>
         </a-form>

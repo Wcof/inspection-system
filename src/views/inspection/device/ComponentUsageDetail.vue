@@ -15,7 +15,7 @@
         <a-descriptions-item label="细分类型">{{ objectType === 'component' ? getComponentTypeText(objectInfo?.type) : '连接' }}</a-descriptions-item>
         <a-descriptions-item label="所属区域">{{ device?.areaName || '-' }}</a-descriptions-item>
         <a-descriptions-item label="所属设施">{{ device?.name || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="设备编号">{{ device?.deviceNo || device?.code || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="设施编号">{{ device?.deviceNo || device?.code || '-' }}</a-descriptions-item>
         <a-descriptions-item label="优先级">{{ priorityText }}</a-descriptions-item>
         <a-descriptions-item label="巡检周期">{{ inspectionCycleText }}</a-descriptions-item>
         <a-descriptions-item label="巡检窗口">{{ inspectionWindowText }}</a-descriptions-item>

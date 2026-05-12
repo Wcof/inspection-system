@@ -106,7 +106,7 @@ const searchForm = reactive({
 })
 
 const columns = [
-  { title: '设备编号', dataIndex: 'deviceNo', key: 'deviceNo', width: 150 },
+  { title: '设施编号', dataIndex: 'deviceNo', key: 'deviceNo', width: 150 },
   { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 150 },
   { title: '所属设施', dataIndex: 'deviceName', key: 'deviceName', width: 160 },
   { title: '名称', dataIndex: 'name', key: 'name', width: 170 },

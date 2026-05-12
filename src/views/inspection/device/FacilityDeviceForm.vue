@@ -5,9 +5,9 @@
       <a-form layout="vertical">
         <a-card size="small" title="基础信息">
           <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="设备名称" required><a-input v-model:value="form.name" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="设备分类" required><a-input v-model:value="form.deviceClassification" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="设备编号" required><a-input v-model:value="form.deviceNo" @change="syncCodeWithDeviceNo" /></a-form-item></a-col>
+            <a-col :span="8"><a-form-item label="设施名称" required><a-input v-model:value="form.name" /></a-form-item></a-col>
+            <a-col :span="8"><a-form-item label="设施分类" required><a-input v-model:value="form.deviceClassification" /></a-form-item></a-col>
+            <a-col :span="8"><a-form-item label="设施编号" required><a-input v-model:value="form.deviceNo" @change="syncCodeWithDeviceNo" /></a-form-item></a-col>
           </a-row>
 
           <a-row :gutter="16">
@@ -19,7 +19,7 @@
                 </a-select>
               </a-form-item>
             </a-col>
-            <a-col :span="8"><a-form-item label="设备类别" required><a-input v-model:value="form.deviceCategory" /></a-form-item></a-col>
+            <a-col :span="8"><a-form-item label="设施类别" required><a-input v-model:value="form.deviceCategory" /></a-form-item></a-col>
           </a-row>
 
           <a-row :gutter="16">
@@ -72,7 +72,7 @@
 
           <a-row :gutter="16">
             <a-col :span="8"><a-form-item label="巡检窗口"><a-input v-model:value="form.inspectionWindow" placeholder="例如 08:00-18:00" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="设备编码"><a-input v-model:value="form.code" placeholder="默认同设备编号" /></a-form-item></a-col>
+            <a-col :span="8"><a-form-item label="设施编码"><a-input v-model:value="form.code" placeholder="默认同设施编号" /></a-form-item></a-col>
             <a-col :span="8">
               <a-form-item label="来源">
                 <a-select v-model:value="form.source">
@@ -1014,7 +1014,7 @@ function normalizeParkingBindings() {
 
 function handleSave() {
   if (!form.deviceNo || !form.deviceClassification || !form.owner || !form.name || !form.areaId || !form.deviceCategory) {
-    message.error('请补充必填信息：设备名称、设备分类、设备编号、所在区域、设备类别、责任人')
+    message.error('请补充必填信息：设施名称、设施分类、设施编号、所在区域、设施类别、责任人')
     return
   }
 

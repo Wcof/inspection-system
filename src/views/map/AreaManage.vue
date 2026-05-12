@@ -87,6 +87,15 @@
                 @click.stop="selectEditableRegion(region.id)"
                 @mousedown.stop="startPolygonDrag(region.id, $event)"
               />
+              <text
+                v-for="region in regions.filter(item => item.showName)"
+                :key="`label-${region.id}`"
+                :x="getPolygonCenter(region.points).x"
+                :y="getPolygonCenter(region.points).y"
+                class="region-name-label"
+                text-anchor="middle"
+                dominant-baseline="middle"
+              >{{ region.name }}</text>
               <polygon
                 v-if="draftPoints.length"
                 :points="draftPolygon"
@@ -127,6 +136,9 @@
                   <polygon :points="record.previewPoints" fill="rgba(22,119,255,.18)" stroke="#1677ff" stroke-width="2" />
                 </svg>
               </div>
+            </template>
+            <template v-else-if="column.key === 'showName'">
+              <a-switch v-model:checked="record.showName" size="small" checked-children="显示" un-checked-children="隐藏" @change="saveRegions" />
             </template>
             <template v-else-if="column.key === 'actions'">
               <a-space>
@@ -177,6 +189,7 @@ interface EditableRegionRow {
   color: string
   points: string
   previewPoints: string
+  showName: boolean
 }
 
 interface RegionListRow {
@@ -225,6 +238,7 @@ const listColumns = [
 const columns = [
   { title: '区域名称', dataIndex: 'name', key: 'name' },
   { title: '形状预览', key: 'shape', width: 150 },
+  { title: '显示名称', key: 'showName', width: 120 },
   { title: '操作', key: 'actions', width: 180 }
 ]
 
@@ -318,6 +332,13 @@ function buildPreviewPolygon(points: string) {
     .join(' ')
 }
 
+function getPolygonCenter(points: string) {
+  const parsed = parsePoints(points)
+  if (!parsed.length) return { x: 0, y: 0 }
+  const total = parsed.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 })
+  return { x: Math.round(total.x / parsed.length), y: Math.round(total.y / parsed.length) }
+}
+
 function loadRegions() {
   if (isListMode.value || !currentMap.value) {
     regions.value = []
@@ -331,7 +352,8 @@ function loadRegions() {
       name: region.name,
       color: region.color,
       points,
-      previewPoints: buildPreviewPolygon(points)
+      previewPoints: buildPreviewPolygon(points),
+      showName: region.showName ?? true
     }
   })
   if (!selectedRegionId.value && regions.value[0]) {
@@ -353,7 +375,8 @@ function saveRegions() {
         y: rect.y,
         width: rect.width,
         height: rect.height,
-        polygonPoints: region.points
+        polygonPoints: region.points,
+        showName: region.showName
       }
     }),
     updatedAt: new Date()
@@ -468,7 +491,8 @@ function finishPolygon() {
     name: `新区域-${regions.value.length + 1}`,
     color: '#1677ff',
     points,
-    previewPoints: buildPreviewPolygon(points)
+    previewPoints: buildPreviewPolygon(points),
+    showName: true
   })
   drawing.value = false
   draftPoints.value = []
@@ -668,6 +692,15 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   display: block;
+}
+.region-name-label {
+  fill: #0f172a;
+  font-size: 24px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.88);
+  stroke-width: 5px;
+  pointer-events: none;
 }
 
 .map-stage {
