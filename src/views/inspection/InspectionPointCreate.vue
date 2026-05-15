@@ -31,9 +31,27 @@
             <a-descriptions-item label="所属地图">{{ currentMap?.name || '-' }}</a-descriptions-item>
             <a-descriptions-item label="所属区域">{{ form.areaName || point?.areaName || '-' }}</a-descriptions-item>
             <a-descriptions-item label="检测对象">{{ coverageOptions.length }}</a-descriptions-item>
-            <a-descriptions-item label="采集位">{{ derivedCollectionPoseRows.length }}</a-descriptions-item>
-            <a-descriptions-item label="检测配置">{{ derivedDetectionConfigs.filter(item => item.ruleId).length }}</a-descriptions-item>
+            <a-descriptions-item label="采集位">{{ collectionPoseRows.length }}</a-descriptions-item>
+            <a-descriptions-item label="检测配置">{{ detectionConfigRows.reduce((count, item) => count + item.ruleIds.length, 0) }}</a-descriptions-item>
           </a-descriptions>
+          <a-divider style="margin: 16px 0" />
+          <a-descriptions bordered :column="4" size="small">
+            <a-descriptions-item label="覆盖对象">{{ coverageOptions.length }}</a-descriptions-item>
+            <a-descriptions-item label="采集位">{{ collectionPoseRows.length }}</a-descriptions-item>
+            <a-descriptions-item label="检测配置">{{ detectionConfigRows.length }}</a-descriptions-item>
+            <a-descriptions-item label="检查结果">
+              <a-tag :color="coverageCheckSummary.color">
+                {{ coverageCheckSummary.text }}
+              </a-tag>
+            </a-descriptions-item>
+          </a-descriptions>
+          <a-alert
+            style="margin-top: 12px"
+            :type="coverageCheckSummary.type"
+            show-icon
+            :message="coverageCheckSummary.message"
+            :description="coverageCheckSummary.description"
+          />
         </a-card>
       </a-col>
     </a-row>
@@ -120,20 +138,32 @@
             type="info"
             show-icon
             style="margin-bottom: 12px"
-            message="采集位由上方检测对象自动回显，不在这里新增或自由选择。位置参数来自对象已有配置或默认点位参数。"
+            message="采集位会根据检测对象自动生成，也可以在编辑状态下调整位置、云台、焦距和距离参数。"
           />
-          <a-table :columns="poseColumns" :data-source="derivedCollectionPoseRows" row-key="id" :pagination="false" :scroll="{ x: 1200 }">
+          <a-table :columns="poseColumns" :data-source="collectionPoseRows" row-key="id" :pagination="false" :scroll="{ x: 1200 }">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'facility'">{{ record.deviceName }}</template>
               <template v-else-if="column.key === 'targetObject'">
                 {{ record.subjectName }}
                 <a-tag style="margin-left: 6px">{{ record.subjectType === 'component' ? '部件' : '连接' }}</a-tag>
               </template>
-              <template v-else-if="column.key === 'parkingPoint'">{{ record.parkingPointName }}</template>
-              <template v-else-if="column.key === 'ptzX'">{{ record.ptzX }}</template>
-              <template v-else-if="column.key === 'ptzY'">{{ record.ptzY }}</template>
-              <template v-else-if="column.key === 'focalLength'">{{ record.focalLength }}</template>
-              <template v-else-if="column.key === 'distanceMeter'">{{ record.distanceMeter }}m</template>
+              <template v-else-if="column.key === 'parkingPoint'">
+                <a-select v-model:value="record.parkingPointId" style="width: 100%" @change="syncPoseParkingName(record)">
+                  <a-select-option v-for="parking in parkingOptions" :key="parking.id" :value="parking.id">{{ parking.label }}</a-select-option>
+                </a-select>
+              </template>
+              <template v-else-if="column.key === 'ptzX'">
+                <a-input-number v-model:value="record.ptzX" style="width: 100%" />
+              </template>
+              <template v-else-if="column.key === 'ptzY'">
+                <a-input-number v-model:value="record.ptzY" style="width: 100%" />
+              </template>
+              <template v-else-if="column.key === 'focalLength'">
+                <a-input v-model:value="record.focalLength" />
+              </template>
+              <template v-else-if="column.key === 'distanceMeter'">
+                <a-input-number v-model:value="record.distanceMeter" :min="0" style="width: 100%" />
+              </template>
             </template>
           </a-table>
         </a-tab-pane>
@@ -143,9 +173,9 @@
             type="info"
             show-icon
             style="margin-bottom: 12px"
-            message="检测配置由检测对象关联的检测规则自动回显。规则请在设施部件或连接部位中维护。"
+            message="检测配置会根据检测对象关联的检测规则自动生成，也可以在编辑状态下调整规则和启用状态。"
           />
-          <a-table :columns="detectionColumns" :data-source="derivedDetectionConfigs" row-key="id" :pagination="false" :scroll="{ x: 900 }">
+          <a-table :columns="detectionColumns" :data-source="detectionConfigRows" row-key="id" :pagination="false" :scroll="{ x: 900 }">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'subject'">
                 {{ record.deviceName }}
@@ -154,30 +184,34 @@
                 {{ record.subjectName }}
                 <a-tag style="margin-left: 6px">{{ record.subjectType === 'component' ? '部件' : '连接' }}</a-tag>
               </template>
-              <template v-else-if="column.key === 'rule'">{{ record.ruleName }}</template>
+              <template v-else-if="column.key === 'rule'">
+                <a-select
+                  v-model:value="record.ruleIds"
+                  mode="multiple"
+                  style="width: 100%"
+                  allow-clear
+                  show-search
+                  option-filter-prop="label"
+                  placeholder="多选检测规则"
+                  @change="syncDetectionRuleNames(record)"
+                >
+                  <a-select-option v-for="rule in ruleOptions" :key="rule.id" :value="rule.id" :label="rule.name">{{ rule.name }}</a-select-option>
+                </a-select>
+              </template>
+              <template v-else-if="column.key === 'enabled'">
+                <a-switch v-model:checked="record.enabled" />
+              </template>
             </template>
           </a-table>
         </a-tab-pane>
       </a-tabs>
     </a-card>
 
-    <a-card style="margin-top: 16px" title="覆盖检查">
-      <a-list bordered :data-source="coverageCheckItems">
-        <template #renderItem="{ item }">
-          <a-list-item>
-            <a-space>
-              <a-tag :color="item.status === 'ok' ? 'green' : 'orange'">{{ item.status === 'ok' ? '通过' : '待补齐' }}</a-tag>
-              <span>{{ item.text }}</span>
-            </a-space>
-          </a-list-item>
-        </template>
-      </a-list>
-    </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
@@ -236,8 +270,9 @@ interface DerivedDetectionConfigRow {
   subjectName: string
   deviceId?: string
   deviceName: string
-  ruleId: string
-  ruleName: string
+  ruleIds: string[]
+  ruleNames: string[]
+  enabled: boolean
 }
 
 const route = useRoute()
@@ -250,6 +285,9 @@ const form = reactive({
 })
 
 const coverageObjects = ref<CoverageRow[]>([])
+const collectionPoseRows = ref<DerivedCollectionPoseRow[]>([])
+const detectionConfigRows = ref<DerivedDetectionConfigRow[]>([])
+const isLoadingDetail = ref(false)
 
 const point = computed(() => inspectionStore.inspectionPoints.find(item => item.id === String(route.params.id)))
 const currentMap = computed(() => inspectionStore.inspectionMaps.find(item => item.id === point.value?.mapId))
@@ -305,8 +343,8 @@ const coverageOptions = computed<CoverageOption[]>(() =>
     })
   })
 )
-const derivedCollectionPoseRows = computed<DerivedCollectionPoseRow[]>(() =>
-  coverageOptions.value.map((target) => {
+function buildDefaultCollectionPoseRows() {
+  return coverageOptions.value.map((target) => {
     const existing = existingCollectionPoseMap.value.get(target.subjectName)
     const parkingPointId = existing?.parkingPointId || parkingOptions.value[0]?.id || ''
     return {
@@ -324,33 +362,21 @@ const derivedCollectionPoseRows = computed<DerivedCollectionPoseRow[]>(() =>
       distanceMeter: existing?.distanceMeter ?? 0
     }
   })
-)
-const derivedDetectionConfigs = computed<DerivedDetectionConfigRow[]>(() =>
-  coverageOptions.value.flatMap((target) => {
-    if (!target.ruleIds.length) {
-      return [{
-        id: `detection-${target.id}-empty`,
-        subjectType: target.type,
-        subjectId: target.subjectId,
-        subjectName: target.subjectName,
-        deviceId: target.deviceId,
-        deviceName: target.deviceName,
-        ruleId: '',
-        ruleName: '未关联检测规则'
-      }]
-    }
-    return target.ruleIds.map(ruleId => ({
-      id: `detection-${target.id}-${ruleId}`,
+}
+
+function buildDefaultDetectionConfigRows() {
+  return coverageOptions.value.map((target) => ({
+      id: `detection-${target.id}`,
       subjectType: target.type,
       subjectId: target.subjectId,
       subjectName: target.subjectName,
       deviceId: target.deviceId,
       deviceName: target.deviceName,
-      ruleId,
-      ruleName: getRuleName(ruleId)
+      ruleIds: target.ruleIds,
+      ruleNames: target.ruleIds.map(getRuleName),
+      enabled: true
     }))
-  })
-)
+}
 const markerPosition = computed(() => ({
   x: normalizeMapCoordinate(point.value?.mapPosition?.x),
   y: normalizeMapCoordinate(point.value?.mapPosition?.y)
@@ -367,7 +393,6 @@ const coverageColumns = [
 const poseColumns = [
   { title: '所属设施', key: 'facility', width: 220 },
   { title: '检测部件/连接', key: 'targetObject', width: 240 },
-  { title: '位置', key: 'parkingPoint', width: 180 },
   { title: '云台X轴', key: 'ptzX', width: 110 },
   { title: '云台Y轴', key: 'ptzY', width: 110 },
   { title: '焦距', key: 'focalLength', width: 120 },
@@ -377,7 +402,8 @@ const poseColumns = [
 const detectionColumns = [
   { title: '所属设施', key: 'subject', width: 240 },
   { title: '检测部件/连接', key: 'targetObject', width: 260 },
-  { title: '检测规则', key: 'rule', width: 320 }
+  { title: '检测规则', key: 'rule', width: 320 },
+  { title: '启用状态', key: 'enabled', width: 110 }
 ]
 
 const coverageCheckItems = computed(() => {
@@ -387,18 +413,18 @@ const coverageCheckItems = computed(() => {
   } else {
     items.push({ status: 'ok', text: `已配置 ${coverageOptions.value.length} 个检测对象` })
   }
-  if (!derivedCollectionPoseRows.value.length) {
+  if (!collectionPoseRows.value.length) {
     items.push({ status: 'warning', text: '未配置采集位' })
   } else {
-    items.push({ status: 'ok', text: `已回显 ${derivedCollectionPoseRows.value.length} 个采集位` })
+    items.push({ status: 'ok', text: `已配置 ${collectionPoseRows.value.length} 个采集位` })
   }
-  const missingRules = derivedDetectionConfigs.value.filter(item => !item.ruleId).length
+  const missingRules = detectionConfigRows.value.filter(item => !item.ruleIds.length).length
   if (missingRules) {
     items.push({ status: 'warning', text: `${missingRules} 个检测对象未在部件/连接中关联规则` })
   } else {
     items.push({ status: 'ok', text: '检测对象已按部件/连接规则生成检测配置' })
   }
-  const coveredTargetIds = new Set(derivedDetectionConfigs.value.filter(item => item.ruleId).map(item => item.subjectId))
+  const coveredTargetIds = new Set(detectionConfigRows.value.filter(item => item.ruleIds.length && item.enabled).map(item => item.subjectId))
   const missingDetectionObjects = coverageOptions.value.filter(item => !coveredTargetIds.has(item.subjectId))
   if (missingDetectionObjects.length) {
     items.push({ status: 'warning', text: `${missingDetectionObjects.length} 个检测对象尚未配置检测项` })
@@ -408,12 +434,35 @@ const coverageCheckItems = computed(() => {
   return items
 })
 
+const coverageCheckSummary = computed(() => {
+  const hasWarning = coverageCheckItems.value.some(item => item.status !== 'ok')
+  return hasWarning
+    ? {
+        text: '存在待补齐',
+        color: 'orange',
+        type: 'warning' as const,
+        message: '当前巡检点存在待补齐项',
+        description: coverageCheckItems.value.map(item => item.text).join('；')
+      }
+    : {
+        text: '配置完整',
+        color: 'green',
+        type: 'success' as const,
+        message: '当前巡检点配置完整',
+        description: coverageCheckItems.value.map(item => item.text).join('；')
+      }
+})
+
 function loadDetail() {
   inspectionStore.initialize()
   const currentPoint = point.value
   if (!currentPoint) return
+  isLoadingDetail.value = true
   form.areaName = currentPoint.areaName || ''
   coverageObjects.value = buildCoverageRows(currentPoint.coverageObjects || [])
+  collectionPoseRows.value = buildDefaultCollectionPoseRows()
+  detectionConfigRows.value = buildDetectionRowsFromPoint()
+  isLoadingDetail.value = false
 }
 
 function addCoverageObject() {
@@ -457,6 +506,10 @@ function getRuleName(ruleId: string) {
   return ruleOptions.value.find(item => item.id === ruleId)?.name || ruleId
 }
 
+function getSubjectKey(item: { subjectType: string; subjectId: string }) {
+  return `${item.subjectType}:${item.subjectId}`
+}
+
 function buildCoverageRefId(type: DetectionObjectKind, subjectId: string) {
   return `${type}:${subjectId}`
 }
@@ -489,6 +542,66 @@ function buildCoverageRows(source: InspectionPointCoverageObject[]) {
   return Array.from(rowMap.values())
 }
 
+function buildDetectionRowsFromPoint() {
+  const rowMap = new Map<string, DerivedDetectionConfigRow>()
+  ;(point.value?.detectionConfigs || [])
+    .filter(item => item.subjectType === 'component' || item.subjectType === 'connection')
+    .forEach((item) => {
+      const subjectType = item.subjectType as DetectionObjectKind
+      const target = coverageOptions.value.find(option => option.type === item.subjectType && option.subjectId === item.subjectId)
+      const key = getSubjectKey(item)
+      const row = rowMap.get(key) || {
+        id: `detection-${buildCoverageRefId(subjectType, item.subjectId)}`,
+        subjectType,
+        subjectId: item.subjectId,
+        subjectName: item.subjectName,
+        deviceId: target?.deviceId,
+        deviceName: target?.deviceName || '',
+        ruleIds: [],
+        ruleNames: [],
+        enabled: item.enabled
+      }
+      if (item.ruleId && !row.ruleIds.includes(item.ruleId)) {
+        row.ruleIds.push(item.ruleId)
+        row.ruleNames.push(getRuleName(item.ruleId))
+      }
+      row.enabled = row.enabled && item.enabled
+      rowMap.set(key, row)
+    })
+  const existingRows = Array.from(rowMap.values())
+  return existingRows.length ? existingRows : buildDefaultDetectionConfigRows()
+}
+
+function syncEditableRowsWithCoverage() {
+  const nextPoseRows = buildDefaultCollectionPoseRows()
+  const existingPoseMap = new Map(collectionPoseRows.value.map(item => [getSubjectKey(item), item]))
+  collectionPoseRows.value = nextPoseRows.map((row) => ({
+    ...row,
+    ...(existingPoseMap.get(getSubjectKey(row)) || {}),
+    deviceId: row.deviceId,
+    deviceName: row.deviceName,
+    subjectName: row.subjectName
+  }))
+
+  const nextDetectionRows = buildDefaultDetectionConfigRows()
+  const existingDetectionMap = new Map(detectionConfigRows.value.map(item => [getSubjectKey(item), item]))
+  detectionConfigRows.value = nextDetectionRows.map((row) => ({
+    ...row,
+    ...(existingDetectionMap.get(getSubjectKey(row)) || {}),
+    deviceId: row.deviceId,
+    deviceName: row.deviceName,
+    subjectName: row.subjectName
+  }))
+}
+
+function syncPoseParkingName(record: DerivedCollectionPoseRow) {
+  record.parkingPointName = getParkingName(record.parkingPointId)
+}
+
+function syncDetectionRuleNames(record: DerivedDetectionConfigRow) {
+  record.ruleNames = record.ruleIds.map(getRuleName)
+}
+
 function normalizeCoverageObjects() {
   return coverageOptions.value.map((item): InspectionPointCoverageObject => ({
     id: item.id,
@@ -509,7 +622,7 @@ function normalizeParkingPoints() {
   const sourceParkingPoints = currentPoint?.parkingPoints || []
   return sourceParkingPoints.map((parking) => ({
     ...parking,
-    collectionPoses: derivedCollectionPoseRows.value
+    collectionPoses: collectionPoseRows.value
       .filter(item => item.parkingPointId === parking.id)
       .map(item => ({
         id: item.id,
@@ -528,22 +641,27 @@ function normalizeParkingPoints() {
 }
 
 function normalizeDetectionConfigs() {
-  return derivedDetectionConfigs.value
-    .filter(item => item.ruleId)
-    .map((item): InspectionPointDetectionConfig => ({
-    id: item.id,
+  return detectionConfigRows.value
+    .filter(item => item.ruleIds.length && item.enabled)
+    .flatMap((item) => item.ruleIds.map((ruleId): InspectionPointDetectionConfig => ({
+    id: `${item.id}-${ruleId}`,
     inspectionPointId: point.value?.id || '',
     subjectType: item.subjectType,
     subjectId: item.subjectId,
     subjectName: item.subjectName,
-    ruleId: item.ruleId,
+    ruleId,
     collectionPoseId: `pose-${buildCoverageRefId(item.subjectType, item.subjectId)}`,
     requiredCoverage: true,
     failureStrategy: 'manual_review',
-    enabled: true,
+    enabled: item.enabled,
     updatedAt: new Date().toISOString()
-  }))
+  })))
 }
+
+watch(coverageOptions, () => {
+  if (isLoadingDetail.value) return
+  syncEditableRowsWithCoverage()
+}, { deep: true })
 
 function handleSave() {
   const currentPoint = point.value

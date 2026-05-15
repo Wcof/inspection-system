@@ -16,14 +16,6 @@
           <a-descriptions-item label="配置说明" :span="2">{{ item.description }}</a-descriptions-item>
         </a-descriptions>
       </a-card>
-
-      <a-card title="适用对象">
-        <a-descriptions :column="1" bordered>
-          <a-descriptions-item label="适用对象层级">{{ normalizeTargetTypes(item.targetTypes).join('、') }}</a-descriptions-item>
-          <a-descriptions-item label="适用对象类别">{{ item.targetDetails }}</a-descriptions-item>
-        </a-descriptions>
-      </a-card>
-
       <a-card title="结果定义">
         <a-alert
           type="info"
@@ -55,14 +47,6 @@ import { getDetectionItemConfigs, type DetectionCategory } from './model'
 const route = useRoute()
 const router = useRouter()
 const item = computed(() => getDetectionItemConfigs().find(x => x.id === String(route.params.id)))
-
-function normalizeTargetTypes(values: string[]) {
-  return values.map((value) => {
-    if (value === '组成部件') return '设施部件'
-    if (value === '接口与连接') return '连接部位'
-    return value
-  })
-}
 
 const resultColumns = computed(() => {
   const category = item.value?.category
