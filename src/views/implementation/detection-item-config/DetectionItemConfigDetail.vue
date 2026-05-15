@@ -2,55 +2,48 @@
   <div>
     <a-page-header title="检测项配置详情" @back="goBack" />
 
-    <a-card v-if="item" style="margin-top:16px">
-      <a-tabs>
-        <a-tab-pane key="basic" tab="基础信息">
-          <a-descriptions :column="2" bordered>
-            <a-descriptions-item label="配置名称">{{ item.name }}</a-descriptions-item>
-            <a-descriptions-item label="配置编码">{{ item.code }}</a-descriptions-item>
-            <a-descriptions-item label="配置分类">{{ item.category }}</a-descriptions-item>
-            <a-descriptions-item label="默认结果类型">{{ item.resultType }}</a-descriptions-item>
-            <a-descriptions-item label="是否必须留证">{{ item.needEvidence ? '是' : '否' }}</a-descriptions-item>
-            <a-descriptions-item label="当前版本">{{ item.version }}</a-descriptions-item>
-            <a-descriptions-item label="发布状态">{{ item.publishStatus }}</a-descriptions-item>
-            <a-descriptions-item label="启用状态">{{ item.enabled ? '启用' : '停用' }}</a-descriptions-item>
-            <a-descriptions-item label="配置说明" :span="2">{{ item.description }}</a-descriptions-item>
-          </a-descriptions>
-        </a-tab-pane>
-        <a-tab-pane key="targets" tab="适用对象">
-          <a-descriptions :column="1" bordered>
-            <a-descriptions-item label="适用对象层级">{{ normalizeTargetTypes(item.targetTypes).join('、') }}</a-descriptions-item>
-            <a-descriptions-item label="适用对象类别">{{ item.targetDetails }}</a-descriptions-item>
-          </a-descriptions>
-        </a-tab-pane>
-        <a-tab-pane key="results" tab="结果定义">
-          <a-alert
-            type="info"
-            show-icon
-            style="margin-bottom: 12px"
-            message="检测项配置只维护结果口径。采集姿态、采集位和默认大模型能力由对象检测配置与系统能力承接。"
-          />
-          <a-table :data-source="item.results" row-key="id" :pagination="false" :columns="resultColumns" />
-        </a-tab-pane>
-        <a-tab-pane key="refs" tab="引用情况">
-          <a-space direction="vertical" style="width: 100%">
-            <a-alert
-              type="info"
-              show-icon
-              message="本页第一版先展示引用数量。后续引用来源应来自对象检测配置。"
-              :description="`当前引用数量：${item.referenceCount}`"
-            />
-            <a-descriptions title="使用说明" :column="1" bordered>
-              <a-descriptions-item label="数据流">标准检测项配置 -> 对象检测配置 -> 巡检计划 -> 任务执行结果</a-descriptions-item>
-              <a-descriptions-item label="职责边界">本页面只维护标准能力，不绑定具体设施、部件、连接部位或采集位。</a-descriptions-item>
-            </a-descriptions>
-          </a-space>
-        </a-tab-pane>
-        <a-tab-pane key="versions" tab="版本记录">
-          <a-table :data-source="versionRows" row-key="version" :pagination="false" :columns="versionColumns" />
-        </a-tab-pane>
-      </a-tabs>
-    </a-card>
+    <a-space v-if="item" direction="vertical" style="width: 100%; margin-top:16px" :size="16">
+      <a-card title="基础信息">
+        <a-descriptions :column="2" bordered>
+          <a-descriptions-item label="配置名称">{{ item.name }}</a-descriptions-item>
+          <a-descriptions-item label="配置编码">{{ item.code }}</a-descriptions-item>
+          <a-descriptions-item label="配置分类">{{ item.category }}</a-descriptions-item>
+          <a-descriptions-item label="默认结果类型">{{ item.resultType }}</a-descriptions-item>
+          <a-descriptions-item label="是否必须留证">{{ item.needEvidence ? '是' : '否' }}</a-descriptions-item>
+          <a-descriptions-item label="当前版本">{{ item.version }}</a-descriptions-item>
+          <a-descriptions-item label="发布状态">{{ item.publishStatus }}</a-descriptions-item>
+          <a-descriptions-item label="启用状态">{{ item.enabled ? '启用' : '停用' }}</a-descriptions-item>
+          <a-descriptions-item label="配置说明" :span="2">{{ item.description }}</a-descriptions-item>
+        </a-descriptions>
+      </a-card>
+
+      <a-card title="适用对象">
+        <a-descriptions :column="1" bordered>
+          <a-descriptions-item label="适用对象层级">{{ normalizeTargetTypes(item.targetTypes).join('、') }}</a-descriptions-item>
+          <a-descriptions-item label="适用对象类别">{{ item.targetDetails }}</a-descriptions-item>
+        </a-descriptions>
+      </a-card>
+
+      <a-card title="结果定义">
+        <a-alert
+          type="info"
+          show-icon
+          style="margin-bottom: 12px"
+          message="检测项配置只维护结果口径。采集姿态、采集位和默认大模型能力由对象检测配置与系统能力承接。"
+        />
+        <a-table :data-source="item.results" row-key="id" :pagination="false" :columns="resultColumns" />
+      </a-card>
+
+      <a-card title="引用情况">
+        <a-descriptions :column="1" bordered>
+          <a-descriptions-item label="当前引用数量">{{ item.referenceCount }}</a-descriptions-item>
+        </a-descriptions>
+      </a-card>
+
+      <a-card title="版本记录">
+        <a-table :data-source="versionRows" row-key="version" :pagination="false" :columns="versionColumns" />
+      </a-card>
+    </a-space>
   </div>
 </template>
 

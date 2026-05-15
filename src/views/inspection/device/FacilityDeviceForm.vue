@@ -213,14 +213,24 @@
             type="warning"
             show-icon
             style="margin-bottom: 12px"
-            message="固定巡检仅允许绑定一个停车点；区域巡检可绑定多个停车点，并同时关联检测部件或连接对象。"
+            message="每条绑定仅选择一个停车点；使用框选巡检点（停车点）选择多个停车点时，会按执行顺序新增多条绑定。"
           />
           <a-table :data-source="parkingBindings" row-key="localKey" :pagination="false" size="small" :scroll="{ x: 1400 }">
+            <a-table-column title="执行顺序" width="120">
+              <template #default="{ record, index }">
+                <a-input-number
+                  v-model:value="record.executionOrder"
+                  :min="1"
+                  :precision="0"
+                  style="width: 100%"
+                  :placeholder="String(index + 1)"
+                />
+              </template>
+            </a-table-column>
             <a-table-column title="停车点" width="320">
               <template #default="{ record }">
                 <a-select
                   v-model:value="record.parkingSelection"
-                  :mode="record.inspectionMode === 'area' ? 'multiple' : undefined"
                   style="width: 100%"
                   allow-clear
                   placeholder="选择停车点"
@@ -388,7 +398,8 @@ interface ConnectionObjectRow extends ConnectionObject {
 
 interface ParkingBindingRow extends FacilityParkingPointBinding {
   localKey: string
-  parkingSelection?: string | string[]
+  parkingSelection?: string
+  executionOrder?: number
 }
 
 interface PickerParkingRow {
@@ -678,16 +689,7 @@ function loadDetail() {
     sinkDeviceId: item.sinkDeviceId || currentDeviceId.value
   }))
 
-  parkingBindings.value = (detail.parkingPointBindings || []).map((item, index) => {
-    const parkingIds = item.parkingPointIds?.length ? item.parkingPointIds : [item.parkingPointId].filter(Boolean)
-    return {
-      ...item,
-      localKey: `${item.id}-${index}`,
-      inspectionMode: item.inspectionMode || (parkingIds.length > 1 ? 'area' : 'fixed'),
-      targetObjectRefs: item.targetObjectRefs?.length ? item.targetObjectRefs : (item.componentIds || []).map(id => `component:${id}`),
-      parkingSelection: (item.inspectionMode || (parkingIds.length > 1 ? 'area' : 'fixed')) === 'area' ? parkingIds : (parkingIds[0] || '')
-    }
-  })
+  parkingBindings.value = expandParkingBindings(detail.parkingPointBindings || [])
 }
 
 function handleUploadChange(info: any) {
@@ -733,23 +735,49 @@ function addConnectionObject() {
   })
 }
 
-function buildParkingBindingFromRows(rows: PickerParkingRow[]) {
-  const firstParking = rows[0]
-  const selectedIds = rows.map(item => item.parkingId)
-  const selectedNames = rows.map(item => item.parkingName)
+function expandParkingBindings(bindings: FacilityParkingPointBinding[]) {
+  return bindings.flatMap((item, bindingIndex) => {
+    const parkingIds = item.parkingPointIds?.length ? item.parkingPointIds : [item.parkingPointId].filter(Boolean)
+    const parkingNames = item.parkingPointNames?.length ? item.parkingPointNames : [item.parkingPointName].filter(Boolean)
+    const targetObjectRefs = item.targetObjectRefs?.length ? item.targetObjectRefs : (item.componentIds || []).map(id => `component:${id}`)
+    const ids = parkingIds.length ? parkingIds : ['']
+
+    return ids.map((parkingId, parkingIndex) => {
+      const parkingName = parkingNames[parkingIndex] || parkingNames[0] || ''
+      const executionOrder = item.executionOrder || item.sequence || bindingIndex + parkingIndex + 1
+      return {
+        ...item,
+        id: parkingIds.length > 1 ? `${item.id}-${parkingId || parkingIndex}` : item.id,
+        localKey: `${item.id}-${parkingId || parkingIndex}-${bindingIndex}`,
+        parkingPointId: parkingId,
+        parkingPointName: parkingName,
+        parkingPointIds: parkingId ? [parkingId] : [],
+        parkingPointNames: parkingName ? [parkingName] : [],
+        inspectionMode: item.inspectionMode || 'fixed',
+        targetObjectRefs,
+        parkingSelection: parkingId,
+        executionOrder
+      }
+    })
+  })
+}
+
+function buildParkingBindingFromRow(row: PickerParkingRow, index: number) {
+  const order = parkingBindings.value.length + index + 1
   return {
-    id: `binding-${Date.now()}`,
-    localKey: `binding-${Date.now()}`,
-    inspectionPointId: firstParking?.pointId || '',
-    inspectionPointName: firstParking?.pointName || '',
-    parkingPointId: firstParking?.parkingId || '',
-    parkingPointName: firstParking?.parkingName || '',
+    id: `binding-${Date.now()}-${row.parkingId}`,
+    localKey: `binding-${Date.now()}-${row.parkingId}`,
+    inspectionPointId: row.pointId,
+    inspectionPointName: row.pointName,
+    parkingPointId: row.parkingId,
+    parkingPointName: row.parkingName,
     componentIds: [],
-    inspectionMode: rows.length > 1 ? 'area' : 'fixed',
-    parkingPointIds: selectedIds,
-    parkingPointNames: selectedNames,
+    inspectionMode: 'fixed',
+    parkingPointIds: [row.parkingId],
+    parkingPointNames: [row.parkingName],
     targetObjectRefs: [],
-    parkingSelection: rows.length > 1 ? selectedIds : (selectedIds[0] || '')
+    parkingSelection: row.parkingId,
+    executionOrder: order
   } as ParkingBindingRow
 }
 
@@ -788,7 +816,8 @@ function confirmParkingPicker() {
     message.warning('请先框选停车点')
     return
   }
-  parkingBindings.value.push(buildParkingBindingFromRows(selectedPickerParkingRows.value))
+  const rows = selectedPickerParkingRows.value.map((row, index) => buildParkingBindingFromRow(row, index))
+  parkingBindings.value.push(...rows)
   message.success(`已回填 ${selectedPickerParkingRows.value.length} 个停车点`)
   closeParkingPicker()
 }
@@ -870,27 +899,17 @@ function onAreaChange(value: string) {
 }
 
 function onBindingModeChange(record: ParkingBindingRow) {
-  if (record.inspectionMode === 'fixed') {
-    const values = Array.isArray(record.parkingSelection) ? record.parkingSelection : [record.parkingSelection].filter(Boolean)
-    record.parkingSelection = values[0] || ''
-  } else {
-    const values = (Array.isArray(record.parkingSelection) ? record.parkingSelection : [record.parkingSelection].filter(Boolean))
-      .filter((item): item is string => Boolean(item))
-    record.parkingSelection = values
-  }
   onBindingParkingChange(record)
 }
 
 function onBindingParkingChange(record: ParkingBindingRow) {
-  const values = Array.isArray(record.parkingSelection) ? record.parkingSelection : [record.parkingSelection].filter(Boolean)
-  const selected = parkingSelectOptions.value.filter(item => values.includes(item.value))
-  const first = selected[0]
-  record.inspectionPointId = first?.pointId || ''
-  record.inspectionPointName = first?.pointName || ''
-  record.parkingPointId = first?.value || ''
-  record.parkingPointName = first?.parkingName || ''
-  record.parkingPointIds = selected.map(item => item.value)
-  record.parkingPointNames = selected.map(item => item.parkingName)
+  const selected = parkingSelectOptions.value.find(item => item.value === record.parkingSelection)
+  record.inspectionPointId = selected?.pointId || ''
+  record.inspectionPointName = selected?.pointName || ''
+  record.parkingPointId = selected?.value || ''
+  record.parkingPointName = selected?.parkingName || ''
+  record.parkingPointIds = selected ? [selected.value] : []
+  record.parkingPointNames = selected ? [selected.parkingName] : []
 }
 
 function formatSourceEndpoint(componentId?: string) {
@@ -998,18 +1017,21 @@ function isConnectionRule(rule: DetectionItemConfig) {
 }
 
 function normalizeParkingBindings() {
-  return parkingBindings.value.map(({ localKey, parkingSelection, ...item }) => {
+  return parkingBindings.value.map(({ localKey, parkingSelection, executionOrder, ...item }, index) => {
     const refs = item.targetObjectRefs || []
     const componentIds = refs.filter(ref => ref.startsWith('component:')).map(ref => ref.split(':')[1])
+    const order = executionOrder || index + 1
     return {
       ...item,
       inspectionMode: item.inspectionMode || 'fixed',
-      parkingPointIds: item.parkingPointIds?.length ? item.parkingPointIds : [item.parkingPointId].filter(Boolean),
-      parkingPointNames: item.parkingPointNames?.length ? item.parkingPointNames : [item.parkingPointName].filter(Boolean),
+      parkingPointIds: item.parkingPointId ? [item.parkingPointId] : [],
+      parkingPointNames: item.parkingPointName ? [item.parkingPointName] : [],
+      executionOrder: order,
+      sequence: order,
       targetObjectRefs: refs,
       componentIds
     }
-  })
+  }).sort((a, b) => (a.executionOrder || 0) - (b.executionOrder || 0))
 }
 
 function handleSave() {

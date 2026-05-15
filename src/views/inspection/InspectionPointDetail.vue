@@ -62,15 +62,6 @@
               <a-col :span="8"><a-form-item label="地图坐标"><a-input :value="coordinateText" disabled /></a-form-item></a-col>
               <a-col :span="8"><a-form-item label="车头朝向"><a-input-number v-model:value="form.yaw" :disabled="!isEditMode" :min="0" :max="360" style="width: 100%" /></a-form-item></a-col>
             </a-row>
-
-            <a-row :gutter="16">
-              <a-col :span="4"><a-form-item label="可达"><a-switch v-model:checked="constraintForm.reachable" :disabled="!isEditMode" /></a-form-item></a-col>
-              <a-col :span="4"><a-form-item label="允许倒车"><a-switch v-model:checked="constraintForm.reverseRequired" :disabled="!isEditMode" /></a-form-item></a-col>
-              <a-col :span="4"><a-form-item label="允许掉头"><a-switch v-model:checked="constraintForm.turnAroundRequired" :disabled="!isEditMode" /></a-form-item></a-col>
-              <a-col :span="4"><a-form-item label="窄路"><a-switch v-model:checked="constraintForm.narrowRoad" :disabled="!isEditMode" /></a-form-item></a-col>
-              <a-col :span="4"><a-form-item label="坡道"><a-switch v-model:checked="constraintForm.slope" :disabled="!isEditMode" /></a-form-item></a-col>
-              <a-col :span="4"><a-form-item label="便桥"><a-switch v-model:checked="constraintForm.bridgeRequired" :disabled="!isEditMode" /></a-form-item></a-col>
-            </a-row>
           </a-form>
         </a-card>
       </a-col>
@@ -102,7 +93,18 @@
       <a-row :gutter="[16, 16]" style="margin-top: 16px">
         <a-col :span="24">
           <a-card title="覆盖对象">
-            <a-table :columns="coverageColumns" :data-source="coverageRows" row-key="id" :pagination="false" />
+            <a-collapse v-if="coverageGroups.length" :bordered="false">
+              <a-collapse-panel v-for="group in coverageGroups" :key="group.id" :header="group.name">
+                <a-table
+                  :columns="coverageColumns"
+                  :data-source="group.children"
+                  row-key="id"
+                  :pagination="false"
+                  size="small"
+                />
+              </a-collapse-panel>
+            </a-collapse>
+            <a-empty v-else description="暂无覆盖对象" />
           </a-card>
         </a-col>
 
@@ -155,7 +157,6 @@
               <a-descriptions-item label="所属区域">{{ form.areaName || '-' }}</a-descriptions-item>
               <a-descriptions-item label="校准状态">{{ currentPoint?.calibrationStatus === 'calibrated' ? '已校准' : '待校准' }}</a-descriptions-item>
               <a-descriptions-item label="坐标">{{ coordinateText }}</a-descriptions-item>
-              <a-descriptions-item label="可达性">{{ constraintForm.reachable ? '可达' : '不可达' }}</a-descriptions-item>
               <a-descriptions-item label="说明">当前作为充电站点位使用，可在地图页维护位置。</a-descriptions-item>
             </a-descriptions>
           </a-card>
@@ -172,7 +173,6 @@
               <a-descriptions-item label="所属区域">{{ form.areaName || '-' }}</a-descriptions-item>
               <a-descriptions-item label="校准状态">{{ currentPoint?.calibrationStatus === 'calibrated' ? '已校准' : '待校准' }}</a-descriptions-item>
               <a-descriptions-item label="坐标">{{ coordinateText }}</a-descriptions-item>
-              <a-descriptions-item label="可达性">{{ constraintForm.reachable ? '可达' : '不可达' }}</a-descriptions-item>
               <a-descriptions-item label="说明">当前作为维修/维护停靠点位使用，可在地图页维护边界条件。</a-descriptions-item>
             </a-descriptions>
           </a-card>
@@ -188,8 +188,6 @@
               <a-descriptions-item label="点位名称">{{ form.name || '-' }}</a-descriptions-item>
               <a-descriptions-item label="所属区域">{{ form.areaName || '-' }}</a-descriptions-item>
               <a-descriptions-item label="坐标">{{ coordinateText }}</a-descriptions-item>
-              <a-descriptions-item label="可达性">{{ constraintForm.reachable ? '可达' : '不可达' }}</a-descriptions-item>
-              <a-descriptions-item label="倒车">{{ constraintForm.reverseRequired ? '需要' : '不需要' }}</a-descriptions-item>
               <a-descriptions-item label="说明">当前作为通行/停靠辅助点位使用。</a-descriptions-item>
             </a-descriptions>
           </a-card>
@@ -245,10 +243,6 @@ const constraintForm = reactive<ParkingPointConstraint>({
 const coverageColumns = [
   { title: '对象名称', dataIndex: 'name', key: 'name' },
   { title: '对象类型', dataIndex: 'typeText', key: 'typeText', width: 140 },
-  { title: '所属设施', dataIndex: 'deviceName', key: 'deviceName', width: 180 },
-  { title: '覆盖类型', dataIndex: 'coverageTypeText', key: 'coverageTypeText', width: 110 },
-  { title: '覆盖状态', dataIndex: 'coverageStatusText', key: 'coverageStatusText', width: 110 },
-  { title: '必须覆盖', dataIndex: 'requiredCoverageText', key: 'requiredCoverageText', width: 110 },
   { title: '备注', dataIndex: 'remark', key: 'remark' }
 ]
 
@@ -310,12 +304,32 @@ const mapPoints = computed(() => inspectionStore.inspectionPoints
 
 const coverageRows = computed(() => (currentPoint.value?.coverageObjects || []).map((item) => ({
   ...item,
-  typeText: getCoverageTypeText(item.type),
-  deviceName: item.deviceId ? inspectionStore.inspectionDevices.find(device => device.id === item.deviceId)?.name || '-' : item.areaName || '-',
-  coverageTypeText: ({ primary: '主覆盖', secondary: '辅助覆盖', backup: '备用覆盖' } as Record<string, string>)[item.coverageType] || item.coverageType,
-  coverageStatusText: ({ coverable: '可覆盖', partial: '部分覆盖', uncoverable: '不可覆盖' } as Record<string, string>)[item.coverageStatus] || item.coverageStatus,
-  requiredCoverageText: item.requiredCoverage ? '是' : '否'
+  typeText: getCoverageTypeText(item.type)
 })))
+
+const coverageGroups = computed(() => {
+  const rows = coverageRows.value
+  const devices = inspectionStore.inspectionDevices
+  const deviceIds = Array.from(new Set(rows.map(item => item.deviceId).filter((id): id is string => Boolean(id))))
+  const groups = deviceIds.map((deviceId) => {
+    const asset = rows.find(item => item.deviceId === deviceId && item.type === 'asset')
+    const device = devices.find(item => item.id === deviceId)
+    return {
+      id: deviceId,
+      name: asset?.name || device?.name || deviceId,
+      children: rows.filter(item => item.deviceId === deviceId && (item.type === 'component' || item.type === 'connection'))
+    }
+  })
+  const standaloneRows = rows.filter(item => !item.deviceId)
+  if (standaloneRows.length) {
+    groups.push({
+      id: 'standalone',
+      name: '其他覆盖对象',
+      children: standaloneRows
+    })
+  }
+  return groups
+})
 
 const poseRows = computed(() => (currentPoint.value?.parkingPoints || []).flatMap((parking) =>
   parking.collectionPoses.map((pose) => ({

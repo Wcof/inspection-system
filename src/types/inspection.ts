@@ -186,6 +186,8 @@ export interface FacilityParkingPointBinding {
   inspectionPointName: string
   parkingPointId: string
   parkingPointName: string
+  executionOrder?: number
+  sequence?: number
   componentIds: string[]
   inspectionMode?: 'fixed' | 'area'
   parkingPointIds?: string[]

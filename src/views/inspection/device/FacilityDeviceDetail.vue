@@ -71,15 +71,19 @@ const detectionRules = computed(() => getDetectionItemConfigs())
 const componentRows = computed(() => device.value?.assetComponents || [])
 const connectionRows = computed(() => device.value?.connectionObjects || [])
 
-const bindingRows = computed(() => (device.value?.parkingPointBindings || []).map((binding) => ({
-  ...binding,
-  inspectionModeText: binding.inspectionMode === 'area' ? '区域巡检' : '固定巡检',
-  parkingPointDisplay: (binding.parkingPointNames && binding.parkingPointNames.length
-    ? binding.parkingPointNames
-    : [binding.parkingPointName].filter(Boolean)
-  ).join('、'),
-  targetObjectDisplay: getTargetObjectNames(binding).join('、') || '-'
-})))
+const bindingRows = computed(() => (device.value?.parkingPointBindings || [])
+  .slice()
+  .sort((a, b) => (a.executionOrder || a.sequence || 0) - (b.executionOrder || b.sequence || 0))
+  .map((binding, index) => ({
+    ...binding,
+    executionOrder: binding.executionOrder || binding.sequence || index + 1,
+    inspectionModeText: binding.inspectionMode === 'area' ? '区域巡检' : '固定巡检',
+    parkingPointDisplay: (binding.parkingPointNames && binding.parkingPointNames.length
+      ? binding.parkingPointNames
+      : [binding.parkingPointName].filter(Boolean)
+    ).join('、'),
+    targetObjectDisplay: getTargetObjectNames(binding).join('、') || '-'
+  })))
 
 const poseRows = computed(() => {
   const bindings = device.value?.parkingPointBindings || []
@@ -174,6 +178,7 @@ const connectionColumns = [
 ]
 
 const bindingColumns = [
+  { title: '执行顺序', dataIndex: 'executionOrder', key: 'executionOrder', width: 100 },
   { title: '停车点', dataIndex: 'parkingPointDisplay', key: 'parkingPointDisplay', width: 260 },
   { title: '巡检模式', dataIndex: 'inspectionModeText', key: 'inspectionModeText', width: 140 },
   { title: '关联对象', dataIndex: 'targetObjectDisplay', key: 'targetObjectDisplay' }
