@@ -815,12 +815,6 @@ function normalizeDateTime(value?: string) {
   return `${year}-${month}-${day} ${hour}:${minute}`
 }
 
-function toComparableTime(value?: string) {
-  const normalized = normalizeDateTime(value)
-  if (!normalized) return ''
-  return normalized.replace(/[-:\s]/g, '')
-}
-
 function getTaskTimeValue(task: DispatchTask) {
   return task.scheduledAt || task.startedAt || task.createdAt
 }
