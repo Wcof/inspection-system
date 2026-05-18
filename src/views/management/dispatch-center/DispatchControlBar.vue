@@ -16,9 +16,26 @@
           </div>
           <div class="control-item">
             <span class="label">统计范围</span>
-            <a-select :value="control.robotId" style="width: 210px" @update:value="(value?: string) => updateControl('robotId', value || '__all__')" allow-clear placeholder="全部（全部机器人）今日任务">
+            <a-select :value="control.robotId" style="width: 210px" @update:value="(value?: string) => updateControl('robotId', value || '__all__')" allow-clear placeholder="全部（全部机器人）任务">
               <a-select-option v-for="robot in robotOptions" :key="robot.value" :value="robot.value">{{ robot.label }}</a-select-option>
             </a-select>
+          </div>
+          <div class="control-item">
+            <span class="label">日期区间</span>
+            <a-range-picker
+              :value="control.timeRange"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 260px"
+              allow-clear
+              @update:value="(value?: [string, string]) => updateControl('timeRange', value || [])"
+            >
+              <template #renderExtraFooter>
+                <div class="date-range-footer">
+                  <a-button type="link" size="small" class="date-range-footer-button" @click="setTodayRange">今天</a-button>
+                </div>
+              </template>
+            </a-range-picker>
           </div>
         </a-space>
         <div class="mode-hint">
@@ -47,6 +64,7 @@ export interface DispatchControlState {
   mode: DispatchMode
   pointKeyword: string
   robotId?: string
+  timeRange: [string, string] | []
 }
 
 const props = defineProps<{ control: DispatchControlState; robotOptions: Array<{ value: string; label: string }> }>()
@@ -64,6 +82,18 @@ function updateControl<K extends keyof DispatchControlState>(key: K, value: Disp
     next.allowQueueJump = true
   }
   emit('update:control', next)
+}
+
+function setTodayRange() {
+  const today = formatDate(new Date())
+  updateControl('timeRange', [today, today])
+}
+
+function formatDate(date: Date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 </script>
 
@@ -105,6 +135,14 @@ function updateControl<K extends keyof DispatchControlState>(key: K, value: Disp
   align-items: flex-start;
   justify-content: flex-end;
   min-width: 0;
+}
+.date-range-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+.date-range-footer-button {
+  padding-inline: 4px;
 }
 @media (max-width: 1440px), (max-height: 820px) {
   .control-row {

@@ -296,13 +296,15 @@ interface MissingSubjectItem extends CoverageLinkMeta { subjectId: string; subje
 interface MissingRuleItem extends CoverageLinkMeta { id: string; ruleName: string; subjectId?: string; subjectName: string; deviceId?: string; deviceName: string; regionId?: string; regionName: string }
 
 const ALL_ROBOT_SCOPE = '__all__'
+const TODAY_DATE = formatCurrentDate()
 const control = reactive<DispatchControlState>({
   autoDispatchEnabled: true,
   allowAutoCreate: true,
   allowQueueJump: true,
   mode: 'auto',
   pointKeyword: '',
-  robotId: ALL_ROBOT_SCOPE
+  robotId: ALL_ROBOT_SCOPE,
+  timeRange: []
 })
 const activeSummaryFilter = ref<SummaryFilter | ''>('')
 const temporaryVisible = ref(false)
@@ -401,12 +403,13 @@ const visibleMapMarkers = computed(() => {
     return matchesKeyword && matchesRobot
   })
 })
-const scopedTasks = computed(() => {
+const robotScopedTasks = computed(() => {
   if (!control.robotId || control.robotId === ALL_ROBOT_SCOPE) return tasks.value
   const robot = robots.value.find(item => item.id === control.robotId)
   if (!robot) return tasks.value
   return tasks.value.filter(task => task.robotName === robot.name)
 })
+const scopedTasks = computed(() => robotScopedTasks.value.filter((task) => isInSelectedRange(getTaskTimeValue(task))))
 const runningTasks = computed(() => filterTasks(scopedTasks.value.filter((task) => task.status === 'running'), 'running'))
 const pendingTasks = computed(() => filterTasks(scopedTasks.value.filter((task) => task.status === 'pending').sort((a, b) => (a.queueOrder || 99) - (b.queueOrder || 99)), 'pending'))
 const pendingProcessTasks = computed(() => filterTasks(scopedTasks.value.filter((task) => task.status === 'auto_pending' || task.status === 'conflict'), 'processing'))
@@ -419,7 +422,7 @@ const parkingPointOptions = computed(() => mapMarkers.value.filter((m) => m.mark
 const conflictCandidates = computed<ConflictTaskItem[]>(() => [...runningTasks.value, ...pendingTasks.value].map((task) => ({ id: task.id, name: task.name, robotId: robotOptions.value.find((item) => item.label === task.robotName)?.value || task.robotName, robotName: task.robotName, scheduledAt: task.scheduledAt || task.startedAt || '-', status: task.status === 'running' ? 'running' : 'pending', typeLabel: task.typeLabel })))
 const robotLoadMap = computed(() => {
   const map = new Map<string, number>()
-  scopedTasks.value.forEach((task) => {
+  robotScopedTasks.value.forEach((task) => {
     if (!['running', 'pending', 'auto_pending', 'conflict'].includes(task.status)) return
     const robot = robots.value.find((item) => item.name === task.robotName)
     if (!robot) return
@@ -466,7 +469,7 @@ const filteredMissingRules = computed(() => {
 })
 
 const summary = computed<DispatchSummary>(() => ({
-  timeRange: currentScopeText.value,
+  timeRange: getSelectedDateRangeText(),
   task: {
     total: scopedTasks.value.length,
     running: scopedTasks.value.filter(task => task.status === 'running').length,
@@ -479,8 +482,12 @@ const summary = computed<DispatchSummary>(() => ({
 
 const currentScopeText = computed(() => {
   const robot = robots.value.find(item => item.id === control.robotId)
-  const scope = control.robotId === ALL_ROBOT_SCOPE ? '全部（全部机器人）今日任务' : robot ? `${robot.name}今日任务` : '全部（全部机器人）今日任务'
-  return control.pointKeyword ? `${scope} / 关键字：${control.pointKeyword}` : scope
+  const scope = control.robotId === ALL_ROBOT_SCOPE ? '全部（全部机器人）任务' : robot ? `${robot.name}任务` : '全部（全部机器人）任务'
+  const timeRangeText = getSelectedDateRangeText()
+  const segments = [scope]
+  if (timeRangeText) segments.push(`日期：${timeRangeText}`)
+  if (control.pointKeyword) segments.push(`关键字：${control.pointKeyword}`)
+  return segments.join(' / ')
 })
 
 function filterTasks(source: DispatchTask[], ownFilter: SummaryFilter) {
@@ -783,6 +790,59 @@ function submitTemporaryDispatch(form: TemporaryDispatchForm) {
 
 function getTemporaryDispatchTypeText(type?: TemporaryDispatchForm['dispatchType']) {
   return ({ insert: '插单', recheck: '补检', charging: '充电', parking: '停车', replace_robot: '替换机器人' } as Record<string, string>)[type || ''] || '插单'
+}
+
+function formatCurrentDate() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function normalizeDateTime(value?: string) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${value} 00:00`
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(value)) return `${TODAY_DATE} ${value.slice(0, 5)}`
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(value)) return value.slice(0, 16)
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  const hour = `${date.getHours()}`.padStart(2, '0')
+  const minute = `${date.getMinutes()}`.padStart(2, '0')
+  return `${year}-${month}-${day} ${hour}:${minute}`
+}
+
+function toComparableTime(value?: string) {
+  const normalized = normalizeDateTime(value)
+  if (!normalized) return ''
+  return normalized.replace(/[-:\s]/g, '')
+}
+
+function getTaskTimeValue(task: DispatchTask) {
+  return task.scheduledAt || task.startedAt || task.createdAt
+}
+
+function isInSelectedRange(value?: string) {
+  if (!control.timeRange.length) return true
+  const target = normalizeDateTime(value).slice(0, 10)
+  if (!target) return false
+  const [start, end] = control.timeRange
+  const startValue = start
+  const endValue = end
+  if (!startValue || !endValue) return true
+  return target >= startValue && target <= endValue
+}
+
+function getSelectedDateRangeText() {
+  if (!control.timeRange.length) return '今日'
+  const [start, end] = control.timeRange
+  const startText = start
+  const endText = end
+  if (!startText || !endText) return '今日'
+  return `${startText} - ${endText}`
 }
 </script>
 

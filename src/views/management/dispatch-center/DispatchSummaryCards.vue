@@ -1,7 +1,7 @@
 <template>
   <div class="summary-grid">
     <a-card size="small" class="summary-card" :class="{ active: activeFilter === 'plan' }" @click="emitFilter('plan')">
-      <div class="title">今日计划</div>
+      <div class="title">计划任务</div>
       <div class="value">{{ summary.plan.total }}</div>
       <div class="sub">人工计划 {{ summary.plan.manual }} | 自动调度 {{ summary.plan.auto }}</div>
     </a-card>
