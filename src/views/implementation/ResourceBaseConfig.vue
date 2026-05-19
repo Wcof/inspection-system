@@ -1,12 +1,52 @@
 <template>
   <div class="resource-base-config">
-    <a-page-header title="资源基础配置" sub-title="基础资源前提配置" />
+    <a-page-header title="资源基础配置" sub-title="机器人优先巡检区域配置" />
     
     <a-card class="resource-card" style="margin-top: 16px">
+      <div class="search-panel">
+        <a-form layout="vertical" :model="searchForm" @submit.prevent>
+          <a-row :gutter="[16, 8]" align="bottom">
+            <a-col :xs="24" :sm="12" :md="6">
+              <a-form-item label="区域" class="search-item">
+                <a-select v-model:value="searchForm.area" placeholder="请选择区域" allow-clear>
+                  <a-select-option v-for="area in areaOptions" :key="area.value" :value="area.value">
+                    {{ area.label }}
+                  </a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="6">
+              <a-form-item label="优先指派机器人" class="search-item">
+                <a-select v-model:value="searchForm.robot" placeholder="请选择机器人" allow-clear>
+                  <a-select-option v-for="robot in robotOptions" :key="robot.value" :value="robot.value">
+                    {{ robot.label }}
+                  </a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="6">
+              <div class="search-actions">
+                <a-space>
+                  <a-button type="primary">搜索</a-button>
+                  <a-button @click="resetSearch">重置</a-button>
+                </a-space>
+              </div>
+            </a-col>
+          </a-row>
+        </a-form>
+      </div>
+
+      <a-alert
+        class="dispatch-priority-tip"
+        type="info"
+        show-icon
+        message="这里配置机器人优先巡检的区域。规划生成任务时，系统会优先按照区域配置指派机器人；当本区域机器人没有空闲资源时，才会跨区域调度其他区域的空闲机器人。"
+      />
+
       <div class="toolbar">
         <div class="toolbar-left">
-          <span class="toolbar-title">区域机器人配置</span>
-          <a-tag color="blue">共 {{ configRules.length }} 条</a-tag>
+          <span class="toolbar-title">区域优先指派配置</span>
+          <a-tag color="blue">共 {{ filteredConfigRules.length }} 条</a-tag>
         </div>
         <a-space>
           <a-button type="primary" @click="handleAddRule">
@@ -17,7 +57,7 @@
       </div>
 
       <div class="table-wrap">
-        <a-table :data-source="configRules" row-key="id" :pagination="false">
+        <a-table :data-source="filteredConfigRules" row-key="id" :pagination="false">
           <a-table-column title="区域" data-index="area">
             <template #default="{ record }">
               <a-select 
@@ -36,14 +76,14 @@
               <span v-else>{{ getAreaLabel(record.area) }}</span>
             </template>
           </a-table-column>
-          <a-table-column title="负责机器人" data-index="robots">
+          <a-table-column title="优先指派机器人" data-index="robots">
             <template #default="{ record }">
               <a-select 
                 v-if="record.editing"
                 v-model:value="record.robots" 
                 mode="multiple" 
                 style="width: 100%"
-                placeholder="请选择机器人"
+                placeholder="请选择优先指派机器人"
               >
                 <a-select-option v-for="robot in robotOptions" :key="robot.value" :value="robot.value">
                   {{ robot.label }}
@@ -54,17 +94,6 @@
                   {{ getRobotLabel(robotId) }}
                 </a-tag>
               </template>
-            </template>
-          </a-table-column>
-          <a-table-column title="生效状态" data-index="enabled">
-            <template #default="{ record }">
-              <a-switch 
-                v-if="record.editing" 
-                v-model:checked="record.enabled" 
-              />
-              <a-tag :color="record.enabled ? 'green' : 'red'">
-                {{ record.enabled ? '启用' : '停用' }}
-              </a-tag>
             </template>
           </a-table-column>
           <a-table-column title="备注" data-index="remark">
@@ -123,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 
@@ -131,7 +160,6 @@ interface ConfigRule {
   id: string
   area: string
   robots: string[]
-  enabled: boolean
   remark: string
   editing?: boolean
 }
@@ -152,10 +180,23 @@ const robotOptions = [
 let nextId = 4
 
 const configRules = ref<ConfigRule[]>([
-  { id: '1', area: 'area_a', robots: ['robot-1'], enabled: true, remark: 'A区主要巡检机器人' },
-  { id: '2', area: 'area_b', robots: ['robot-1', 'robot-2'], enabled: true, remark: '' },
-  { id: '3', area: 'area_c', robots: ['robot-2'], enabled: false, remark: '备用区域' }
+  { id: '1', area: 'area_a', robots: ['robot-1'], remark: 'A区任务优先指派巡检机器人 A' },
+  { id: '2', area: 'area_b', robots: ['robot-1', 'robot-2'], remark: 'B区任务优先从 A、B 两台机器人中调度' },
+  { id: '3', area: 'area_c', robots: ['robot-2'], remark: 'C区任务优先指派巡检机器人 B' }
 ])
+
+const searchForm = reactive({
+  area: '',
+  robot: ''
+})
+
+const filteredConfigRules = computed(() => {
+  return configRules.value.filter((rule) => {
+    const matchesArea = !searchForm.area || rule.area === searchForm.area
+    const matchesRobot = !searchForm.robot || rule.robots.includes(searchForm.robot)
+    return matchesArea && matchesRobot
+  })
+})
 
 function getAreaLabel(value: string): string {
   const area = areaOptions.find(a => a.value === value)
@@ -185,7 +226,6 @@ function handleAddRule() {
     id: String(nextId++),
     area: availableAreas[0].value,
     robots: [],
-    enabled: true,
     remark: '',
     editing: true
   })
@@ -232,20 +272,44 @@ function handleSave() {
 
 function handleReset() {
   configRules.value = [
-    { id: '1', area: 'area_a', robots: ['robot-1'], enabled: true, remark: 'A区主要巡检机器人' },
-    { id: '2', area: 'area_b', robots: ['robot-1', 'robot-2'], enabled: true, remark: '' },
-    { id: '3', area: 'area_c', robots: ['robot-2'], enabled: false, remark: '备用区域' }
+    { id: '1', area: 'area_a', robots: ['robot-1'], remark: 'A区任务优先指派巡检机器人 A' },
+    { id: '2', area: 'area_b', robots: ['robot-1', 'robot-2'], remark: 'B区任务优先从 A、B 两台机器人中调度' },
+    { id: '3', area: 'area_c', robots: ['robot-2'], remark: 'C区任务优先指派巡检机器人 B' }
   ]
   nextId = 4
   message.info('已重置为默认配置')
+}
+
+function resetSearch() {
+  searchForm.area = ''
+  searchForm.robot = ''
 }
 </script>
 
 <style scoped lang="css">.resource-base-config {
   width: 100%;
 }
+.resource-base-config .search-panel {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.resource-base-config .search-item {
+  margin-bottom: 0;
+}
+.resource-base-config .search-actions {
+  min-height: 32px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
 .resource-base-config .resource-card {
   border-radius: 10px;
+}
+.resource-base-config .dispatch-priority-tip {
+  margin-bottom: 12px;
 }
 .resource-base-config .toolbar {
   display: flex;

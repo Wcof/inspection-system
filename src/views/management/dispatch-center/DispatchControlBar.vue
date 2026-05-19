@@ -15,18 +15,32 @@
             </a-select>
           </div>
           <div class="control-item">
-            <a-checkbox :checked="control.allowAutoCreate" :disabled="control.autoDispatchEnabled" @update:checked="(value: boolean) => updateControl('allowAutoCreate', value)">
-              允许自动创建任务
-            </a-checkbox>
+            <span class="label">统计范围</span>
+            <a-select :value="control.robotId" style="width: 210px" @update:value="(value?: string) => updateControl('robotId', value || '__all__')" allow-clear placeholder="全部（全部机器人）任务">
+              <a-select-option v-for="robot in robotOptions" :key="robot.value" :value="robot.value">{{ robot.label }}</a-select-option>
+            </a-select>
           </div>
           <div class="control-item">
-            <a-checkbox :checked="control.allowQueueJump" :disabled="control.autoDispatchEnabled" @update:checked="(value: boolean) => updateControl('allowQueueJump', value)">
-              允许任务插队
-            </a-checkbox>
+            <span class="label">日期区间</span>
+            <a-range-picker
+              :value="control.timeRange"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 260px"
+              allow-clear
+              @update:value="(value?: [string, string]) => updateControl('timeRange', value || [])"
+            >
+              <template #renderExtraFooter>
+                <div class="date-range-footer">
+                  <a-button type="link" size="small" class="date-range-footer-button" @click="setTodayRange">今天</a-button>
+                </div>
+              </template>
+            </a-range-picker>
           </div>
         </a-space>
         <div class="mode-hint">
           当前说明：{{ control.mode === 'auto' ? '自动调度下，待执行任务可能被拆分、合并、重排或改派。' : '手动执行模式，待执行任务按既定顺序执行，变更需人工确认。' }}
+          <span class="policy-hint">自动创建和插队策略由租户/主账号统一控制，当前账号仅按角色权限查看和执行。</span>
         </div>
       </div>
       <div class="actions">
@@ -49,9 +63,11 @@ export interface DispatchControlState {
   allowQueueJump: boolean
   mode: DispatchMode
   pointKeyword: string
+  robotId?: string
+  timeRange: [string, string] | []
 }
 
-const props = defineProps<{ control: DispatchControlState }>()
+const props = defineProps<{ control: DispatchControlState; robotOptions: Array<{ value: string; label: string }> }>()
 const emit = defineEmits<{
   (e: 'update:control', value: DispatchControlState): void
   (e: 'create-temporary'): void
@@ -66,6 +82,18 @@ function updateControl<K extends keyof DispatchControlState>(key: K, value: Disp
     next.allowQueueJump = true
   }
   emit('update:control', next)
+}
+
+function setTodayRange() {
+  const today = formatDate(new Date())
+  updateControl('timeRange', [today, today])
+}
+
+function formatDate(date: Date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 </script>
 
@@ -98,13 +126,44 @@ function updateControl<K extends keyof DispatchControlState>(key: K, value: Disp
   color: #666;
   font-size: 12px;
 }
+.policy-hint {
+  margin-left: 10px;
+  color: #8c8c8c;
+}
 .actions {
   display: flex;
   align-items: flex-start;
+  justify-content: flex-end;
+  min-width: 0;
 }
-@media (max-width: 1200px) {
+.date-range-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+.date-range-footer-button {
+  padding-inline: 4px;
+}
+@media (max-width: 1440px), (max-height: 820px) {
   .control-row {
     flex-direction: column;
+  }
+  .actions {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 768px) {
+  .control-card :deep(.ant-card-body) {
+    padding: 12px;
+  }
+  .control-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .actions :deep(.ant-space) {
+    row-gap: 8px;
+    flex-wrap: wrap;
   }
 }
 </style>

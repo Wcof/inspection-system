@@ -9,32 +9,32 @@
         style="height: 100%; border-right: 0"
       >
         <template v-if="currentSystem === 'management'">
-          <a-sub-menu key="management-dispatch">
+        <a-sub-menu key="management-dispatch">
             <template #title>
               <span>
                 <a-icon type="control" />
-                调度台
+                总调度台
               </span>
             </template>
             <a-menu-item key="management-dispatch-center">
               <router-link to="/management/dispatch/center">总调度台</router-link>
             </a-menu-item>
-            <a-menu-item key="management-dispatch-plan-list">
-              <router-link to="/management/plan/list">巡检计划</router-link>
-            </a-menu-item>
-            <a-menu-item key="management-dispatch-temp-task-list">
-              <router-link to="/management/task/temp-list">临时任务</router-link>
-            </a-menu-item>
           </a-sub-menu>
-          <a-sub-menu key="management-cockpit">
+          <a-sub-menu key="management-plan">
             <template #title>
               <span>
-                <a-icon type="dashboard" />
-                驾驶舱
+                <a-icon type="schedule" />
+                规划与执行
               </span>
             </template>
-            <a-menu-item key="management-cockpit-view">
-              <router-link to="/management/cockpit/view">驾驶舱</router-link>
+            <a-menu-item key="management-plan-list">
+              <router-link to="/management/plan/list">巡检规划</router-link>
+            </a-menu-item>
+            <a-menu-item key="management-task-list">
+              <router-link to="/management/task/list">执行任务</router-link>
+            </a-menu-item>
+            <a-menu-item key="management-task-temp-list">
+              <router-link to="/management/task/temp-list">临时任务</router-link>
             </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="management-exception">
@@ -78,39 +78,48 @@
             <template #title>
               <span>
                 <a-icon type="environment" />
-                地图管理
+                地图空间
               </span>
             </template>
             <a-menu-item key="implementation-map-list">
-              <router-link to="/implementation/map/list">地图列表</router-link>
+              <router-link to="/implementation/map/list">地图管理</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-map-point-manage">
+              <router-link to="/implementation/map/point-manage">点位管理</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-map-area-manage">
+              <router-link to="/implementation/map/area-manage">区域管理</router-link>
             </a-menu-item>
           </a-sub-menu>
-          <a-sub-menu key="implementation-robot">
+          <a-sub-menu key="implementation-asset-detection">
             <template #title>
               <span>
-                <a-icon type="robot" />
-                机器人管理
+                <a-icon type="appstore" />
+                资产设备
               </span>
             </template>
             <a-menu-item key="implementation-robot-list">
               <router-link to="/implementation/robot/list">机器人管理</router-link>
             </a-menu-item>
+            <a-menu-item key="implementation-device">
+              <router-link to="/implementation/device/list">设施管理</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-device-component-usage">
+              <router-link to="/implementation/device/component-usage">设施部件</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-device-iot-list">
+              <router-link to="/implementation/device/iot-list">设备管理</router-link>
+            </a-menu-item>
           </a-sub-menu>
-          <a-sub-menu key="implementation-point-device">
+          <a-sub-menu key="implementation-point-collection">
             <template #title>
               <span>
-                <a-icon type="appstore" />
-                点位与设备管理
+                <a-icon type="cluster" />
+                检测规则
               </span>
             </template>
-            <a-menu-item key="implementation-point">
-              <router-link to="/implementation/point/list">点位管理</router-link>
-            </a-menu-item>
-            <a-menu-item key="implementation-device">
-              <router-link to="/implementation/device/list">设施设备管理</router-link>
-            </a-menu-item>
-            <a-menu-item key="implementation-metric">
-              <router-link to="/implementation/metric/list">检测项管理</router-link>
+            <a-menu-item key="implementation-detection-item-config">
+              <router-link to="/implementation/detection-item-config/list">检测规则配置</router-link>
             </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="implementation-dispatch-config">
@@ -125,6 +134,9 @@
             </a-menu-item>
             <a-menu-item key="implementation-dispatch-resource-config">
               <router-link to="/implementation/dispatch/resource-config">资源基础配置</router-link>
+            </a-menu-item>
+            <a-menu-item key="implementation-device-component-types">
+              <router-link to="/implementation/device/component-types">部件类型配置</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-dispatch-notify-config">
               <router-link to="/implementation/dispatch/notify-config">通知配置</router-link>
@@ -216,9 +228,9 @@ const handleContentClick = (event: MouseEvent) => {
 // 开放的菜单
 const openKeys = computed(() => {
   if (currentSystem.value === 'management') {
-    return ['management-dispatch', 'management-cockpit', 'management-exception', 'management-report']
+    return ['management-plan', 'management-dispatch', 'management-task', 'management-exception', 'management-report']
   }
-  return ['implementation-map', 'implementation-robot', 'implementation-point-device', 'implementation-dispatch-config']
+  return ['implementation-map', 'implementation-point-collection', 'implementation-asset-detection', 'implementation-robot-resource', 'implementation-dispatch-config']
 })
 
 // 当前选中的菜单项
@@ -226,9 +238,9 @@ const currentKey = computed(() => {
   const path = route.path
   
   if (path.startsWith('/management/dispatch/center')) return 'management-dispatch-center'
-  if (path.startsWith('/management/plan/list')) return 'management-dispatch-plan-list'
-  if (path.startsWith('/management/task/list')) return 'management-dispatch-plan-list'
-  if (path.startsWith('/management/task/temp-list')) return 'management-dispatch-temp-task-list'
+  if (path.startsWith('/management/plan')) return 'management-plan-list'
+  if (path.startsWith('/management/task/temp-list')) return 'management-task-temp-list'
+  if (path.startsWith('/management/task')) return 'management-task-list'
   if (path.startsWith('/management/cockpit/view')) return 'management-cockpit-view'
   if (path.startsWith('/management/cockpit')) return 'management-cockpit-view'
   if (path.startsWith('/management/exception/list')) return 'management-exception-list'
@@ -241,12 +253,24 @@ const currentKey = computed(() => {
 
   if (path.startsWith('/implementation/map/list')) return 'implementation-map-list'
   if (path.startsWith('/implementation/map/editor')) return 'implementation-map-list'
-  if (path.startsWith('/implementation/map/point-manage')) return 'implementation-map-list'
-  if (path.startsWith('/implementation/map/area-manage')) return 'implementation-map-list'
+  if (path.startsWith('/implementation/map/point-manage')) {
+    return route.query.tab === 'inspection' ? 'implementation-point' : 'implementation-map-point-manage'
+  }
+  if (path.startsWith('/implementation/map/area-manage')) return 'implementation-map-area-manage'
   if (path.startsWith('/implementation/robot/list')) return 'implementation-robot-list'
-  if (path.startsWith('/implementation/robot/simulation')) return 'implementation-robot-list'
+  if (path.startsWith('/implementation/robot/simulation')) return 'implementation-robot-simulation'
   if (path.startsWith('/implementation/point/list')) return 'implementation-point'
+  if (path.startsWith('/implementation/point/create')) return 'implementation-point'
+  if (path.startsWith('/implementation/point/detail')) return 'implementation-point'
+  if (path.startsWith('/implementation/point/edit')) return 'implementation-point'
+  if (path.startsWith('/implementation/point/form')) return 'implementation-point'
   if (path.startsWith('/implementation/device/list')) return 'implementation-device'
+  if (path.startsWith('/implementation/device/component-usage')) return 'implementation-device-component-usage'
+  if (path.startsWith('/implementation/device/iot-list')) return 'implementation-device-iot-list'
+  if (path.startsWith('/implementation/device/component-types')) return 'implementation-device-component-types'
+  if (path.startsWith('/implementation/device/detail')) return 'implementation-device'
+  if (path.startsWith('/implementation/device/form')) return 'implementation-device'
+  if (path.startsWith('/implementation/detection-item-config')) return 'implementation-detection-item-config'
   if (path.startsWith('/implementation/metric/list')) return 'implementation-metric'
   if (path.startsWith('/implementation/dispatch/rule-config')) return 'implementation-dispatch-rule-config'
   if (path.startsWith('/implementation/dispatch/resource-config')) return 'implementation-dispatch-resource-config'

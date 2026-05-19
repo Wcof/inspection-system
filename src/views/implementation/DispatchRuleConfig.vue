@@ -1,123 +1,67 @@
 <template>
   <div class="dispatch-rule-config">
-    <a-page-header title="调度规则配置" sub-title="平台级任务生成规则">
+    <a-page-header title="调度规则配置" sub-title="按区域维护自动调度任务生成规则">
       <template #extra>
-        <a-button @click="showHelpModal = true">说明</a-button>
+        <a-space>
+          <a-button @click="showHelpModal = true">说明</a-button>
+          <a-button type="primary" @click="openCreate">新增区域规则</a-button>
+        </a-space>
       </template>
     </a-page-header>
-    
-    <a-card class="rule-card" style="margin-top: 16px">
-      <a-form layout="vertical" :model="ruleForm" class="rule-form single-line-form">
-        <div class="single-line-item first-line">
-          <a-form-item label="启用状态" help="是否启用该配置规则">
-            <a-switch v-model:checked="ruleForm.isEnabled" />
-          </a-form-item>
-        </div>
 
-        <template v-if="ruleForm.isEnabled">
-          <div class="single-line-item">
-            <a-form-item label="任务生成方式" help="控制任务的生成时机和方式">
-              <a-select v-model:value="ruleForm.taskGenerationMethod">
-                <a-select-option value="on_time">到点生成</a-select-option>
-                <a-select-option value="advance">提前生成</a-select-option>
-                <a-select-option value="batch">批量生成</a-select-option>
-              </a-select>
-            </a-form-item>
-          </div>
-
-          <div class="single-line-item">
-            <a-form-item label="合并阈值（分钟）" help="相邻任务在该时间范围内可合并">
-              <a-input-number v-model:value="ruleForm.mergeThreshold" :min="0" />
-            </a-form-item>
-          </div>
-
-          <div class="single-line-item">
-            <a-form-item label="单任务点位数上限" help="单个任务最多包含的点位数量">
-              <a-input-number v-model:value="ruleForm.maxPointsPerTask" :min="1" />
-            </a-form-item>
-          </div>
-
-          <div class="single-line-item">
-            <a-form-item label="单任务时长上限（分钟）" help="单个任务的最大预计执行时长">
-              <a-input-number v-model:value="ruleForm.maxDurationPerTask" :min="1" />
-            </a-form-item>
-          </div>
-
-          <div class="single-line-item">
-            <a-form-item label="是否补检" help="任务未完成时是否自动进行补检">
-              <a-switch v-model:checked="ruleForm.enableRetry" />
-            </a-form-item>
-          </div>
-
-          <div class="single-line-item" v-if="ruleForm.enableRetry">
-            <a-form-item label="补检次数" help="补检的最大重试次数">
-              <a-input-number v-model:value="ruleForm.retryCount" :min="1" :max="5" />
-            </a-form-item>
-          </div>
-
-          <div class="single-line-item">
-            <a-form-item label="漏检判定" help="判定任务为漏检的条件">
-              <a-checkbox-group v-model:value="ruleForm.missedCheckConditions">
-                <a-checkbox value="timeout">超时</a-checkbox>
-                <a-checkbox value="retry_failed">补检失败</a-checkbox>
-              </a-checkbox-group>
-            </a-form-item>
-          </div>
-
-          <div class="single-line-item">
-            <a-form-item label="区域" help="规则适用的区域范围">
-              <a-select v-model:value="ruleForm.applicableArea" mode="multiple" placeholder="选择区域">
-                <a-select-option value="area_a">A区</a-select-option>
-                <a-select-option value="area_b">B区</a-select-option>
-                <a-select-option value="area_c">C区</a-select-option>
-              </a-select>
-            </a-form-item>
-          </div>
-
-          <div class="single-line-item">
-            <a-form-item label="生效时间" help="配置规则的生效时间范围">
-              <a-range-picker
-                v-model:value="ruleForm.effectiveTimeRange"
-                show-time
-                format="YYYY-MM-DD HH:mm:ss"
-              />
-            </a-form-item>
-          </div>
-
-        </template>
-
-        <a-alert
-          v-else
-          class="disabled-tip"
-          type="warning"
-          show-icon
-          message="调度规则已关闭"
-          description="当前仅保留启用状态配置。开启后可继续维护其余规则项。"
-        />
-
-        <a-form-item class="action-row">
-          <a-space>
-            <a-button type="primary" @click="handleSave">保存配置</a-button>
-            <a-button @click="handleCancel">取消</a-button>
-            <a-button @click="handleReset">重置</a-button>
-          </a-space>
-        </a-form-item>
-      </a-form>
-    </a-card>
-    
-    <a-modal
-      v-model:open="showHelpModal"
-      title="调度规则配置说明"
-      width="900px"
-      :footer="null"
-    >
-      <a-table
-        :columns="helpColumns"
-        :data-source="helpData"
-        :pagination="false"
-        bordered
-        size="small"
+    <a-card style="margin-top: 16px">
+      <a-alert
+        type="info"
+        show-icon
+        style="margin-bottom: 12px"
+        message="调度规则按区域生效，用于把区域内已启用的巡检规划转换为待执行任务，并在生成前判断规划是否适合自动调度。"
       />
+      <a-table :columns="columns" :data-source="rules" row-key="id" :pagination="false" :scroll="{ x: 980 }">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'enabled'">
+            <a-switch v-model:checked="record.enabled" checked-children="启用" un-checked-children="停用" @change="touchRule(record)" />
+          </template>
+          <template v-else-if="column.key === 'ruleType'">{{ getRuleTypeText(record.ruleType) }}</template>
+          <template v-else-if="column.key === 'updatedAt'">{{ formatDate(record.updatedAt) }}</template>
+          <template v-else-if="column.key === 'actions'">
+            <a-space>
+              <a-button type="link" size="small" @click="openView(record)">查看</a-button>
+              <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
+              <a-popconfirm title="确认删除该区域规则？" ok-text="确认" cancel-text="取消" @confirm="removeRule(record.id)">
+                <a-button type="link" size="small" danger>删除</a-button>
+              </a-popconfirm>
+            </a-space>
+          </template>
+        </template>
+      </a-table>
+    </a-card>
+
+    <a-modal
+      v-model:open="editorVisible"
+      :title="editorMode === 'view' ? '查看区域规则' : editingId ? '编辑区域规则' : '新增区域规则'"
+      width="860px"
+      :ok-text="editorMode === 'view' ? '关闭' : '确认变更'"
+      cancel-text="取消"
+      @ok="editorMode === 'view' ? editorVisible = false : saveRule()"
+    >
+      <a-form layout="vertical" :model="form">
+        <a-row :gutter="16">
+          <a-col :xs="24" :md="12"><a-form-item label="区域名称" required><a-select v-model:value="form.areaId" :disabled="editorMode === 'view'" @change="syncAreaName"><a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option></a-select></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="规则名称" required><a-input v-model:value="form.ruleName" :disabled="editorMode === 'view'" /></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="规则类型"><a-select v-model:value="form.ruleType" :disabled="editorMode === 'view'"><a-select-option value="advance">提前生成</a-select-option><a-select-option value="on_time">到点生成</a-select-option><a-select-option value="batch">批量滚动生成</a-select-option></a-select></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="生效状态"><a-switch v-model:checked="form.enabled" :disabled="editorMode === 'view'" checked-children="启用" un-checked-children="停用" /></a-form-item></a-col>
+          <a-col :xs="24" :md="8"><a-form-item label="提前生成时间（分钟）"><a-input-number v-model:value="form.advanceGenerateMinutes" :disabled="editorMode === 'view'" :min="0" :max="1440" /></a-form-item></a-col>
+          <a-col :xs="24" :md="8"><a-form-item label="滚动生成窗口（小时）"><a-input-number v-model:value="form.generationWindowHours" :disabled="editorMode === 'view'" :min="1" :max="168" /></a-form-item></a-col>
+          <a-col :xs="24" :md="8"><a-form-item label="检查频率（分钟）"><a-input-number v-model:value="form.generationIntervalMinutes" :disabled="editorMode === 'view'" :min="5" :max="240" :step="5" /></a-form-item></a-col>
+          <a-col :xs="24"><a-form-item label="准入条件"><a-checkbox-group v-model:value="form.dispatchEligibilityChecks" :disabled="editorMode === 'view'"><a-checkbox value="plan_active">规划已启用</a-checkbox><a-checkbox value="resource_available">机器人资源可用</a-checkbox><a-checkbox value="route_reachable">路线可达</a-checkbox><a-checkbox value="time_window_valid">执行时间窗有效</a-checkbox><a-checkbox value="battery_enough">电量满足预计任务</a-checkbox><a-checkbox value="no_safety_block">无安全阻断</a-checkbox></a-checkbox-group></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="不适合调度处理"><a-select v-model:value="form.unsuitablePlanStrategy" :disabled="editorMode === 'view'"><a-select-option value="manual_review">转人工复核</a-select-option><a-select-option value="defer">延后下一轮评估</a-select-option><a-select-option value="generate_pending">生成待确认任务</a-select-option></a-select></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="资源冲突策略"><a-select v-model:value="form.resourceConflictStrategy" :disabled="editorMode === 'view'"><a-select-option value="priority_first">优先级高者先执行</a-select-option><a-select-option value="time_first">计划时间早者先执行</a-select-option><a-select-option value="manual_review">转人工复核</a-select-option></a-select></a-form-item></a-col>
+        </a-row>
+      </a-form>
+    </a-modal>
+
+    <a-modal v-model:open="showHelpModal" title="调度规则配置说明" width="900px" :footer="null">
+      <a-table :columns="helpColumns" :data-source="helpData" :pagination="false" bordered size="small" />
     </a-modal>
   </div>
 </template>
@@ -126,7 +70,52 @@
 import { reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 
+type RuleType = 'advance' | 'on_time' | 'batch'
+type EditorMode = 'create' | 'edit' | 'view'
+
+interface AreaRule {
+  id: string
+  areaId: string
+  areaName: string
+  ruleName: string
+  ruleType: RuleType
+  enabled: boolean
+  updatedAt: string
+  advanceGenerateMinutes: number
+  generationWindowHours: number
+  generationIntervalMinutes: number
+  dispatchEligibilityChecks: string[]
+  unsuitablePlanStrategy: string
+  resourceConflictStrategy: string
+}
+
 const showHelpModal = ref(false)
+const editorVisible = ref(false)
+const editorMode = ref<EditorMode>('create')
+const editingId = ref('')
+
+const areaOptions = [
+  { id: 'area_a', name: '一期装置区 / A区' },
+  { id: 'area_b', name: '二期装置区 / B区' },
+  { id: 'area_c', name: '公用工程区 / C区' }
+]
+
+const rules = ref<AreaRule[]>([
+  createRule('rule-a', 'area_a', '一期装置区 / A区', 'A区提前生成规则', 'advance', true),
+  createRule('rule-b', 'area_b', '二期装置区 / B区', 'B区批量滚动规则', 'batch', true),
+  createRule('rule-c', 'area_c', '公用工程区 / C区', 'C区到点生成规则', 'on_time', false)
+])
+
+const form = reactive<AreaRule>(createRule('', 'area_a', '一期装置区 / A区', '', 'advance', true))
+
+const columns = [
+  { title: '区域名称', dataIndex: 'areaName', key: 'areaName', width: 200 },
+  { title: '规则名称', dataIndex: 'ruleName', key: 'ruleName', width: 220 },
+  { title: '规则类型', key: 'ruleType', width: 150 },
+  { title: '生效状态', key: 'enabled', width: 130 },
+  { title: '更新时间', key: 'updatedAt', width: 180 },
+  { title: '操作', key: 'actions', width: 180 }
+]
 
 const helpColumns = [
   { title: '字段', dataIndex: 'field', key: 'field', width: 150 },
@@ -136,195 +125,97 @@ const helpColumns = [
 ]
 
 const helpData = [
-  {
-    key: '1',
-    field: '任务生成方式',
-    role: '决定系统何时生成任务。',
-    recommended: '到点生成',
-    example: '按计划时间准点生成任务'
-  },
-  {
-    key: '2',
-    field: '合并阈值（分钟）',
-    role: '时间间隔小于该阈值的任务可合并调度，减少碎片任务。',
-    recommended: '20~30分钟',
-    example: '08:00 与 08:15 的任务可合并'
-  },
-  {
-    key: '3',
-    field: '单任务点位数上限',
-    role: '限制单个任务包含的点位数量，避免任务过重。',
-    recommended: '10个',
-    example: '超过10个点位时拆分为多条任务'
-  },
-  {
-    key: '4',
-    field: '单任务时长上限（分钟）',
-    role: '限制单任务预计执行时长，避免占用机器人过久。',
-    recommended: '45~60分钟',
-    example: '预计超过60分钟时自动拆分'
-  },
-  {
-    key: '5',
-    field: '是否补检',
-    role: '任务异常中断或漏检时，是否自动发起补检。',
-    recommended: '开启',
-    example: '任务超时后自动补检'
-  },
-  {
-    key: '6',
-    field: '补检次数',
-    role: '补检最大重试次数，防止无限循环。',
-    recommended: '2次',
-    example: '主检失败后最多补检2轮'
-  },
-  {
-    key: '7',
-    field: '漏检判定',
-    role: '定义何种场景算漏检，用于统计与后续处理。',
-    recommended: '超时 + 补检失败',
-    example: '任务超时且两次补检均失败'
-  },
-  {
-    key: '8',
-    field: '区域',
-    role: '指定规则生效的区域范围，支持多选。',
-    recommended: '按真实责任区域配置',
-    example: '规则仅对 A区、B区 生效'
-  },
-  {
-    key: '9',
-    field: '启用状态',
-    role: '控制规则是否立即参与调度计算。',
-    recommended: '启用',
-    example: '测试阶段可先停用，验证后再启用'
-  },
-  {
-    key: '10',
-    field: '生效时间',
-    role: '控制规则在什么时间段内生效。',
-    recommended: '按班次时间配置',
-    example: '工作日 08:00-18:00 生效'
-  }
+  { key: '1', field: '区域规则', role: '一条规则只作用于一个区域，便于按现场区域独立调整生成和调度策略。', recommended: '按责任区域配置', example: 'A区提前30分钟生成' },
+  { key: '2', field: '任务生成方式', role: '决定巡检规划转换为任务的触发方式。', recommended: '提前生成', example: '计划08:00执行，07:30生成任务' },
+  { key: '3', field: '准入条件', role: '全部满足后才进入自动调度计算。', recommended: '全选核心条件', example: '规划启用、资源可用、路线可达' }
 ]
 
-const ruleForm = reactive({
-  taskGenerationMethod: 'on_time',
-  mergeThreshold: 30,
-  maxPointsPerTask: 10,
-  maxDurationPerTask: 60,
-  enableRetry: true,
-  retryCount: 2,
-  missedCheckConditions: ['timeout', 'retry_failed'],
-  applicableArea: [],
-  isEnabled: true,
-  effectiveTimeRange: null
-})
-
-function handleSave() {
-  message.success('配置保存成功')
+function createRule(id: string, areaId: string, areaName: string, ruleName: string, ruleType: RuleType, enabled: boolean): AreaRule {
+  return {
+    id,
+    areaId,
+    areaName,
+    ruleName,
+    ruleType,
+    enabled,
+    updatedAt: new Date().toISOString(),
+    advanceGenerateMinutes: ruleType === 'advance' ? 30 : 0,
+    generationWindowHours: 24,
+    generationIntervalMinutes: 15,
+    dispatchEligibilityChecks: ['plan_active', 'resource_available', 'route_reachable', 'time_window_valid', 'battery_enough', 'no_safety_block'],
+    unsuitablePlanStrategy: 'manual_review',
+    resourceConflictStrategy: 'priority_first'
+  }
 }
 
-function handleReset() {
-  ruleForm.taskGenerationMethod = 'on_time'
-  ruleForm.mergeThreshold = 30
-  ruleForm.maxPointsPerTask = 10
-  ruleForm.maxDurationPerTask = 60
-  ruleForm.enableRetry = true
-  ruleForm.retryCount = 2
-  ruleForm.missedCheckConditions = ['timeout', 'retry_failed']
-  ruleForm.applicableArea = []
-  ruleForm.isEnabled = true
-  ruleForm.effectiveTimeRange = null
-  message.info('已重置为默认配置')
+function assignForm(rule: AreaRule) {
+  Object.assign(form, JSON.parse(JSON.stringify(rule)))
 }
 
-function handleCancel() {
-  handleReset()
-  message.info('已取消当前修改')
+function openCreate() {
+  editorMode.value = 'create'
+  editingId.value = ''
+  assignForm(createRule('', areaOptions[0].id, areaOptions[0].name, '', 'advance', true))
+  editorVisible.value = true
+}
+function openEdit(record: AreaRule) {
+  editorMode.value = 'edit'
+  editingId.value = record.id
+  assignForm(record)
+  editorVisible.value = true
+}
+function openView(record: AreaRule) {
+  editorMode.value = 'view'
+  editingId.value = record.id
+  assignForm(record)
+  editorVisible.value = true
+}
+function syncAreaName(value: string) {
+  form.areaName = areaOptions.find(item => item.id === value)?.name || ''
+}
+function saveRule() {
+  if (!form.areaId || !form.ruleName.trim()) {
+    message.error('请填写区域和规则名称')
+    return
+  }
+  const now = new Date().toISOString()
+  const payload = { ...JSON.parse(JSON.stringify(form)), id: editingId.value || `rule-${Date.now()}`, updatedAt: now }
+  if (editingId.value) rules.value = rules.value.map(item => item.id === editingId.value ? payload : item)
+  else rules.value.unshift(payload)
+  editorVisible.value = false
+  message.success('区域规则已保存')
+}
+function removeRule(id: string) {
+  rules.value = rules.value.filter(item => item.id !== id)
+  message.success('区域规则已删除')
+}
+function touchRule(record: AreaRule) {
+  record.updatedAt = new Date().toISOString()
+}
+function getRuleTypeText(type: RuleType) {
+  return ({ advance: '提前生成', on_time: '到点生成', batch: '批量滚动生成' } as Record<RuleType, string>)[type]
+}
+function formatDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN', { hour12: false })
 }
 </script>
 
-<style scoped lang="css">.dispatch-rule-config {
+<style scoped lang="css">
+.dispatch-rule-config {
   width: 100%;
   padding-bottom: 8px;
 }
 .dispatch-rule-config :deep(.ant-page-header) {
   padding: 0;
 }
-.dispatch-rule-config :deep(.ant-page-header-heading) {
-  align-items: center;
-}
-.dispatch-rule-config :deep(.ant-card) {
-  border-radius: 10px;
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
-}
-.dispatch-rule-config .rule-card {
-  overflow: hidden;
-}
-.dispatch-rule-config :deep(.ant-card-body) {
-  padding: 20px 20px 16px;
-}
-.dispatch-rule-config .rule-form {
-  max-width: 920px;
-  margin: 0 auto;
-}
-.dispatch-rule-config .single-line-form .single-line-item {
-  padding: 12px 0;
-  border-bottom: 1px solid #f5f5f5;
-}
-.dispatch-rule-config .single-line-form .first-line {
-  padding-top: 2px;
-}
-.dispatch-rule-config :deep(.ant-form-vertical .ant-form-item) {
-  margin-bottom: 0;
-}
-.dispatch-rule-config :deep(.ant-form-item-label > label) {
-  color: #262626;
-  font-weight: 500;
-}
-.dispatch-rule-config :deep(.ant-form-item-explain), .dispatch-rule-config :deep(.ant-form-item-extra) {
-  font-size: 12px;
-  color: #8c8c8c;
-  line-height: 1.3;
-}
-.dispatch-rule-config :deep(.ant-input-number), .dispatch-rule-config :deep(.ant-picker), .dispatch-rule-config :deep(.ant-select) {
+.dispatch-rule-config :deep(.ant-input-number),
+.dispatch-rule-config :deep(.ant-select) {
   width: 100%;
 }
 .dispatch-rule-config :deep(.ant-checkbox-group) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
-}
-.dispatch-rule-config .action-row {
-  margin-top: 6px;
-  margin-bottom: 0;
-  padding-top: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
-.dispatch-rule-config .disabled-tip {
-  margin-top: 14px;
-}
-.dispatch-rule-config :deep(.ant-modal-body) {
-  max-height: 68vh;
-  overflow: auto;
-  padding-top: 12px;
-}
-.dispatch-rule-config :deep(.ant-table-wrapper) {
-  border-radius: 8px;
-  overflow: hidden;
-}
-@media (max-width: 1200px) {
-  .dispatch-rule-config :deep(.ant-card-body) {
-    padding: 16px 16px 10px;
-  }
-  .dispatch-rule-config .rule-form {
-    max-width: 100%;
-  }
-  .dispatch-rule-config .action-row {
-    justify-content: flex-start;
-  }
 }
 </style>

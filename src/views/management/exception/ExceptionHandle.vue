@@ -1,130 +1,179 @@
 <template>
   <div class="exception-handle">
-    <a-card title="异常处理">
-      <a-button type="primary" @click="goBack">返回异常详情</a-button>
-      <div class="handle-content">
-        <p>异常处理页面 - 骨架页</p>
-        <p>异常ID: {{ exceptionId }}</p>
-        <div class="handle-form">
-          <h3>处理表单</h3>
-          <a-form :model="form" layout="vertical">
-            <a-form-item label="处理方式">
-              <a-select v-model:value="form.handleType" placeholder="选择处理方式">
-                <a-select-option value="repair">维修</a-select-option>
-                <a-select-option value="replace">更换</a-select-option>
-                <a-select-option value="adjust">调整</a-select-option>
-                <a-select-option value="ignore">忽略</a-select-option>
+    <a-page-header title="异常处理" sub-title="完成确认、消警、转隐患、整改、复核、闭环与 EHS 同步" @back="goBack" />
+
+    <a-card style="margin-top: 16px">
+      <a-alert
+        type="info"
+        show-icon
+        style="margin-bottom: 16px"
+        message="异常是机器人识别结果；转隐患后进入安全管理闭环，可选择是否同步第三方 EHS。"
+      />
+      <a-descriptions bordered size="small" :column="3">
+        <a-descriptions-item label="异常ID">{{ exceptionId }}</a-descriptions-item>
+        <a-descriptions-item label="当前状态">
+          <a-tag :color="getStatusColor(currentStatus)">{{ getStatusText(currentStatus) }}</a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="风险等级">
+          <a-tag color="volcano">隐患</a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="检测对象">1号循环泵 / 出口法兰连接处</a-descriptions-item>
+        <a-descriptions-item label="来源任务">TASK-2026-001</a-descriptions-item>
+        <a-descriptions-item label="EHS 单号">{{ ehsTicketNo || '未同步' }}</a-descriptions-item>
+      </a-descriptions>
+    </a-card>
+
+    <a-card title="处置表单" style="margin-top: 16px">
+      <a-form :model="form" layout="vertical">
+        <a-row :gutter="16">
+          <a-col :xs="24" :md="8">
+            <a-form-item label="处置动作" required>
+              <a-select v-model:value="form.operation">
+                <a-select-option value="confirm">人工确认</a-select-option>
+                <a-select-option value="clear">误判消警</a-select-option>
+                <a-select-option value="hazard">转隐患</a-select-option>
+                <a-select-option value="rectify">整改中</a-select-option>
+                <a-select-option value="review">待复核</a-select-option>
+                <a-select-option value="close">闭环</a-select-option>
+                <a-select-option value="archive">归档</a-select-option>
               </a-select>
             </a-form-item>
-            <a-form-item label="处理人员">
-              <a-input v-model:value="form.handler" placeholder="输入处理人员" />
+          </a-col>
+          <a-col :xs="24" :md="8">
+            <a-form-item label="处理人员" required>
+              <a-input v-model:value="form.handler" placeholder="请输入处理人员" />
             </a-form-item>
-            <a-form-item label="处理时间">
-              <a-date-picker v-model:value="form.handleTime" show-time format="YYYY-MM-DD HH:mm:ss" />
+          </a-col>
+          <a-col :xs="24" :md="8">
+            <a-form-item label="是否同步 EHS">
+              <a-switch v-model:checked="form.syncToEhs" checked-children="同步" un-checked-children="不同步" />
             </a-form-item>
-            <a-form-item label="处理结果">
-              <a-select v-model:value="form.result" placeholder="选择处理结果">
-                <a-select-option value="success">处理成功</a-select-option>
-                <a-select-option value="partial">部分处理</a-select-option>
-                <a-select-option value="failed">处理失败</a-select-option>
-              </a-select>
-            </a-form-item>
-            <a-form-item label="处理备注">
-              <a-textarea v-model:value="form.remark" rows="4" placeholder="输入处理备注" />
-            </a-form-item>
-            <a-form-item>
-              <a-button type="primary" @click="submitForm">提交处理</a-button>
-            </a-form-item>
-          </a-form>
+          </a-col>
+        </a-row>
+        <a-form-item label="处置意见" required>
+          <a-textarea v-model:value="form.comment" :rows="4" placeholder="请输入确认依据、消警原因、隐患说明、整改记录、复核意见或闭环结论" />
+        </a-form-item>
+        <div class="form-actions">
+          <a-space>
+            <a-button @click="goBack">取消</a-button>
+            <a-button type="primary" @click="submitForm">提交处理</a-button>
+          </a-space>
         </div>
-        <div class="handle-history">
-          <h3>处理历史</h3>
-          <a-table :columns="columns" :data-source="data" row-key="id">
-            <template #empty>
-              <p>暂无处理历史</p>
-            </template>
-          </a-table>
-        </div>
-      </div>
+      </a-form>
+    </a-card>
+
+    <a-card title="处理历史" style="margin-top: 16px">
+      <a-table :columns="columns" :data-source="historyRows" row-key="id" :pagination="false">
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'status'">
+            <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
+          </template>
+          <template v-else-if="column.key === 'ehsSync'">
+            <a-tag :color="record.ehsSync === 'synced' ? 'green' : record.ehsSync === 'pending' ? 'blue' : 'default'">{{ record.ehsSyncText }}</a-tag>
+          </template>
+        </template>
+      </a-table>
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import { message } from 'ant-design-vue'
 import { useRoute, useRouter } from 'vue-router'
+
+type OperationType = 'confirm' | 'clear' | 'hazard' | 'rectify' | 'review' | 'close' | 'archive'
+type HandleStatus = 'pending_confirm' | 'confirmed' | 'cleared' | 'hazard_created' | 'rectifying' | 'pending_review' | 'closed' | 'archived'
 
 const route = useRoute()
 const router = useRouter()
 const exceptionId = ref(route.params.id as string)
+const currentStatus = ref<HandleStatus>('hazard_created')
+const ehsTicketNo = ref('')
 
-const goBack = () => {
-  router.push(`/management/exception/detail/${exceptionId.value}`)
-}
-
-const form = ref({
-  handleType: '',
-  handler: '',
-  handleTime: null,
-  result: '',
-  remark: ''
+const form = reactive({
+  operation: 'rectify' as OperationType,
+  handler: '安全员-周晨',
+  syncToEhs: true,
+  comment: ''
 })
 
-const submitForm = () => {
-  // 提交处理逻辑
-  console.log('提交异常处理', form.value)
-}
+const historyRows = ref([
+  { id: 'h-1', operation: '系统识别', handler: '机器人A001', status: 'pending_confirm', time: '2026-04-17 10:18:00', comment: '识别到法兰连接处热异常。', ehsSync: 'none', ehsSyncText: '未同步' },
+  { id: 'h-2', operation: '人工确认', handler: '值班长-李航', status: 'confirmed', time: '2026-04-17 10:25:00', comment: '确认需现场复核。', ehsSync: 'none', ehsSyncText: '未同步' },
+  { id: 'h-3', operation: '转隐患', handler: '安全员-周晨', status: 'hazard_created', time: '2026-04-17 10:32:00', comment: '转入隐患闭环。', ehsSync: 'pending', ehsSyncText: '待同步' }
+])
 
 const columns = [
-  { title: '处理ID', dataIndex: 'id' },
-  { title: '处理方式', dataIndex: 'handleType' },
-  { title: '处理人员', dataIndex: 'handler' },
-  { title: '处理时间', dataIndex: 'handleTime' },
-  { title: '处理结果', dataIndex: 'result' },
-  { title: '处理备注', dataIndex: 'remark' }
+  { title: '动作', dataIndex: 'operation', key: 'operation', width: 120 },
+  { title: '状态', key: 'status', width: 120 },
+  { title: '处理人员', dataIndex: 'handler', key: 'handler', width: 140 },
+  { title: '处理时间', dataIndex: 'time', key: 'time', width: 180 },
+  { title: '处理意见', dataIndex: 'comment', key: 'comment' },
+  { title: 'EHS同步', key: 'ehsSync', width: 120 }
 ]
 
-const data = [
-  {
-    id: '1',
-    handleType: '维修',
-    handler: '工程师A',
-    handleTime: '2026-04-12 10:00:00',
-    result: '处理成功',
-    remark: '设备已修复，运行正常'
+const operationStatusMap: Record<OperationType, HandleStatus> = {
+  confirm: 'confirmed',
+  clear: 'cleared',
+  hazard: 'hazard_created',
+  rectify: 'rectifying',
+  review: 'pending_review',
+  close: 'closed',
+  archive: 'archived'
+}
+
+const operationTextMap = computed<Record<OperationType, string>>(() => ({
+  confirm: '人工确认',
+  clear: '误判消警',
+  hazard: '转隐患',
+  rectify: '进入整改',
+  review: '提交复核',
+  close: '闭环',
+  archive: '归档'
+}))
+
+function getStatusText(status: HandleStatus) {
+  return ({ pending_confirm: '待确认', confirmed: '已确认', cleared: '已消警', hazard_created: '已转隐患', rectifying: '整改中', pending_review: '待复核', closed: '已闭环', archived: '已归档' } as Record<HandleStatus, string>)[status]
+}
+
+function getStatusColor(status: HandleStatus) {
+  return ({ pending_confirm: 'red', confirmed: 'blue', cleared: 'default', hazard_created: 'volcano', rectifying: 'orange', pending_review: 'purple', closed: 'green', archived: 'default' } as Record<HandleStatus, string>)[status]
+}
+
+function submitForm() {
+  if (!form.handler.trim() || !form.comment.trim()) {
+    message.error('请填写处理人员和处置意见')
+    return
   }
-]
+  const status = operationStatusMap[form.operation]
+  currentStatus.value = status
+  if (form.syncToEhs && !ehsTicketNo.value) ehsTicketNo.value = `EHS-${Date.now()}`
+  historyRows.value.unshift({
+    id: `h-${Date.now()}`,
+    operation: operationTextMap.value[form.operation],
+    handler: form.handler.trim(),
+    status,
+    time: new Date().toLocaleString(),
+    comment: form.comment.trim(),
+    ehsSync: form.syncToEhs ? 'pending' : 'none',
+    ehsSyncText: form.syncToEhs ? '待同步' : '未同步'
+  })
+  form.comment = ''
+  message.success('异常处置已提交')
+}
+
+function goBack() {
+  router.push(`/management/exception/detail/${exceptionId.value}`)
+}
 </script>
 
-<style scoped>
+<style scoped lang="css">
 .exception-handle {
-  padding: 20px 0;
+  width: 100%;
 }
-
-.handle-content {
-  margin-top: 20px;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.handle-form,
-.handle-history {
-  margin-top: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-}
-
-h3 {
-  margin-bottom: 10px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-}
-
-p {
-  margin: 5px 0;
-  color: #666;
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

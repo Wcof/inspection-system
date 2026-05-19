@@ -31,6 +31,9 @@ export enum InspectionPointType {
   AREA = 'area'
 }
 
+export type InspectionPointBizType = 'inspection' | 'charging' | 'maintenance' | 'standby'
+export type InspectionMode = 'fixed' | 'area'
+
 export enum PositionSource {
   MAP_PICK = 'map_pick',
   MANUAL_ADJUST = 'manual_adjust'
@@ -55,6 +58,167 @@ export interface MapPosition {
   yaw?: number
 }
 
+export type CollectionMethod = 'optical' | 'thermal' | 'gas' | 'safety' | 'multi_spectrum'
+
+export interface ParkingPointConstraint {
+  reachable: boolean
+  reverseRequired: boolean
+  turnAroundRequired: boolean
+  narrowRoad: boolean
+  slope: boolean
+  bridgeRequired: boolean
+  detourRequired: boolean
+}
+
+export interface CollectionPose {
+  id: string
+  parkingPointId: string
+  targetName: string
+  targetType: 'asset' | 'component' | 'connection' | 'area_environment' | 'safety_behavior'
+  direction: 'front' | 'side' | 'oblique' | 'near' | 'overview'
+  distanceMeter: number
+  ptzYaw: number
+  ptzPitch: number
+  focalLength: string
+  method: CollectionMethod
+  collectableCondition: string
+}
+
+export interface InspectionPointCoverageObject {
+  id: string
+  type: 'asset' | 'component' | 'connection' | 'area_environment' | 'safety_behavior'
+  name: string
+  deviceId?: string
+  componentId?: string
+  connectionId?: string
+  areaName?: string
+  coverageType: 'primary' | 'secondary' | 'backup'
+  coverageStatus: 'coverable' | 'partial' | 'uncoverable'
+  requiredCoverage: boolean
+  remark?: string
+}
+
+export interface ParkingPoint {
+  id: string
+  inspectionPointId: string
+  name: string
+  position: MapPosition
+  constraint: ParkingPointConstraint
+  collectionPoses: CollectionPose[]
+}
+
+export interface InspectedAssetComponent {
+  id: string
+  assetId: string
+  name: string
+  type: 'valve' | 'meter' | 'temperature_gauge' | 'flange' | 'motor' | 'pipe' | 'cable' | 'joint' | 'sensor' | 'screw' | 'other'
+  subType?: string
+  subTypeName?: string
+  ruleIds?: string[]
+  priority?: 'high' | 'medium' | 'low'
+  inspectionCycle?: string
+  inspectionWindow?: string
+}
+
+export interface ConnectionObject {
+  id: string
+  name: string
+  endpointA: string
+  endpointB: string
+  sourceComponentId?: string
+  sinkScope?: 'self' | 'other'
+  sinkDeviceId?: string
+  sinkComponentId?: string
+  endpointAPath?: [string, string]
+  endpointBPath?: [string, string]
+  ruleIds?: string[]
+  priority?: 'high' | 'medium' | 'low'
+  inspectionCycle?: string
+  inspectionWindow?: string
+  detectionFocus: string
+}
+
+export type ObjectDetectionSubjectType = 'component' | 'connection' | 'asset' | 'area_environment'
+export type DetectionFailureStrategy = 'manual_review' | 'supplement_task' | 'mark_uninspectable'
+
+export interface ObjectDetectionConfig {
+  id: string
+  deviceId: string
+  subjectType: ObjectDetectionSubjectType
+  subjectId: string
+  subjectName: string
+  ruleId: string
+  collectionPoseId?: string
+  requiredCoverage: boolean
+  failureStrategy: DetectionFailureStrategy
+  enabled: boolean
+  remark?: string
+  updatedAt: string
+}
+
+export interface InspectionPointDetectionConfig {
+  id: string
+  inspectionPointId: string
+  subjectType: ObjectDetectionSubjectType | 'safety_behavior'
+  subjectId: string
+  subjectName: string
+  ruleId: string
+  collectionPoseId?: string
+  requiredCoverage: boolean
+  failureStrategy: DetectionFailureStrategy
+  enabled: boolean
+  remark?: string
+  updatedAt: string
+}
+
+export interface InspectionPointExecutionRecord {
+  id: string
+  inspectionPointId: string
+  taskName: string
+  executedAt: string
+  resultSummary: string
+  executor?: string
+}
+
+export interface FacilityParkingPointBinding {
+  id: string
+  inspectionPointId: string
+  inspectionPointName: string
+  parkingPointId: string
+  parkingPointName: string
+  executionOrder?: number
+  sequence?: number
+  componentIds: string[]
+  inspectionMode?: 'fixed' | 'area'
+  parkingPointIds?: string[]
+  parkingPointNames?: string[]
+  targetObjectRefs?: string[]
+}
+
+export interface StandardComponent {
+  id: string
+  name: string
+  type: 'valve' | 'meter' | 'temperature_gauge' | 'flange' | 'pipe' | 'motor' | 'cable' | 'joint' | 'sensor' | 'screw' | 'other'
+  description?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type DetectionSubjectType = 'asset' | 'component' | 'connection' | 'area_environment' | 'safety_behavior'
+export type DetectionCapabilityType = 'meter_reading' | 'valve_status' | 'flange_tightness' | 'temperature' | 'gas' | 'safety_behavior' | 'area_environment'
+export type CollectionQualityStatus = 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'skipped' | 'not_arrived' | 'blocked' | 'bad_angle' | 'blurred' | 'reflection' | 'target_missing' | 'unreadable'
+
+export interface EvidenceChain {
+  opticalImageUrl?: string
+  thermalImageUrl?: string
+  sampledAt: string
+  robotPose: string
+  recognizedValue: string
+  confidence: number
+  ruleVersion: string
+  manualReviewConclusion: string
+}
+
 export interface PTZPreset {
   x: number
   y: number
@@ -69,6 +233,8 @@ export interface MapRegion {
   y: number
   width: number
   height: number
+  polygonPoints?: string
+  showName?: boolean
 }
 
 export interface InspectionMap {
@@ -188,20 +354,31 @@ export interface InspectionDevice {
   outDate?: string
   factoryNo?: string
   issueDate?: string
+  certificateIssueDate?: string
   systemName?: string
+  usageDepartmentName?: string
   detectionCycle?: string
+  inspectionCycle?: string
+  inspectionWindow?: string
   lastInspectionConclusion?: string
   inspectionWarningDays?: number
   deviceCategory?: string
   custodianPostName?: string
   nfcId?: string
+  institutionApprovalCertificate?: string
+  failureWarningDays?: number
   type: string
   sequence: number
   ptzPreset?: PTZPreset
   referenceImageUrl?: string
   referenceImageVersion?: string
+  source?: 'manual' | 'synced'
   status: DeviceStatus
   checkItems: InspectionDeviceCheckItem[]
+  assetComponents?: InspectedAssetComponent[]
+  connectionObjects?: ConnectionObject[]
+  objectDetectionConfigs?: ObjectDetectionConfig[]
+  parkingPointBindings?: FacilityParkingPointBinding[]
   inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -234,18 +411,29 @@ export interface InspectionDeviceFormData {
   outDate?: string
   factoryNo?: string
   issueDate?: string
+  certificateIssueDate?: string
   systemName?: string
+  usageDepartmentName?: string
   detectionCycle?: string
+  inspectionCycle?: string
+  inspectionWindow?: string
   lastInspectionConclusion?: string
   inspectionWarningDays?: number
   deviceCategory?: string
   custodianPostName?: string
   nfcId?: string
+  institutionApprovalCertificate?: string
+  failureWarningDays?: number
   type: string
   sequence: number
   ptzPreset?: PTZPreset
   referenceImageUrl?: string
+  source?: 'manual' | 'synced'
   status?: DeviceStatus
+  assetComponents?: InspectedAssetComponent[]
+  connectionObjects?: ConnectionObject[]
+  objectDetectionConfigs?: ObjectDetectionConfig[]
+  parkingPointBindings?: FacilityParkingPointBinding[]
   inspectionFrequency?: { value: number; unit: 'hour'|'day'|'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -258,6 +446,10 @@ export interface InspectionDeviceCheckItem {
   code: string
   checkType?: 'threshold' | 'vision'
   priority?: 'primary' | 'secondary'
+  subjectType?: DetectionSubjectType
+  targetObject?: string
+  detectionType?: DetectionCapabilityType
+  collectableCondition?: string
   inspectionFrequency?: { value: number; unit: 'hour' | 'day' | 'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
@@ -359,17 +551,49 @@ export interface InspectionTaskSnapshot {
     referenceImageUrl?: string
     referenceImageVersion?: string
   }>
+  parkingRoute?: Array<{
+    id: string
+    inspectionPointId: string
+    inspectionPointName: string
+    parkingPointId: string
+    parkingPointName: string
+    sequence: number
+    position: MapPosition
+    arrivalStatus: 'arrived' | 'not_arrived' | 'unreachable' | 'blocked' | 'low_battery_return' | 'localization_error' | 'communication_error'
+    failureReason?: string
+  }>
+  collectionActions?: Array<{
+    id: string
+    inspectionPointId: string
+    pointName: string
+    parkingPointId: string
+    parkingPointName: string
+    collectionPoseId: string
+    collectionAction: string
+    targetObject: string
+    ruleId?: string
+    ruleName?: string
+    requiredCoverage: boolean
+  }>
   createdAt: string
 }
+
+export type InspectionResultStatus = 'normal' | 'warning' | 'alarm' | 'critical' | 'critical_alarm' | 'hazard' | 'major_hazard' | 'skipped' | 'uninspectable' | 'unreadable' | 'blocked' | 'bad_angle' | 'target_missing' | 'monitor_failure' | 'not_arrived' | 'unknown'
 
 export interface InspectionTaskResult {
   id: string
   taskId: string
   inspectionPointId: string
+  parkingPointId?: string
+  collectionPoseId?: string
+  collectionActionId?: string
+  subjectName?: string
   deviceId?: string
   checkItemId?: string
   value?: string | number
-  status: 'normal' | 'warning' | 'critical' | 'skipped'
+  status: InspectionResultStatus
+  qualityStatus?: CollectionQualityStatus | 'uninspectable' | 'monitor_failure' | 'unknown'
+  evidence?: EvidenceChain
   imageUrl?: string
   exceptionLogId?: string
   recordedAt: string
@@ -460,6 +684,8 @@ export interface InspectionPoint {
   name: string
   code: string
   pointType: InspectionPointType
+  pointBizType?: InspectionPointBizType
+  inspectionMode?: InspectionMode
   description: string
   mapId: string
   location: {
@@ -483,7 +709,16 @@ export interface InspectionPoint {
   lastManualAdjustAt?: Date
   areaId?: string
   areaName?: string
+  areaIds?: string[]
+  areaNames?: string[]
+  sourcePointIds?: string[]
+  sourceParkingPointIds?: string[]
   previewImageUrl?: string
+  workAreaName?: string
+  parkingPoints?: ParkingPoint[]
+  coverageObjects?: InspectionPointCoverageObject[]
+  detectionConfigs?: InspectionPointDetectionConfig[]
+  executionRecords?: InspectionPointExecutionRecord[]
   calibratedAt?: Date
   updatedBy?: string
   createdAt: Date
@@ -494,6 +729,8 @@ export interface InspectionPointFormData {
   name: string
   code: string
   pointType: InspectionPointType
+  pointBizType?: InspectionPointBizType
+  inspectionMode?: InspectionMode
   description: string
   mapId: string
   location: {
@@ -514,7 +751,16 @@ export interface InspectionPointFormData {
   positionSource: PositionSource
   areaId?: string
   areaName?: string
+  areaIds?: string[]
+  areaNames?: string[]
+  sourcePointIds?: string[]
+  sourceParkingPointIds?: string[]
   previewImageUrl?: string
+  workAreaName?: string
+  parkingPoints?: ParkingPoint[]
+  coverageObjects?: InspectionPointCoverageObject[]
+  detectionConfigs?: InspectionPointDetectionConfig[]
+  executionRecords?: InspectionPointExecutionRecord[]
   calibratedAt?: Date
   updatedBy?: string
 }
@@ -527,6 +773,12 @@ export interface InspectionTask {
   robotId: string
   routeId: string
   snapshotId?: string
+  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard'
+  taskSource?: 'manual_plan' | 'auto_plan' | 'dispatch_insert' | 'auto_recheck' | 'ehs' | 'manual'
+  riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+  exceptionCount?: number
+  uninspectableCount?: number
+  reviewPendingCount?: number
   type: InspectionTaskType
   status: InspectionTaskInstanceStatus
   inspectionPointIds: string[]
@@ -577,6 +829,13 @@ export interface InspectionPlan {
   id: string
   name: string
   code: string
+  planType?: 'manual' | 'auto'
+  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard'
+  riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+  regionIds?: string[]
+  facilityIds?: string[]
+  componentConnectionIds?: string[]
+  ruleIds?: string[]
   startTime?: string
   endTime?: string
   robotId: string

@@ -6,7 +6,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     redirect: '/management/dispatch/center'
   },
-  
+
   // 管理端路由
   {
     path: '/management',
@@ -17,13 +17,13 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'plan',
         name: 'ManagementPlan',
-        meta: { title: '巡检计划' },
+        meta: { title: '执行规划' },
         children: [
           {
             path: 'list',
             name: 'ManagementPlanList',
             component: () => import('../views/inspection/plan/InspectionPlanList.vue'),
-            meta: { title: '巡检计划' }
+            meta: { title: '执行规划' }
           },
           {
             path: 'form/:id?',
@@ -123,6 +123,18 @@ const routes: RouteRecordRaw[] = [
             name: 'ManagementExceptionList',
             component: () => import('../views/inspection/ExceptionLogViewer.vue'),
             meta: { title: '异常列表' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ManagementExceptionDetail',
+            component: () => import('../views/management/exception/ExceptionDetail.vue'),
+            meta: { title: '异常详情' }
+          },
+          {
+            path: 'handle/:id',
+            name: 'ManagementExceptionHandle',
+            component: () => import('../views/management/exception/ExceptionHandle.vue'),
+            meta: { title: '异常处理' }
           }
         ]
       },
@@ -172,7 +184,7 @@ const routes: RouteRecordRaw[] = [
       }
     ]
   },
-  
+
   // 实施平台路由
   {
     path: '/implementation',
@@ -182,7 +194,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'map',
         name: 'ImplementationMap',
-        meta: { title: '地图管理' },
+        meta: { title: '地图空间' },
         children: [
           {
             path: 'list',
@@ -244,18 +256,36 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'point',
         name: 'ImplementationPoint',
-        meta: { title: '点位管理' },
+        meta: { title: '点位采集' },
         children: [
           {
             path: 'list',
             name: 'ImplementationPointList',
-            component: () => import('../views/inspection/InspectionPointList.vue'),
-            meta: { title: '点位管理' }
+            redirect: () => ({ path: '/implementation/map/point-manage', query: { tab: 'inspection' } }),
+            meta: { title: '点位采集' }
+          },
+          {
+            path: 'create/:id?',
+            name: 'ImplementationPointCreate',
+            component: () => import('../views/inspection/InspectionPointCreate.vue'),
+            meta: { title: '巡检点配置' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ImplementationPointDetail',
+            component: () => import('../views/inspection/InspectionPointDetail.vue'),
+            meta: { title: '点位详情' }
+          },
+          {
+            path: 'edit/:id',
+            name: 'ImplementationPointEdit',
+            component: () => import('../views/inspection/InspectionPointDetail.vue'),
+            meta: { title: '点位编辑' }
           },
           {
             path: 'form/:id?',
             name: 'ImplementationPointForm',
-            component: () => import('../views/inspection/InspectionPointForm.vue'),
+            redirect: to => ({ path: `/implementation/point/edit/${to.params.id || ''}` }),
             meta: { title: '点位编辑' }
           }
         ]
@@ -276,13 +306,55 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'device',
         name: 'ImplementationDevice',
-        meta: { title: '设施设备管理' },
+        meta: { title: ' 资产设备' },
         children: [
           {
             path: 'list',
             name: 'ImplementationDeviceList',
             component: () => import('../views/inspection/device/FacilityDeviceList.vue'),
-            meta: { title: '设施设备管理' }
+            meta: { title: '资产对象' }
+          },
+          {
+            path: 'standard-components',
+            name: 'ImplementationStandardComponentLibrary',
+            redirect: '/implementation/device/component-types',
+            meta: { title: '部件类型配置' }
+          },
+          {
+            path: 'component-usage',
+            name: 'ImplementationComponentUsageList',
+            component: () => import('../views/inspection/device/ComponentUsageList.vue'),
+            meta: { title: '设施部件' }
+          },
+          {
+            path: 'component-usage/detail/:deviceId/:objectType/:objectId',
+            name: 'ImplementationComponentUsageDetail',
+            component: () => import('../views/inspection/device/ComponentUsageDetail.vue'),
+            meta: { title: '设施部件详情' }
+          },
+          {
+            path: 'iot-list',
+            name: 'ImplementationIoTDeviceList',
+            component: () => import('../views/inspection/device/IoTDeviceList.vue'),
+            meta: { title: '网络设备管理' }
+          },
+          {
+            path: 'component-types',
+            name: 'ImplementationComponentTypeConfig',
+            component: () => import('../views/inspection/device/ComponentTypeConfig.vue'),
+            meta: { title: '部件类型配置' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ImplementationDeviceDetail',
+            component: () => import('../views/inspection/device/FacilityDeviceDetail.vue'),
+            meta: { title: '设施详情' }
+          },
+          {
+            path: 'detection-config/:deviceId/:componentId?',
+            name: 'ImplementationObjectDetectionConfig',
+            component: () => import('../views/inspection/device/ObjectDetectionConfig.vue'),
+            meta: { title: '检测配置' }
           },
           {
             path: 'form/:id?',
@@ -302,6 +374,37 @@ const routes: RouteRecordRaw[] = [
             name: 'ImplementationMetricList',
             component: () => import('../views/implementation/MetricManagement.vue'),
             meta: { title: '检测项管理' }
+          }
+        ]
+      },
+      {
+        path: 'detection-item-config',
+        name: 'ImplementationDetectionItemConfig',
+        meta: { title: '检测项配置' },
+        children: [
+          {
+            path: 'list',
+            name: 'ImplementationDetectionItemConfigList',
+            component: () => import('../views/implementation/detection-item-config/DetectionItemConfigList.vue'),
+            meta: { title: '检测项配置' }
+          },
+          {
+            path: 'create',
+            name: 'ImplementationDetectionItemConfigCreate',
+            component: () => import('../views/implementation/detection-item-config/DetectionItemConfigForm.vue'),
+            meta: { title: '新增检测规则' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ImplementationDetectionItemConfigDetail',
+            component: () => import('../views/implementation/detection-item-config/DetectionItemConfigDetail.vue'),
+            meta: { title: '检测项配置详情' }
+          },
+          {
+            path: 'edit/:id',
+            name: 'ImplementationDetectionItemConfigEdit',
+            component: () => import('../views/implementation/detection-item-config/DetectionItemConfigForm.vue'),
+            meta: { title: '编辑检测项配置' }
           }
         ]
       },

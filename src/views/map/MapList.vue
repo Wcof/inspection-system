@@ -1,6 +1,6 @@
 <template>
   <div class="map-list">
-    <a-page-header title="地图列表" sub-title="管理巡检地图">
+    <a-page-header title="地图管理" sub-title="管理巡检地图">
       <template #extra>
         <a-button type="primary" @click="goToEditor">
           <a-icon type="plus" />
@@ -51,8 +51,8 @@
           </template>
           <template v-if="column.key === 'actions'">
             <a-space>
-              <a-button type="link" size="small" @click="goToAreaManage(record.id)">区域管理</a-button>
-              <a-button type="link" size="small" @click="goToPointManage(record.id)">点位设置</a-button>
+              <a-button type="link" size="small" @click="goToAreaManage(record.id)">区域编辑</a-button>
+              <a-button type="link" size="small" @click="goToPointManage(record.id)">点位编辑</a-button>
               <a-button type="link" size="small" @click="goToEditor(record.id)">编辑</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
             </a-space>

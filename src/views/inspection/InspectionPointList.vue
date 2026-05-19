@@ -1,8 +1,8 @@
 <template>
   <div class="inspection-point-list">
-    <a-page-header title="点位管理" sub-title="管理点位信息">
+    <a-page-header title="巡检点管理" sub-title="管理巡检点信息">
       <template #extra>
-        <a-button type="primary" @click="goToForm()">
+        <a-button type="primary" @click="goToCreatePage">
           <a-icon type="plus" />
           新增巡检点
         </a-button>
@@ -63,6 +63,52 @@
         </a-form>
       </div>
       <a-table :columns="columns" :data-source="filteredPoints" :loading="loading" row-key="id">
+        <template #expandedRowRender="{ record }">
+          <div class="spatial-detail">
+            <div class="spatial-summary">
+              <a-tag color="blue">装置区：{{ getSpatialModel(record).workArea }}</a-tag>
+              <a-tag color="green">停车点 {{ getSpatialModel(record).parkingPoints.length }}</a-tag>
+              <a-tag color="purple">采集位 {{ getCollectionPoseCount(record) }}</a-tag>
+            </div>
+            <a-alert
+              v-if="!getSpatialModel(record).parkingPoints.length"
+              type="warning"
+              show-icon
+              message="未配置停车点/采集位"
+              description="请先在 mock 初始化或点位配置数据中补充空间执行模型。"
+            />
+            <a-row v-else :gutter="[12, 12]">
+              <a-col v-for="parking in getSpatialModel(record).parkingPoints" :key="parking.id" :xs="24" :lg="12">
+                <div class="parking-card">
+                  <div class="parking-title">
+                    <span>{{ parking.name }}</span>
+                    <a-tag :color="parking.constraint.reachable ? 'green' : 'red'">
+                      {{ parking.constraint.reachable ? '可达' : '不可达' }}
+                    </a-tag>
+                  </div>
+                  <a-descriptions size="small" :column="2" bordered>
+                    <a-descriptions-item label="坐标">{{ parking.position.x }}, {{ parking.position.y }}</a-descriptions-item>
+                    <a-descriptions-item label="朝向">{{ parking.position.yaw }}°</a-descriptions-item>
+                    <a-descriptions-item label="倒车">{{ yesNo(parking.constraint.reverseRequired) }}</a-descriptions-item>
+                    <a-descriptions-item label="原地掉头">{{ yesNo(parking.constraint.turnAroundRequired) }}</a-descriptions-item>
+                    <a-descriptions-item label="窄路">{{ yesNo(parking.constraint.narrowRoad) }}</a-descriptions-item>
+                    <a-descriptions-item label="坡道">{{ yesNo(parking.constraint.slope) }}</a-descriptions-item>
+                    <a-descriptions-item label="便桥">{{ yesNo(parking.constraint.bridgeRequired) }}</a-descriptions-item>
+                    <a-descriptions-item label="绕行">{{ yesNo(parking.constraint.detourRequired) }}</a-descriptions-item>
+                  </a-descriptions>
+                  <div class="pose-list">
+                    <div v-for="pose in parking.collectionPoses" :key="pose.id" class="pose-item">
+                      <b>{{ pose.targetName }}</b>
+                      <span>{{ getDirectionText(pose.direction) }} / {{ getMethodText(pose.method) }} / {{ pose.distanceMeter }}m</span>
+                      <span>云台 {{ pose.ptzYaw }}° / {{ pose.ptzPitch }}°，焦距 {{ pose.focalLength }}</span>
+                      <span>可采条件：{{ pose.collectableCondition }}</span>
+                    </div>
+                  </div>
+                </div>
+              </a-col>
+            </a-row>
+          </div>
+        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'calibrationStatus'">
             <a-tag :color="record.calibrationStatus === 'calibrated' ? 'green' : 'orange'">
@@ -76,7 +122,8 @@
           </template>
           <template v-if="column.key === 'actions'">
             <a-space>
-              <a-button type="link" size="small" @click="goToForm(record.id)">编辑</a-button>
+              <a-button type="link" size="small" @click="goToCompositionEditor(record.id)">编辑点位组成</a-button>
+              <a-button type="link" size="small" @click="goToForm(record.id)">基础编辑</a-button>
               <a-button type="link" size="small" @click="viewDevices(record.id)">设备</a-button>
               <a-button type="link" size="small" @click="handleCalibrate(record.id, record)">校准</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
@@ -96,6 +143,15 @@
           </template>
           <template v-if="column.key === 'deviceCount'">
             {{ getPointDeviceCount(record.id) }}
+          </template>
+          <template v-if="column.key === 'workArea'">
+            {{ getSpatialModel(record).workArea }}
+          </template>
+          <template v-if="column.key === 'parkingPointCount'">
+            {{ getSpatialModel(record).parkingPoints.length }}
+          </template>
+          <template v-if="column.key === 'collectionPoseCount'">
+            {{ getCollectionPoseCount(record) }}
           </template>
           <template v-if="column.key === 'calibratedAt'">
             {{ formatDate(record.calibratedAt) || '-' }}
@@ -172,6 +228,7 @@ import { useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
 import { useRobotStore } from '@/stores/robot'
 import type { InspectionPoint } from '@/types/inspection'
+import type { CollectionMethod, CollectionPose, ParkingPoint } from '@/types/inspection'
 import { CalibrationStatus } from '@/types/inspection'
 import { message, Modal } from 'ant-design-vue'
 
@@ -208,20 +265,23 @@ const columns = [
   { title: '巡检名称', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code' },
   { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '装置区/作业区', key: 'workArea', width: 150 },
   { title: '现场预览图', key: 'previewImage', width: 100 },
   { title: '巡检项数量', key: 'checkItemCount', width: 100 },
   { title: '设施设备数量', key: 'deviceCount', width: 110 },
+  { title: '停车点', key: 'parkingPointCount', width: 90 },
+  { title: '采集位', key: 'collectionPoseCount', width: 90 },
   { title: '巡检点类型', key: 'pointType', width: 120 },
   { title: '校准状态', key: 'calibrationStatus', width: 100 },
   { title: '校准时间', key: 'calibratedAt', width: 170 },
   { title: '更新时间', key: 'updatedAt', width: 170 },
-  { title: '操作', key: 'actions', width: 220 }
+  { title: '操作', key: 'actions', width: 320 }
 ]
 
 function isInspectionBizPoint(point: InspectionPoint): boolean {
-  const matched = point.description?.match(/^\[(巡检点|停车点|充电点)\]\s*/)
-  if (!matched?.[1]) return true
-  return matched[1] === '巡检点'
+  if (point.parkingPoints?.length) return true
+  const matched = point.description?.match(/^\[(巡检点|停车点|充电点|充电站|通行点)\]\s*/)
+  return matched?.[1] === '巡检点'
 }
 
 function fetchPoints() {
@@ -260,12 +320,47 @@ const listRows = computed(() =>
   }))
 )
 
+function getSpatialModel(point: InspectionPoint): { workArea: string; parkingPoints: ParkingPoint[] } {
+  if (point.parkingPoints?.length) {
+    return {
+      workArea: point.workAreaName || point.areaName || '未配置装置区',
+      parkingPoints: point.parkingPoints
+    }
+  }
+  return {
+    workArea: point.workAreaName || point.areaName || '未配置装置区',
+    parkingPoints: []
+  }
+}
+
+function getCollectionPoseCount(point: InspectionPoint) {
+  return getSpatialModel(point).parkingPoints.reduce((sum, parking) => sum + parking.collectionPoses.length, 0)
+}
+
+function yesNo(value: boolean) {
+  return value ? '是' : '否'
+}
+
+function getDirectionText(direction: CollectionPose['direction']) {
+  return ({ front: '正拍', side: '侧拍', oblique: '斜拍', near: '近拍', overview: '全景' } as Record<CollectionPose['direction'], string>)[direction]
+}
+
+function getMethodText(method: CollectionMethod) {
+  return ({ optical: '光学', thermal: '热成像', gas: '气体', safety: '安全行为', multi_spectrum: '多光谱' } as Record<CollectionMethod, string>)[method]
+}
+
 function goToForm(id?: string) {
   if (id) {
     router.push(`/implementation/point/form/${id}`)
-  } else {
-    router.push('/implementation/map/point-manage?mapId=map-001')
   }
+}
+
+function goToCreatePage() {
+  router.push('/implementation/point/create')
+}
+
+function goToCompositionEditor(id: string) {
+  router.push(`/implementation/point/create/${id}`)
 }
 
 function viewDevices(id: string) {
@@ -463,6 +558,42 @@ onMounted(() => {
 }
 .inspection-point-list :deep(.ant-table-tbody > tr > td) {
   vertical-align: middle;
+}
+.spatial-detail {
+  padding: 4px 0;
+}
+.spatial-summary {
+  margin-bottom: 12px;
+}
+.parking-card {
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+}
+.parking-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.pose-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.pose-item {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #fafafa;
+  font-size: 12px;
+  color: #475569;
+}
+.pose-item b {
+  color: #1f2937;
 }
 @media (max-width: 992px) {
   .inspection-point-list :deep(.ant-card-body) {

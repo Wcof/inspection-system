@@ -1,6 +1,7 @@
 
 <template>
   <div class="board-grid">
+    <a-alert v-if="activeFilter" class="filter-alert" type="info" show-icon :message="`当前列表过滤：${getFilterText(activeFilter)}`" />
     <a-card class="panel panel-running">
       <template #title>
         <div class="panel-title-wrap">
@@ -14,6 +15,8 @@
           <div class="task-title-wrap">
             <div class="task-title">{{ task.name }}</div>
             <div>
+              <a-tag :color="getSceneColor(task.businessScene)">{{ task.businessSceneLabel || getSceneText(task.businessScene) }}</a-tag>
+              <a-tag :color="getRiskColor(task.riskLevel)">{{ task.riskLevelLabel || getRiskText(task.riskLevel) }}</a-tag>
               <a-tag color="processing">{{ task.typeLabel }}</a-tag>
               <a-tag v-if="task.changeFlag" color="purple">已变更</a-tag>
             </div>
@@ -27,11 +30,48 @@
             <span>进度：{{ task.progressPercent ?? 0 }}%</span>
             <span>完成：{{ task.doneCount ?? 0 }}/{{ task.totalCount ?? 0 }}</span>
           </div>
+          <div class="meta">
+            <span>调度约束：{{ task.constraintSummary || '电量、区域、作业窗口已校验' }}</span>
+          </div>
           <div v-if="task.changeReason" class="meta emphasis">变更说明：{{ task.changeReason }}</div>
           <a-progress :percent="task.progressPercent || 0" size="small" />
           <div class="actions">
             <a-button size="small" @click="emitTaskAction('view-detail', task)">查看详情</a-button>
             <a-button size="small" @click="emitTaskAction('replace-robot', task)">替换机器人</a-button>
+          </div>
+        </div>
+      </div>
+    </a-card>
+
+    <a-card class="panel panel-temporary">
+      <template #title>
+        <div class="panel-title-wrap">
+          <span>临时任务</span>
+          <a-tag color="purple">{{ temporaryTasks.length }}</a-tag>
+        </div>
+      </template>
+      <a-empty v-if="temporaryTasks.length === 0" description="暂无临时任务" />
+      <div v-else class="task-list">
+        <div v-for="task in temporaryTasks" :key="task.id" class="task-item">
+          <div class="task-title-wrap">
+            <div class="task-title">{{ task.name }}</div>
+            <div>
+              <a-tag color="purple">{{ task.typeLabel || '临时任务' }}</a-tag>
+              <a-tag :color="getRiskColor(task.riskLevel)">{{ task.riskLevelLabel || getRiskText(task.riskLevel) }}</a-tag>
+              <a-tag>{{ task.status === 'auto_pending' ? '待处理' : task.status === 'running' ? '执行中' : '待执行' }}</a-tag>
+            </div>
+          </div>
+          <div class="meta">
+            <span>执行机器人：{{ task.robotName }}</span>
+            <span>创建时间：{{ task.createdAt }}</span>
+          </div>
+          <div class="meta">
+            <span>调度原因：{{ task.dispatchReason || task.reason || '-' }}</span>
+            <span>建议动作：{{ task.suggestedAction || '-' }}</span>
+          </div>
+          <div class="actions">
+            <a-button size="small" @click="emitTaskAction('view-detail', task)">查看详情</a-button>
+            <a-button size="small" danger @click="emitTaskAction('cancel-task', task)">取消</a-button>
           </div>
         </div>
       </div>
@@ -53,9 +93,11 @@
           <div class="task-title-wrap">
             <div class="task-title">{{ task.name }}</div>
             <div>
+              <a-tag :color="getSceneColor(task.businessScene)">{{ task.businessSceneLabel || getSceneText(task.businessScene) }}</a-tag>
               <a-tag :color="task.priority === 'high' ? 'red' : task.priority === 'medium' ? 'orange' : 'default'">
                 {{ task.priorityLabel }}
               </a-tag>
+              <a-tag :color="getRiskColor(task.riskLevel)">{{ task.riskLevelLabel || getRiskText(task.riskLevel) }}</a-tag>
               <a-tag v-if="task.changeFlag" color="purple">已变更</a-tag>
             </div>
           </div>
@@ -66,6 +108,10 @@
           <div class="meta">
             <span>任务来源：{{ task.typeLabel }}</span>
             <span>模式：{{ mode === 'auto' ? '自动调度' : '顺序执行' }}</span>
+          </div>
+          <div class="meta">
+            <span>建议动作：{{ task.suggestedAction || '排队' }}</span>
+            <span>约束：{{ task.constraintSummary || '机器人适配 / 作业窗口正常' }}</span>
           </div>
           <div v-if="task.changeReason" class="meta emphasis">变更说明：{{ task.changeReason }}</div>
           <div class="actions">
@@ -89,13 +135,21 @@
         <div v-for="task in pendingProcessTasks" :key="task.id" class="task-item">
           <div class="task-title-wrap">
             <div class="task-title">{{ task.name }}</div>
-            <a-tag color="volcano">必须人工确认</a-tag>
+            <div>
+              <a-tag :color="getSceneColor(task.businessScene)">{{ task.businessSceneLabel || getSceneText(task.businessScene) }}</a-tag>
+              <a-tag :color="getRiskColor(task.riskLevel)">{{ task.riskLevelLabel || getRiskText(task.riskLevel) }}</a-tag>
+              <a-tag color="volcano">必须人工确认</a-tag>
+            </div>
           </div>
           <div class="meta">
             <span>处理原因：{{ task.reason || '-' }}</span>
             <span>生成时间：{{ task.createdAt }}</span>
           </div>
           <div v-if="task.affectedTaskName" class="meta emphasis">受影响任务：{{ task.affectedTaskName }}</div>
+          <div class="meta">
+            <span>建议动作：{{ task.suggestedAction || '人工确认后补检' }}</span>
+            <span>调度原因：{{ task.dispatchReason || task.reason || '-' }}</span>
+          </div>
           <div class="actions">
             <a-button size="small" type="primary" @click="emitTaskAction('accept-auto', task)">接受</a-button>
             <a-button size="small" @click="emitTaskAction('replace-robot', task)">替换机器人</a-button>
@@ -106,24 +160,6 @@
       </div>
     </a-card>
 
-    <a-card class="panel panel-record">
-      <template #title>
-        <div class="panel-title-wrap">
-          <span>调度记录（今日）</span>
-          <a-tag>{{ records.length }}</a-tag>
-        </div>
-      </template>
-      <a-empty v-if="records.length === 0" description="暂无调度记录" />
-      <a-timeline v-else>
-        <a-timeline-item v-for="record in records" :key="record.id">
-          <div class="record-line">
-            <span class="time">{{ record.time }}</span>
-            <span class="event">{{ record.event }}</span>
-            <a-tag size="small">{{ record.resultStatus }}</a-tag>
-          </div>
-        </a-timeline-item>
-      </a-timeline>
-    </a-card>
   </div>
 </template>
 
@@ -133,6 +169,16 @@ export interface DispatchTask {
   name: string
   type: 'plan' | 'auto' | 'temp'
   typeLabel?: string
+  businessScene?: string
+  businessSceneLabel?: string
+  dispatchType?: string
+  tempTaskType?: string
+  riskLevel?: string
+  riskLevelLabel?: string
+  taskSource?: string
+  suggestedAction?: string
+  dispatchReason?: string
+  constraintSummary?: string
   status: 'running' | 'pending' | 'auto_pending' | 'conflict' | 'paused' | 'cancelled'
   robotName: string
   reason?: string
@@ -151,37 +197,56 @@ export interface DispatchTask {
   changeReason?: string
 }
 
-export interface DispatchRecordItem {
-  id: string
-  time: string
-  event: string
-  taskName: string
-  resultStatus: 'pending' | 'running' | 'done' | 'rejected'
-  source: 'auto' | 'manual' | 'temp'
-}
-
 type ActionType = 'view-detail' | 'replace-robot' | 'move-up' | 'move-down' | 'cancel-task' | 'accept-auto' | 'view-reason'
 
 defineProps<{
   runningTasks: DispatchTask[]
   pendingTasks: DispatchTask[]
   pendingProcessTasks: DispatchTask[]
-  records: DispatchRecordItem[]
+  temporaryTasks: DispatchTask[]
   mode: 'auto' | 'manual'
+  activeFilter?: string
 }>()
 
 const emit = defineEmits<{ (e: 'task-action', payload: { type: ActionType; task: DispatchTask }): void }>()
 function emitTaskAction(type: ActionType, task: DispatchTask) { emit('task-action', { type, task }) }
+
+function getSceneText(scene?: string) {
+  return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护', recheck: '补检' } as Record<string, string>)[scene || ''] || '日常巡检'
+}
+
+function getSceneColor(scene?: string) {
+  return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple', recheck: 'red' } as Record<string, string>)[scene || ''] || 'blue'
+}
+
+function getRiskText(level?: string) {
+  return ({ normal: '普通', warning: '预警', alarm: '告警', critical_alarm: '严重告警', hazard: '隐患', major_hazard: '重大隐患' } as Record<string, string>)[level || ''] || '普通'
+}
+
+function getRiskColor(level?: string) {
+  return ({ normal: 'default', warning: 'gold', alarm: 'orange', critical_alarm: 'red', hazard: 'volcano', major_hazard: 'magenta' } as Record<string, string>)[level || ''] || 'default'
+}
+
+function getFilterText(filter: string) {
+  return ({ plan: '今日计划', running: '执行中', pending: '待执行', processing: '待处理', temporary: '临时任务' } as Record<string, string>)[filter] || filter
+}
 </script>
 
 <style scoped lang="css">.board-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas: 'running running' 'pending pendingProcess' 'record record';
+  grid-template-areas: 'filter filter' 'running running' 'temporary temporary' 'pending pending' 'pendingProcess pendingProcess';
   gap: 12px;
+  min-width: 0;
+}
+.filter-alert {
+  grid-area: filter;
 }
 .panel-running {
   grid-area: running;
+}
+.panel-temporary {
+  grid-area: temporary;
 }
 .panel-pending {
   grid-area: pending;
@@ -189,13 +254,11 @@ function emitTaskAction(type: ActionType, task: DispatchTask) { emit('task-actio
 .panel-process {
   grid-area: pendingProcess;
 }
-.panel-record {
-  grid-area: record;
-}
 .panel-title-wrap {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 .task-list {
   display: flex;
@@ -213,10 +276,19 @@ function emitTaskAction(type: ActionType, task: DispatchTask) { emit('task-actio
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 6px;
+  min-width: 0;
+}
+.task-title-wrap > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
 }
 .task-title {
   font-size: 14px;
   font-weight: 600;
+  min-width: 0;
+  word-break: break-word;
 }
 .meta {
   display: flex;
@@ -235,19 +307,25 @@ function emitTaskAction(type: ActionType, task: DispatchTask) { emit('task-actio
   gap: 8px;
   margin-top: 8px;
 }
-.record-line {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.time {
-  color: #999;
-}
 @media (max-width: 1200px) {
   .board-grid {
     grid-template-columns: 1fr;
-    grid-template-areas: 'running' 'pending' 'pendingProcess' 'record';
+    grid-template-areas: 'filter' 'running' 'temporary' 'pending' 'pendingProcess';
+  }
+}
+@media (max-width: 768px) {
+  .task-item {
+    padding: 10px;
+  }
+  .task-title-wrap {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .task-title-wrap > div:last-child {
+    justify-content: flex-start;
+  }
+  .actions {
+    gap: 6px;
   }
 }
 </style>

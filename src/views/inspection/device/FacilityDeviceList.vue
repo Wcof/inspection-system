@@ -1,19 +1,19 @@
 <template>
   <div class="facility-device-list">
-    <a-page-header title="设施设备管理" sub-title="支持设备维度查询、检测项数量统计与参考图预览" />
+    <a-page-header title="设施管理" sub-title="支持设备维度查询、部件连接与检测规则统计、参考图预览" />
 
     <a-card style="margin-top: 16px">
       <div class="search-panel">
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备名称" class="search-item">
-                <a-input v-model:value="searchForm.name" allow-clear placeholder="请输入设备名称" />
+              <a-form-item label="设施名称" class="search-item">
+                <a-input v-model:value="searchForm.name" allow-clear placeholder="请输入设施名称" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备编号" class="search-item">
-                <a-input v-model:value="searchForm.deviceNo" allow-clear placeholder="请输入设备编号" />
+              <a-form-item label="设施编号" class="search-item">
+                <a-input v-model:value="searchForm.deviceNo" allow-clear placeholder="请输入设施编号" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
@@ -24,20 +24,20 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="所在巡检点" class="search-item">
+              <a-form-item label="关联巡检点" class="search-item">
                 <a-select v-model:value="searchForm.pointId" allow-clear placeholder="请选择巡检点">
                   <a-select-option v-for="point in points" :key="point.id" :value="point.id">{{ point.name }}</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备分类" class="search-item">
-                <a-input v-model:value="searchForm.deviceClassification" allow-clear placeholder="请输入设备分类" />
+              <a-form-item label="设施分类" class="search-item">
+                <a-input v-model:value="searchForm.deviceClassification" allow-clear placeholder="请输入设施分类" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备类别" class="search-item">
-                <a-input v-model:value="searchForm.deviceCategory" allow-clear placeholder="请输入设备类别" />
+              <a-form-item label="设施类别" class="search-item">
+                <a-input v-model:value="searchForm.deviceCategory" allow-clear placeholder="请输入设施类别" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
@@ -60,7 +60,7 @@
             <a-space>
               <a-button type="primary" @click="noopSearch">搜索</a-button>
               <a-button @click="resetSearch">重置</a-button>
-              <a-button type="primary" @click="goToForm()">新增设备</a-button>
+              <a-button type="primary" @click="goToForm()">新增设施</a-button>
             </a-space>
           </div>
         </a-form>
@@ -70,16 +70,20 @@
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'deviceNo'">{{ record.deviceNo || record.code || '-' }}</template>
           <template v-else-if="column.key === 'area'">{{ record.areaName || getPoint(record.inspectionPointId)?.areaName || '-' }}</template>
-          <template v-else-if="column.key === 'point'">{{ getPoint(record.inspectionPointId)?.name || '-' }}</template>
+          <template v-else-if="column.key === 'source'">{{ record.source === 'synced' ? '三方同步' : '手动维护' }}</template>
+          <template v-else-if="column.key === 'point'">{{ getLinkedPointNames(record) }}</template>
           <template v-else-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
           </template>
-          <template v-else-if="column.key === 'checkItemCount'">{{ getCheckItemCount(record.id) }}</template>
+          <template v-else-if="column.key === 'componentCount'">{{ getComponentCount(record) }}</template>
+          <template v-else-if="column.key === 'connectionCount'">{{ getConnectionCount(record) }}</template>
+          <template v-else-if="column.key === 'ruleCount'">{{ getDetectionRuleCount(record) }}</template>
           <template v-else-if="column.key === 'reference'">
             <img :src="record.referenceImageUrl || defaultDeviceImage" alt="参考图" class="thumb" />
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
+              <a-button type="link" size="small" @click="goToDetail(record.id)">详情</a-button>
               <a-button type="link" size="small" @click="goToForm(record.id)">编辑</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record)">删除</a-button>
             </a-space>
@@ -112,21 +116,24 @@ const searchForm = reactive({
 })
 
 const columns = [
-  { title: '设备编号', dataIndex: 'deviceNo', key: 'deviceNo', width: 150 },
-  { title: '设备名称', dataIndex: 'name', key: 'name', width: 150 },
-  { title: '设备类别', dataIndex: 'deviceCategory', key: 'deviceCategory', width: 130 },
-  { title: '设备分类', dataIndex: 'deviceClassification', key: 'deviceClassification', width: 130 },
+  { title: '设施编号', dataIndex: 'deviceNo', key: 'deviceNo', width: 150 },
+  { title: '设施名称', dataIndex: 'name', key: 'name', width: 150 },
+  { title: '设施类别', dataIndex: 'deviceCategory', key: 'deviceCategory', width: 130 },
+  { title: '设施分类', dataIndex: 'deviceClassification', key: 'deviceClassification', width: 130 },
+  { title: '来源', key: 'source', width: 110 },
   { title: '责任人', dataIndex: 'owner', key: 'owner', width: 110 },
-  { title: '所在区域', key: 'area', width: 130 },
-  { title: '所在巡检点', key: 'point', width: 170 },
+  { title: '所属区域', key: 'area', width: 130 },
+  { title: '关联巡检点', key: 'point', width: 200 },
   { title: '存放位置', dataIndex: 'storageLocation', key: 'storageLocation', width: 150 },
   { title: '设备状态', key: 'status', width: 100 },
   { title: '最近检测时间', dataIndex: 'lastInspectionTime', key: 'lastInspectionTime', width: 130 },
   { title: '下次检测时间', dataIndex: 'nextInspectionTime', key: 'nextInspectionTime', width: 130 },
   { title: '最近检测结论', dataIndex: 'lastInspectionConclusion', key: 'lastInspectionConclusion', width: 130 },
-  { title: '检测项数量', key: 'checkItemCount', width: 110 },
+  { title: '部件数量', key: 'componentCount', width: 100 },
+  { title: '连接数量', key: 'connectionCount', width: 100 },
+  { title: '检测规则数量', key: 'ruleCount', width: 120 },
   { title: '参考图', key: 'reference', width: 110, fixed: 'right' as const },
-  { title: '操作', key: 'actions', width: 120, fixed: 'right' as const }
+  { title: '操作', key: 'actions', width: 220, fixed: 'right' as const }
 ]
 
 const points = computed(() => inspectionStore.inspectionPoints)
@@ -148,10 +155,11 @@ const filteredDevices = computed(() => {
     const category = searchForm.deviceCategory.trim().toLowerCase()
     const owner = searchForm.owner.trim().toLowerCase()
     const point = getPoint(device.inspectionPointId)
+    const bindingPointIds = (device.parkingPointBindings || []).map(item => item.inspectionPointId)
     const matchName = !name || device.name.toLowerCase().includes(name)
     const matchDeviceNo = !deviceNo || String(device.deviceNo || device.code || '').toLowerCase().includes(deviceNo)
     const matchArea = !searchForm.areaId || device.areaId === searchForm.areaId || point?.areaId === searchForm.areaId
-    const matchPoint = !searchForm.pointId || device.inspectionPointId === searchForm.pointId
+    const matchPoint = !searchForm.pointId || device.inspectionPointId === searchForm.pointId || bindingPointIds.includes(searchForm.pointId)
     const matchClassification = !classification || String(device.deviceClassification || '').toLowerCase().includes(classification)
     const matchCategory = !category || String(device.deviceCategory || '').toLowerCase().includes(category)
     const matchOwner = !owner || String(device.owner || '').toLowerCase().includes(owner)
@@ -164,12 +172,37 @@ function getPoint(pointId: string) {
   return inspectionStore.inspectionPoints.find(point => point.id === pointId)
 }
 
-function getCheckItemCount(deviceId: string) {
-  return inspectionStore.inspectionDeviceCheckItems.filter(item => item.deviceId === deviceId).length
+function getLinkedPointNames(device: any) {
+  const names = Array.from(new Set((device.parkingPointBindings || []).map((item: any) => item.inspectionPointName).filter(Boolean)))
+  if (names.length) return names.join('、')
+  return getPoint(device.inspectionPointId)?.name || '-'
+}
+
+function getComponentCount(device: any) {
+  return device.assetComponents?.length || 0
+}
+
+function getConnectionCount(device: any) {
+  return device.connectionObjects?.length || 0
+}
+
+function getDetectionRuleCount(device: any) {
+  const ruleIds = new Set<string>()
+  ;(device.assetComponents || []).forEach((component: any) => {
+    ;(component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId))
+  })
+  ;(device.connectionObjects || []).forEach((connection: any) => {
+    ;(connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId))
+  })
+  return ruleIds.size
 }
 
 function goToForm(id?: string) {
   router.push(id ? `/implementation/device/form/${id}` : '/implementation/device/form')
+}
+
+function goToDetail(id: string) {
+  router.push(`/implementation/device/detail/${id}`)
 }
 
 function noopSearch() {
