@@ -169,6 +169,48 @@ const routes: RouteRecordRaw[] = [
             meta: { title: '设施设备分析' }
           },
           {
+            path: 'task-execution-analysis',
+            name: 'ManagementReportTaskExecutionAnalysis',
+            component: () => import('../views/management/report/ReportTaskExecutionAnalysis.vue'),
+            meta: { title: '任务执行分析' }
+          },
+          {
+            path: 'plan-coverage-analysis',
+            name: 'ManagementReportPlanCoverageAnalysis',
+            component: () => import('../views/management/report/ReportPlanCoverageAnalysis.vue'),
+            meta: { title: '规划覆盖分析' }
+          },
+          {
+            path: 'dispatch-analysis',
+            name: 'ManagementReportDispatchAnalysis',
+            component: () => import('../views/management/report/DispatchAnalysis.vue'),
+            meta: { title: '调度决策分析' }
+          },
+          {
+            path: 'exception-analysis',
+            name: 'ManagementReportExceptionAnalysis',
+            component: () => import('../views/management/report/ExceptionAnalysis.vue'),
+            meta: { title: '异常告警分析' }
+          },
+          {
+            path: 'component-rule-analysis',
+            name: 'ManagementReportComponentRuleAnalysis',
+            component: () => import('../views/management/report/ReportComponentRuleAnalysis.vue'),
+            meta: { title: '部件规则分析' }
+          },
+          {
+            path: 'evidence-playback-analysis',
+            name: 'ManagementReportEvidencePlaybackAnalysis',
+            component: () => import('../views/management/report/ReportEvidencePlaybackAnalysis.vue'),
+            meta: { title: '证据回放分析' }
+          },
+          {
+            path: 'third-party-task-analysis',
+            name: 'ManagementReportThirdPartyTaskAnalysis',
+            component: () => import('../views/management/report/ReportThirdPartyTaskAnalysis.vue'),
+            meta: { title: '第三方回传分析' }
+          },
+          {
             path: 'gas-analysis',
             name: 'ManagementReportGasAnalysis',
             component: () => import('../views/management/report/ReportGasAnalysis.vue'),
@@ -324,13 +366,37 @@ const routes: RouteRecordRaw[] = [
             path: 'component-usage',
             name: 'ImplementationComponentUsageList',
             component: () => import('../views/inspection/device/ComponentUsageList.vue'),
-            meta: { title: '设施部件' }
+            meta: { title: '部件管理' }
           },
           {
-            path: 'component-usage/detail/:deviceId/:objectType/:objectId',
+            path: 'component-usage/detail/:componentId',
             name: 'ImplementationComponentUsageDetail',
             component: () => import('../views/inspection/device/ComponentUsageDetail.vue'),
-            meta: { title: '设施部件详情' }
+            meta: { title: '部件详情' }
+          },
+          {
+            path: 'component-usage/form/:componentId?',
+            name: 'ImplementationComponentUsageForm',
+            component: () => import('../views/inspection/device/ComponentUsageForm.vue'),
+            meta: { title: '部件编辑' }
+          },
+          {
+            path: 'installation-list',
+            name: 'ImplementationInstallationList',
+            component: () => import('../views/inspection/device/InstallationList.vue'),
+            meta: { title: '装置管理' }
+          },
+          {
+            path: 'installation-form/:id?',
+            name: 'ImplementationInstallationForm',
+            component: () => import('../views/inspection/device/InstallationForm.vue'),
+            meta: { title: '装置编辑' }
+          },
+          {
+            path: 'installation-detail/:id',
+            name: 'ImplementationInstallationDetail',
+            component: () => import('../views/inspection/device/InstallationDetail.vue'),
+            meta: { title: '装置详情' }
           },
           {
             path: 'iot-list',

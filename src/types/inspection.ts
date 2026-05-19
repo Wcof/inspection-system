@@ -46,6 +46,8 @@ export enum DeviceStatus {
   SCRAPPED = 'scrapped'
 }
 
+export type FacilityKind = 'normal' | 'pipeline'
+
 export enum ScheduleType {
   WEEKLY = 'weekly',
   MONTHLY = 'monthly',
@@ -120,6 +122,39 @@ export interface InspectedAssetComponent {
   inspectionWindow?: string
 }
 
+export interface Installation {
+  id: string
+  name: string
+  code: string
+  installationPositionNo?: string
+  areaId: string
+  areaName: string
+  installationType: string
+  status: DeviceStatus
+  remark?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface FacilityComponent {
+  id: string
+  name: string
+  componentType: InspectedAssetComponent['type']
+  componentNo: string
+  componentPositionNo: string
+  areaId: string
+  areaName: string
+  installationId: string
+  installationName: string
+  facilityId: string
+  facilityName: string
+  ruleIds: string[]
+  status: DeviceStatus
+  remark?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 export interface ConnectionObject {
   id: string
   name: string
@@ -189,6 +224,7 @@ export interface FacilityParkingPointBinding {
   executionOrder?: number
   sequence?: number
   componentIds: string[]
+  ruleIds?: string[]
   inspectionMode?: 'fixed' | 'area'
   parkingPointIds?: string[]
   parkingPointNames?: string[]
@@ -349,6 +385,10 @@ export interface InspectionDevice {
   mapCoordinate?: string
   areaId?: string
   areaName?: string
+  installationId?: string
+  installationName?: string
+  facilityPositionNo?: string
+  facilityKind?: FacilityKind
   departmentName?: string
   storageLocation?: string
   outDate?: string
@@ -406,6 +446,10 @@ export interface InspectionDeviceFormData {
   mapCoordinate?: string
   areaId?: string
   areaName?: string
+  installationId?: string
+  installationName?: string
+  facilityPositionNo?: string
+  facilityKind?: FacilityKind
   departmentName?: string
   storageLocation?: string
   outDate?: string
@@ -773,8 +817,12 @@ export interface InspectionTask {
   robotId: string
   routeId: string
   snapshotId?: string
-  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard'
-  taskSource?: 'manual_plan' | 'auto_plan' | 'dispatch_insert' | 'auto_recheck' | 'ehs' | 'manual'
+  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard' | 'work_ticket_guard' | 'emergency_arrival'
+  taskSource?: 'execution_plan' | 'dispatch_insert' | 'auto_recheck' | 'work_ticket' | 'third_party' | 'emergency' | 'manual'
+  priorityLevel?: 'normal' | 'high' | 'emergency'
+  thirdPartyTaskNo?: string
+  interruptsCurrentTask?: boolean
+  feedbackStatus?: 'pending' | 'success' | 'failed'
   riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
   exceptionCount?: number
   uninspectableCount?: number
@@ -830,7 +878,7 @@ export interface InspectionPlan {
   name: string
   code: string
   planType?: 'manual' | 'auto'
-  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard'
+  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard' | 'work_ticket_guard' | 'emergency_arrival'
   riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
   regionIds?: string[]
   facilityIds?: string[]

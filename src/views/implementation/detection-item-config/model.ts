@@ -1,5 +1,5 @@
-export type DetectionCategory = '视觉识别' | '热成像' | '气体检测' | '远传对比' | '安全行为' | '设备状态' | '环境监测' | '其他'
-export type TargetType = '设施' | '设施部件' | '连接部位' | '区域环境' | '人员行为' | '机器人自身'
+export type DetectionType = '图像识别' | '热成像' | '气体检测' | '远传对比' | '安全行为' | '设备状态' | '环境监测' | '其他'
+export type DetectionCategory = DetectionType
 export type CollectMethod = '光学图像' | '热成像' | '气体传感器' | '声音采集' | '远传数据' | '组合采集'
 export type PublishStatus = '草稿' | '已发布' | '已停用'
 export type ResultType = '数值型' | '状态型' | '布尔型' | '等级型' | '文本型' | '图像识别型'
@@ -27,28 +27,19 @@ export interface ResultDef {
   alarmThreshold?: string
   severeThreshold?: string
   judgmentBasis?: string
-}
-
-export interface ApplicableTarget {
-  id: string
-  deviceId: string
-  deviceName: string
-  subjectType: 'component' | 'connection'
-  subjectId: string
-  subjectName: string
+  voiceBroadcastText?: string
 }
 
 export interface DetectionItemConfig {
   id: string
   name: string
   code: string
-  category: DetectionCategory
+  detectionType: DetectionType
+  detectionAlgorithm: string
+  category?: string
   description: string
   resultType: ResultType
   needEvidence: boolean
-  targetTypes: TargetType[]
-  targetDetails: string
-  applicableTargets?: ApplicableTarget[]
   collectMethod: CollectMethod
   collectDirection: string
   collectDistance: string
@@ -65,95 +56,175 @@ export interface DetectionItemConfig {
 
 const STORAGE_KEY = 'inspection_detection_item_configs_v1'
 
+export const detectionTypeOptions: DetectionType[] = ['图像识别', '热成像', '气体检测', '远传对比', '安全行为', '设备状态', '环境监测', '其他']
+
+export const detectionAlgorithmOptions: Record<DetectionType, string[]> = {
+  图像识别: ['外观识别', '仪表读数识别', '指针状态识别', '目标缺失识别'],
+  热成像: ['温度异常识别', '热点识别'],
+  气体检测: ['CH4 浓度检测', 'H2S 浓度检测', 'VOC 浓度检测'],
+  远传对比: ['远传-视觉比对', '远传-阈值比对'],
+  安全行为: ['未戴安全帽识别', '闯入危险区识别', '吸烟识别'],
+  设备状态: ['开关状态识别', '运行状态识别'],
+  环境监测: ['区域环境检测', '烟雾检测'],
+  其他: ['通用检测']
+}
+
+const now = () => new Date().toISOString()
+
+function createResult(base: Partial<ResultDef> = {}): ResultDef {
+  return {
+    id: `result-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    name: '',
+    code: '',
+    group: '业务结果',
+    riskLevel: '提示',
+    needReview: false,
+    generateException: false,
+    indicator: '',
+    unit: '',
+    normalRange: '',
+    warningThreshold: '',
+    alarmThreshold: '',
+    severeThreshold: '',
+    judgmentBasis: '',
+    voiceBroadcastText: '',
+    ...base
+  }
+}
+
+export function defaultResultsByDetectionType(type: DetectionType): ResultDef[] {
+  if (type === '热成像') {
+    return [
+      createResult({ name: '正常', code: 'NORMAL', indicator: '最高温', unit: '℃', normalRange: '<=60', judgmentBasis: '温度在正常范围内' }),
+      createResult({ name: '预警', code: 'WARNING', indicator: '最高温', unit: '℃', warningThreshold: '>60', needReview: true, generateException: true, judgmentBasis: '温度超过预警阈值' }),
+      createResult({ name: '告警', code: 'ALARM', indicator: '最高温', unit: '℃', alarmThreshold: '>80', needReview: true, generateException: true, judgmentBasis: '温度超过告警阈值' })
+    ]
+  }
+  if (type === '气体检测') {
+    return [
+      createResult({ name: '正常', code: 'NORMAL', indicator: '气体浓度', unit: 'ppm', normalRange: '<=10', judgmentBasis: '浓度在正常范围内' }),
+      createResult({ name: '预警', code: 'WARNING', indicator: '气体浓度', unit: 'ppm', warningThreshold: '>10', needReview: true, generateException: true, judgmentBasis: '浓度超过预警阈值' }),
+      createResult({ name: '告警', code: 'ALARM', indicator: '气体浓度', unit: 'ppm', alarmThreshold: '>25', needReview: true, generateException: true, judgmentBasis: '浓度超过告警阈值' })
+    ]
+  }
+  if (type === '图像识别' || type === '安全行为') {
+    return [
+      createResult({ name: '正常', code: 'NORMAL', indicator: '识别结果', judgmentBasis: '未识别到异常特征' }),
+      createResult({ name: '异常', code: 'ABNORMAL', indicator: '识别结果', riskLevel: '告警', needReview: true, generateException: true, judgmentBasis: '识别到异常特征' }),
+      createResult({ name: '无法识别', code: 'UNREADABLE', group: '采集质量结果', indicator: '识别结果', riskLevel: '预警', needReview: true, generateException: true, judgmentBasis: '目标模糊、反光或遮挡' })
+    ]
+  }
+  return [
+    createResult({ name: '正常', code: 'NORMAL', judgmentBasis: '结果符合正常口径' }),
+    createResult({ name: '异常', code: 'ABNORMAL', riskLevel: '告警', needReview: true, generateException: true, judgmentBasis: '结果符合异常口径' })
+  ]
+}
+
+export function resultTypeByDetectionType(type: DetectionType): ResultType {
+  if (type === '热成像' || type === '气体检测' || type === '环境监测') return '数值型'
+  if (type === '图像识别') return '图像识别型'
+  return '状态型'
+}
+
+export function collectMethodByDetectionType(type: DetectionType): CollectMethod {
+  if (type === '热成像') return '热成像'
+  if (type === '气体检测') return '气体传感器'
+  if (type === '远传对比') return '远传数据'
+  return '光学图像'
+}
+
+function detectionTypeFromLegacy(value?: string): DetectionType {
+  if (!value) return '图像识别'
+  if (value === '视觉识别') return '图像识别'
+  if (detectionTypeOptions.includes(value as DetectionType)) return value as DetectionType
+  return '其他'
+}
+
+function ensureAlgorithm(type: DetectionType, value?: string) {
+  const candidates = detectionAlgorithmOptions[type]
+  if (value && candidates.includes(value)) return value
+  return candidates[0]
+}
+
+function normalizeConfig(item: Partial<DetectionItemConfig>): DetectionItemConfig {
+  const detectionType = detectionTypeFromLegacy((item as any).detectionType || item.category)
+  return {
+    id: item.id || `dic-${Date.now()}`,
+    name: item.name || '',
+    code: item.code || '',
+    detectionType,
+    detectionAlgorithm: ensureAlgorithm(detectionType, (item as any).detectionAlgorithm || item.name),
+    category: detectionType,
+    description: item.description || '',
+    resultType: item.resultType || resultTypeByDetectionType(detectionType),
+    needEvidence: item.needEvidence ?? true,
+    collectMethod: item.collectMethod || collectMethodByDetectionType(detectionType),
+    collectDirection: item.collectDirection || '',
+    collectDistance: item.collectDistance || '',
+    collectNote: item.collectNote || '',
+    rules: item.rules?.length
+      ? item.rules
+      : [{ id: `rule-${Date.now()}`, name: ensureAlgorithm(detectionType, (item as any).detectionAlgorithm || item.name), version: 'V1.0', algorithm: ensureAlgorithm(detectionType, (item as any).detectionAlgorithm || item.name), status: '启用' }],
+    results: (item.results?.length ? item.results : defaultResultsByDetectionType(detectionType)).map(result => ({
+      ...createResult(),
+      ...result,
+      voiceBroadcastText: result.voiceBroadcastText || ''
+    })),
+    version: item.version || 'V1.0',
+    publishStatus: item.publishStatus || '草稿',
+    enabled: item.enabled ?? false,
+    referenceCount: item.referenceCount ?? 0,
+    updatedAt: item.updatedAt || now(),
+    createdAt: item.createdAt || now()
+  }
+}
+
 const defaultData: DetectionItemConfig[] = [
-  {
+  normalizeConfig({
     id: 'dic-001',
     name: '仪表读数识别',
     code: 'METER_READING',
-    category: '视觉识别',
+    detectionType: '图像识别',
+    detectionAlgorithm: '仪表读数识别',
     description: '通过光学图像识别仪表表盘读数，并判断读数是否处于正常范围。',
     resultType: '数值型',
     needEvidence: true,
-    targetTypes: ['设施部件'],
-    targetDetails: '压力表、温度表、液位计',
     collectMethod: '光学图像',
     collectDirection: '正拍',
     collectDistance: '0.5m - 2m',
     collectNote: '需要表盘清晰，避免反光和遮挡。',
     rules: [
-      { id: 'r-001', name: '表盘数值识别', version: 'V1.0', algorithm: 'OCR+表盘定位', status: '启用' },
-      { id: 'r-002', name: '阈值判断', version: 'V1.0', algorithm: '上下限规则', status: '启用' }
+      { id: 'r-001', name: '仪表读数识别', version: 'V1.0', algorithm: 'OCR+表盘定位', status: '启用' }
     ],
     results: [
-      { id: 'rs-001', name: '正常', code: 'NORMAL', group: '业务结果', riskLevel: '提示', needReview: false, generateException: false },
-      { id: 'rs-002', name: '告警', code: 'ALARM', group: '业务结果', riskLevel: '告警', needReview: true, generateException: true },
-      { id: 'rs-003', name: '无法读取', code: 'UNREADABLE', group: '采集质量结果', riskLevel: '预警', needReview: true, generateException: true }
+      createResult({ id: 'rs-001', name: '正常', code: 'NORMAL', indicator: '仪表读数', judgmentBasis: '读数处于允许范围内' }),
+      createResult({ id: 'rs-002', name: '告警', code: 'ALARM', indicator: '仪表读数', riskLevel: '告警', needReview: true, generateException: true, judgmentBasis: '读数超过告警阈值', voiceBroadcastText: '检测到仪表读数异常，请立即复核。' }),
+      createResult({ id: 'rs-003', name: '无法识别', code: 'UNREADABLE', group: '采集质量结果', indicator: '仪表读数', riskLevel: '预警', needReview: true, generateException: true, judgmentBasis: '画面模糊或表盘遮挡' })
     ],
-    version: 'V1.0',
     publishStatus: '已发布',
     enabled: true,
-    referenceCount: 12,
-    updatedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString()
-  },
-  {
+    referenceCount: 12
+  }),
+  normalizeConfig({
     id: 'dic-002',
     name: '压力表外观破损检测',
     code: 'PRESSURE_GAUGE_DAMAGE',
-    category: '视觉识别',
-    description: '通过光学图像识别压力表表盘、外壳、指针和玻璃罩是否存在破损、缺失或明显异常。',
-    resultType: '图像识别型',
-    needEvidence: true,
-    targetTypes: ['设施部件'],
-    targetDetails: '压力表',
-    collectMethod: '光学图像',
-    collectDirection: '正拍、侧拍',
-    collectDistance: '0.5m - 2m',
-    collectNote: '需要完整覆盖压力表外观，避免遮挡表盘、外壳和玻璃罩。',
-    rules: [
-      { id: 'r-003', name: '压力表外观缺陷识别', version: 'V1.0', algorithm: '视觉缺陷识别', status: '启用' }
-    ],
-    results: [
-      { id: 'rs-004', name: '正常', code: 'NORMAL', group: '业务结果', riskLevel: '提示', needReview: false, generateException: false },
-      { id: 'rs-005', name: '外观破损', code: 'DAMAGED', group: '业务结果', riskLevel: '告警', needReview: true, generateException: true },
-      { id: 'rs-006', name: '被遮挡', code: 'BLOCKED', group: '采集质量结果', riskLevel: '预警', needReview: true, generateException: true }
-    ],
-    version: 'V1.0',
+    detectionType: '图像识别',
+    detectionAlgorithm: '外观识别',
+    description: '识别压力表表盘、外壳、玻璃罩是否存在破损或明显异常。',
     publishStatus: '已发布',
-    enabled: true,
-    referenceCount: 0,
-    updatedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString()
-  },
-  {
+    enabled: true
+  }),
+  normalizeConfig({
     id: 'dic-003',
     name: '压力表指针异常检测',
     code: 'PRESSURE_GAUGE_POINTER',
-    category: '视觉识别',
-    description: '识别压力表指针姿态是否异常，包括指针卡滞、偏转异常和无法定位等情况。',
-    resultType: '状态型',
-    needEvidence: true,
-    targetTypes: ['设施部件'],
-    targetDetails: '压力表',
-    collectMethod: '光学图像',
-    collectDirection: '正拍',
-    collectDistance: '0.5m - 2m',
-    collectNote: '需要表盘和指针清晰可见，避免反光导致指针无法识别。',
-    rules: [
-      { id: 'r-004', name: '指针姿态识别', version: 'V1.0', algorithm: '指针定位+姿态判断', status: '启用' }
-    ],
-    results: [
-      { id: 'rs-007', name: '正常', code: 'NORMAL', group: '业务结果', riskLevel: '提示', needReview: false, generateException: false },
-      { id: 'rs-008', name: '指针异常', code: 'POINTER_ABNORMAL', group: '业务结果', riskLevel: '告警', needReview: true, generateException: true },
-      { id: 'rs-009', name: '无法读取', code: 'UNREADABLE', group: '采集质量结果', riskLevel: '预警', needReview: true, generateException: true }
-    ],
-    version: 'V1.0',
+    detectionType: '图像识别',
+    detectionAlgorithm: '指针状态识别',
+    description: '识别压力表指针姿态是否异常。',
     publishStatus: '已发布',
-    enabled: true,
-    referenceCount: 0,
-    updatedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString()
-  }
+    enabled: true
+  })
 ]
 
 export function getDetectionItemConfigs(): DetectionItemConfig[] {
@@ -163,7 +234,10 @@ export function getDetectionItemConfigs(): DetectionItemConfig[] {
     return defaultData
   }
   try {
-    return JSON.parse(raw) as DetectionItemConfig[]
+    const parsed = JSON.parse(raw) as Partial<DetectionItemConfig>[]
+    const normalized = parsed.map(normalizeConfig)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
+    return normalized
   } catch {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData))
     return defaultData
@@ -171,30 +245,18 @@ export function getDetectionItemConfigs(): DetectionItemConfig[] {
 }
 
 export function saveDetectionItemConfigs(items: DetectionItemConfig[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(normalizeConfig)))
 }
 
 export function upsertDetectionItemConfig(item: DetectionItemConfig) {
   const items = getDetectionItemConfigs()
-  const index = items.findIndex(x => x.id === item.id)
-  if (index >= 0) {
-    items[index] = item
-  } else {
-    items.push(item)
-  }
+  const index = items.findIndex(existing => existing.id === item.id)
+  const normalized = normalizeConfig(item)
+  if (index >= 0) items[index] = normalized
+  else items.push(normalized)
   saveDetectionItemConfigs(items)
 }
 
 export function deleteDetectionItemConfig(id: string) {
-  const items = getDetectionItemConfigs().filter(item => item.id !== id)
-  saveDetectionItemConfigs(items)
-}
-
-export const targetCategoryOptions: Record<TargetType, string[]> = {
-  设施: ['反应釜', '储罐', '泵', '压缩机', '配电柜', '换热器'],
-  设施部件: ['压力表', '温度表', '液位计', '阀门', '法兰', '电机', '管体', '电缆', '接头', '传感器', '螺杆'],
-  连接部位: ['法兰连接', '阀门-管线', '泵出口-管线', '软连接', '接头连接', '管道接口'],
-  区域环境: ['反应区环境', '储罐区环境', '管廊区域', '巡检点附近气体环境', '充电房环境'],
-  人员行为: ['未戴安全帽', '未穿工装', '吸烟', '闯入危险区', '人员倒地'],
-  机器人自身: ['电池', '轮组', '摄像头', '云台', '传感器模块', '充电触点']
+  saveDetectionItemConfigs(getDetectionItemConfigs().filter(item => item.id !== id))
 }

@@ -98,17 +98,17 @@
                 资产设备
               </span>
             </template>
-            <a-menu-item key="implementation-robot-list">
-              <router-link to="/implementation/robot/list">机器人管理</router-link>
+            <a-menu-item key="implementation-installation-list">
+              <router-link to="/implementation/device/installation-list">装置管理</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-device">
               <router-link to="/implementation/device/list">设施管理</router-link>
             </a-menu-item>
             <a-menu-item key="implementation-device-component-usage">
-              <router-link to="/implementation/device/component-usage">设施部件</router-link>
+              <router-link to="/implementation/device/component-usage">部件管理</router-link>
             </a-menu-item>
-            <a-menu-item key="implementation-device-iot-list">
-              <router-link to="/implementation/device/iot-list">设备管理</router-link>
+            <a-menu-item key="implementation-robot-list">
+              <router-link to="/implementation/robot/list">机器人管理</router-link>
             </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="implementation-point-collection">
@@ -129,6 +129,9 @@
                 系统配置
               </span>
             </template>
+            <a-menu-item key="implementation-device-iot-list">
+              <router-link to="/implementation/device/iot-list">设备管理</router-link>
+            </a-menu-item>
             <a-menu-item key="implementation-dispatch-rule-config">
               <router-link to="/implementation/dispatch/rule-config">调度规则配置</router-link>
             </a-menu-item>
@@ -266,6 +269,9 @@ const currentKey = computed(() => {
   if (path.startsWith('/implementation/point/form')) return 'implementation-point'
   if (path.startsWith('/implementation/device/list')) return 'implementation-device'
   if (path.startsWith('/implementation/device/component-usage')) return 'implementation-device-component-usage'
+  if (path.startsWith('/implementation/device/installation-list')) return 'implementation-installation-list'
+  if (path.startsWith('/implementation/device/installation-form')) return 'implementation-installation-list'
+  if (path.startsWith('/implementation/device/installation-detail')) return 'implementation-installation-list'
   if (path.startsWith('/implementation/device/iot-list')) return 'implementation-device-iot-list'
   if (path.startsWith('/implementation/device/component-types')) return 'implementation-device-component-types'
   if (path.startsWith('/implementation/device/detail')) return 'implementation-device'

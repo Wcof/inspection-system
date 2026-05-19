@@ -35,8 +35,6 @@
                     <a-select v-model:value="listSearchForm.type" placeholder="请选择点位类型" allow-clear>
                       <a-select-option value="inspection">巡检点</a-select-option>
                       <a-select-option value="charging">充电站</a-select-option>
-                      <a-select-option value="maintenance">维修站</a-select-option>
-                      <a-select-option value="transit">通行点</a-select-option>
                     </a-select>
                   </a-form-item>
                 </a-col>
@@ -412,8 +410,6 @@
                     <a-select v-model:value="mapSearchForm.type" placeholder="请选择点位类型" allow-clear>
                       <a-select-option value="inspection">巡检点</a-select-option>
                       <a-select-option value="charging">充电站</a-select-option>
-                      <a-select-option value="maintenance">维修站</a-select-option>
-                      <a-select-option value="transit">通行点</a-select-option>
                     </a-select>
                   </a-form-item>
                 </a-col>
@@ -435,8 +431,6 @@
                   <a-select v-model:value="inlineEdit.type" style="width: 120px">
                     <a-select-option value="inspection">巡检点</a-select-option>
                     <a-select-option value="charging">充电站</a-select-option>
-                    <a-select-option value="maintenance">维修站</a-select-option>
-                    <a-select-option value="transit">通行点</a-select-option>
                   </a-select>
                 </template>
                 <a-tag v-else :color="getPointTypeColor(record.bizType)">{{ pointTypeText(record.bizType) }}</a-tag>
@@ -479,8 +473,6 @@
             <a-select v-model:value="addForm.type">
               <a-select-option value="inspection">巡检点</a-select-option>
               <a-select-option value="charging">充电站</a-select-option>
-              <a-select-option value="maintenance">维修站</a-select-option>
-              <a-select-option value="transit">通行点</a-select-option>
             </a-select>
           </a-form-item>
           <a-form-item label="所属区域">
@@ -926,10 +918,9 @@ function clamp(value: number) {
 
 function getBizTypeFromPoint(point: InspectionPoint): BizPointType {
   if (point.parkingPoints?.length) return 'inspection'
-  const tag = String(point.description || '').match(/^\[(巡检点|停车点|充电点|充电站|维修站|通行点|临停点)\]/)?.[1]
-  if (tag === '充电点' || tag === '充电站') return 'charging'
+  const tag = String(point.description || '').match(/^\[(巡检点|充电站)\]/)?.[1]
+  if (tag === '充电站') return 'charging'
   if (tag === '维修站') return 'maintenance'
-  if (tag === '通行点' || tag === '临停点') return 'transit'
   return 'inspection'
 }
 

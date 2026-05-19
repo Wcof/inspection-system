@@ -1,9 +1,9 @@
 <template>
   <a-modal
     :open="visible"
-    title="创建临时任务"
+    :title="isEmergencyMode ? '创建紧急任务' : '创建临时任务'"
     width="920px"
-    ok-text="提交调度"
+    :ok-text="isEmergencyMode ? '创建紧急任务' : '提交调度'"
     cancel-text="取消"
     @ok="handleSubmit"
     @cancel="handleCancel"
@@ -12,14 +12,15 @@
       <a-row :gutter="12">
         <a-col :span="12">
           <a-form-item label="任务名称" required>
-            <a-input v-model:value="form.name" placeholder="请输入临时调度任务名称" />
+            <a-input v-model:value="form.name" :placeholder="isEmergencyMode ? '请输入紧急任务名称' : '请输入临时调度任务名称'" />
           </a-form-item>
         </a-col>
-        <a-col :span="12">
+        <a-col v-if="!isEmergencyMode" :span="12">
           <a-form-item label="任务类型" required>
             <a-select v-model:value="form.dispatchType" placeholder="请选择任务类型">
               <a-select-option value="insert">插单</a-select-option>
               <a-select-option value="recheck">补检</a-select-option>
+              <a-select-option value="emergency">紧急任务</a-select-option>
               <a-select-option value="charging">充电</a-select-option>
               <a-select-option value="parking">停车</a-select-option>
               <a-select-option value="replace_robot">替换机器人</a-select-option>
@@ -31,7 +32,8 @@
       <a-row :gutter="12">
         <a-col :span="12">
           <a-form-item label="任务场景" required>
-            <a-select v-model:value="form.businessScene" placeholder="请选择任务场景">
+            <a-select v-model:value="form.businessScene" placeholder="请选择任务场景" :disabled="isEmergencyMode">
+              <a-select-option v-if="isEmergencyMode" value="daily_inspection">固定巡查</a-select-option>
               <a-select-option value="daily_inspection">日常巡检</a-select-option>
               <a-select-option value="hazard_screening">隐患排查</a-select-option>
               <a-select-option value="environment_check">环境检查</a-select-option>
@@ -49,12 +51,12 @@
       </a-row>
 
       <a-row :gutter="12">
-        <a-col :span="12">
+        <a-col v-if="!isEmergencyMode" :span="12">
           <a-form-item label="计划执行时间" required>
             <a-input v-model:value="form.scheduledAt" placeholder="例如 2026-04-17 15:30" />
           </a-form-item>
         </a-col>
-        <a-col v-if="form.dispatchType !== 'replace_robot'" :span="12">
+        <a-col v-if="!isEmergencyMode && form.dispatchType !== 'replace_robot'" :span="12">
           <a-form-item label="调度目标类型" required>
             <a-select v-model:value="form.taskType">
               <a-select-option value="inspection">巡检点</a-select-option>
@@ -123,7 +125,7 @@ export interface SelectOption { value: string; label: string }
 export interface ConflictTaskItem { id: string; name: string; robotId: string; robotName: string; scheduledAt?: string; status: 'running' | 'pending'; typeLabel?: string }
 export interface TemporaryDispatchForm {
   name: string
-  dispatchType: 'insert' | 'recheck' | 'charging' | 'parking' | 'replace_robot'
+  dispatchType: 'insert' | 'recheck' | 'emergency' | 'charging' | 'parking' | 'replace_robot'
   businessScene: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard'
   taskType: 'inspection' | 'charging' | 'parking'
   robotId: string
@@ -143,6 +145,7 @@ const props = defineProps<{
   parkingPointOptions: SelectOption[]
   taskCandidates?: ConflictTaskItem[]
   prefill?: Partial<TemporaryDispatchForm>
+  mode?: 'temporary' | 'emergency'
 }>()
 const emit = defineEmits<{ (e: 'update:visible', value: boolean): void; (e: 'submit', payload: TemporaryDispatchForm): void }>()
 
@@ -158,6 +161,7 @@ const form = reactive<TemporaryDispatchForm>({
   targetPointIds: [],
   conflictStrategy: 'delay'
 })
+const isEmergencyMode = computed(() => props.mode === 'emergency' || form.dispatchType === 'emergency')
 const conflictTasks = computed(() => (props.taskCandidates || []).filter((task) => !form.robotId || task.robotId === form.robotId))
 const hasConflict = computed(() => Boolean((props.runningTaskExists || conflictTasks.value.length) && form.robotId && form.scheduledAt))
 const conflictColumns = [
@@ -171,6 +175,10 @@ const conflictColumns = [
 watch(() => props.visible, (value) => { if (value) applyPrefill(); else resetForm() })
 watch(() => form.taskType, (type) => { if (type === 'inspection') form.targetPointId = ''; else form.targetPointIds = [] })
 watch(() => form.dispatchType, (type) => {
+  if (type === 'emergency') {
+    form.taskType = 'inspection'
+    form.businessScene = 'daily_inspection'
+  }
   if (type === 'charging') form.taskType = 'charging'
   if (type === 'parking') form.taskType = 'parking'
   if (type === 'replace_robot') {
@@ -184,7 +192,9 @@ function applyPrefill() {
   const prefill = props.prefill || {}
   form.name = prefill.name || ''
   form.dispatchType = prefill.dispatchType || 'insert'
+  if (props.mode === 'emergency') form.dispatchType = 'emergency'
   form.businessScene = prefill.businessScene || (form.dispatchType === 'recheck' ? 'hazard_screening' : 'daily_inspection')
+  if (form.dispatchType === 'emergency') form.businessScene = 'daily_inspection'
   form.taskType = prefill.taskType || 'inspection'
   form.robotId = prefill.robotId || ''
   form.scheduledAt = prefill.scheduledAt || ''
@@ -196,6 +206,7 @@ function applyPrefill() {
 function resetForm() { form.name=''; form.dispatchType='insert'; form.businessScene='daily_inspection'; form.taskType='inspection'; form.robotId=''; form.scheduledAt=''; form.reason=''; form.targetPointId=''; form.targetPointIds=[]; form.conflictStrategy='delay' }
 function handleCancel() { emit('update:visible', false) }
 function handleSubmit() {
+  if (isEmergencyMode.value && !form.scheduledAt) form.scheduledAt = new Date().toISOString()
   if (!form.name || !form.dispatchType || !form.businessScene || !form.robotId || !form.scheduledAt) return message.error('请完整填写任务名称、任务类型、任务场景、执行机器人、计划执行时间')
   if (form.dispatchType !== 'replace_robot' && form.taskType === 'inspection' && !form.targetPointIds?.length) return message.error('请至少选择一个巡检点')
   if (form.dispatchType !== 'replace_robot' && form.taskType !== 'inspection' && !form.targetPointId) return message.error('请选择目标点')

@@ -10,6 +10,8 @@ import {
   initialWaypointEdges,
   initialInspectionRoutes,
   initialInspectionDevices,
+  initialInstallations,
+  initialFacilityComponents,
   initialInspectionDeviceCheckItems,
   initialInspectionPlans,
   initialStandardComponents
@@ -26,6 +28,9 @@ import type {
   InspectionTaskResult,
   InspectionPlan,
   StandardComponent
+  ,
+  Installation,
+  FacilityComponent
 } from '@/types/inspection'
 import { migrateToV2 } from './migrations'
 
@@ -62,6 +67,12 @@ export class MockService {
     }
     if (!storage.get(STORAGE_KEYS.INSPECTION_DEVICES)) {
       storage.set(STORAGE_KEYS.INSPECTION_DEVICES, initialInspectionDevices)
+    }
+    if (!storage.get(STORAGE_KEYS.INSTALLATIONS)) {
+      storage.set(STORAGE_KEYS.INSTALLATIONS, initialInstallations)
+    }
+    if (!storage.get(STORAGE_KEYS.FACILITY_COMPONENTS)) {
+      storage.set(STORAGE_KEYS.FACILITY_COMPONENTS, initialFacilityComponents)
     }
     if (!storage.get(STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS)) {
       storage.set(STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS, initialInspectionDeviceCheckItems)
@@ -369,6 +380,48 @@ export class MockService {
   static deleteInspectionDevice(id: string): void {
     const devices = this.getInspectionDevices().filter(d => d.id !== id)
     storage.set(STORAGE_KEYS.INSPECTION_DEVICES, devices)
+  }
+
+  static getInstallations(): Installation[] {
+    return storage.get<Installation[]>(STORAGE_KEYS.INSTALLATIONS) || []
+  }
+
+  static saveInstallation(installation: Installation): void {
+    const installations = this.getInstallations()
+    const index = installations.findIndex(item => item.id === installation.id)
+    if (index >= 0) installations[index] = installation
+    else installations.push(installation)
+    storage.set(STORAGE_KEYS.INSTALLATIONS, installations)
+  }
+
+  static deleteInstallation(id: string): void {
+    const installations = this.getInstallations().filter(item => item.id !== id)
+    storage.set(STORAGE_KEYS.INSTALLATIONS, installations)
+  }
+
+  static getFacilityComponents(): FacilityComponent[] {
+    return storage.get<FacilityComponent[]>(STORAGE_KEYS.FACILITY_COMPONENTS) || []
+  }
+
+  static getFacilityComponentsByFacilityId(facilityId: string): FacilityComponent[] {
+    return this.getFacilityComponents().filter(item => item.facilityId === facilityId)
+  }
+
+  static getFacilityComponentsByInstallationId(installationId: string): FacilityComponent[] {
+    return this.getFacilityComponents().filter(item => item.installationId === installationId)
+  }
+
+  static saveFacilityComponent(component: FacilityComponent): void {
+    const components = this.getFacilityComponents()
+    const index = components.findIndex(item => item.id === component.id)
+    if (index >= 0) components[index] = component
+    else components.push(component)
+    storage.set(STORAGE_KEYS.FACILITY_COMPONENTS, components)
+  }
+
+  static deleteFacilityComponent(id: string): void {
+    const components = this.getFacilityComponents().filter(item => item.id !== id)
+    storage.set(STORAGE_KEYS.FACILITY_COMPONENTS, components)
   }
   
   // 设备检测项相关

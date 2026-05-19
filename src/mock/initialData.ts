@@ -14,6 +14,8 @@ import {
   WaypointEdge,
   InspectionRoute,
   InspectionDevice,
+  Installation,
+  FacilityComponent,
   InspectionDeviceCheckItem,
   InspectionPlan,
   InspectionPlanStatus,
@@ -333,6 +335,100 @@ export const initialInspectionDevices: InspectionDevice[] = [
     executionCycle: { startDate: '2026-01-01', endDate: '2026-12-31' },
     executionWindow: { startTime: '00:00', endTime: '23:59' },
     checkItems: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+]
+
+export const initialInstallations: Installation[] = [
+  {
+    id: 'inst-001',
+    name: '反应装置',
+    code: 'INST-RX-001',
+    installationPositionNo: 'RX-UNIT-01',
+    areaId: 'region-a',
+    areaName: '反应区',
+    installationType: '反应系统',
+    status: DeviceStatus.ACTIVE,
+    remark: '核心反应单元',
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'inst-002',
+    name: '储罐装置',
+    code: 'INST-TK-001',
+    installationPositionNo: 'TK-UNIT-01',
+    areaId: 'region-b',
+    areaName: '储罐区',
+    installationType: '储运系统',
+    status: DeviceStatus.ACTIVE,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'inst-003',
+    name: '管廊装置',
+    code: 'INST-PL-001',
+    installationPositionNo: 'PL-UNIT-01',
+    areaId: 'region-c',
+    areaName: '管廊区',
+    installationType: '输送系统',
+    status: DeviceStatus.ACTIVE,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+]
+
+export const initialFacilityComponents: FacilityComponent[] = [
+  {
+    id: 'fc-001',
+    name: '1号反应釜压力表',
+    componentType: 'meter',
+    componentNo: 'COMP-MTR-001',
+    componentPositionNo: 'R1-PG-01',
+    areaId: 'region-a',
+    areaName: '反应区',
+    installationId: 'inst-001',
+    installationName: '反应装置',
+    facilityId: 'device-001',
+    facilityName: '1号反应釜温度计',
+    ruleIds: ['dic-001', 'dic-002'],
+    status: DeviceStatus.ACTIVE,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'fc-002',
+    name: '进料阀门',
+    componentType: 'valve',
+    componentNo: 'COMP-VLV-001',
+    componentPositionNo: 'R1-V-01',
+    areaId: 'region-a',
+    areaName: '反应区',
+    installationId: 'inst-001',
+    installationName: '反应装置',
+    facilityId: 'device-002',
+    facilityName: '1号反应釜压力表',
+    ruleIds: ['dic-003'],
+    status: DeviceStatus.ACTIVE,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'fc-003',
+    name: '储罐液位计传感器',
+    componentType: 'sensor',
+    componentNo: 'COMP-SEN-001',
+    componentPositionNo: 'TK-L-01',
+    areaId: 'region-b',
+    areaName: '储罐区',
+    installationId: 'inst-002',
+    installationName: '储罐装置',
+    facilityId: 'device-003',
+    facilityName: '储罐液位计',
+    ruleIds: ['dic-001'],
+    status: DeviceStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date()
   }

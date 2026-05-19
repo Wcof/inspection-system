@@ -3,267 +3,109 @@
     <a-page-header :title="isEdit ? '编辑设施' : '新增设施'" @back="goBack" />
     <a-card style="margin-top: 16px">
       <a-form layout="vertical">
-        <a-card size="small" title="基础信息">
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="设施名称" required><a-input v-model:value="form.name" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="设施分类" required><a-input v-model:value="form.deviceClassification" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="设施编号" required><a-input v-model:value="form.deviceNo" @change="syncCodeWithDeviceNo" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="规格型号"><a-input v-model:value="form.specModel" /></a-form-item></a-col>
-            <a-col :span="8">
-              <a-form-item label="所在区域" required>
-                <a-select v-model:value="form.areaId" allow-clear placeholder="请选择区域" @change="onAreaChange">
-                  <a-select-option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :span="8"><a-form-item label="设施类别" required><a-input v-model:value="form.deviceCategory" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="责任人" required><a-input v-model:value="form.owner" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="设施状态"><a-select v-model:value="form.status"><a-select-option value="active">在用</a-select-option><a-select-option value="inactive">停用</a-select-option><a-select-option value="maintenance">维护中</a-select-option><a-select-option value="scrapped">报废</a-select-option></a-select></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="出厂厂家"><a-input v-model:value="form.manufacturer" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="出厂编号"><a-input v-model:value="form.factoryNo" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="投用日期"><a-date-picker v-model:value="form.commissioningDate" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="发证日期"><a-date-picker v-model:value="form.certificateIssueDate" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="使用证号"><a-input v-model:value="form.usageCertificateNo" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="系统名称"><a-input v-model:value="form.systemName" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="检查岗位名称"><a-input v-model:value="form.inspectionPostName" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="失效日期"><a-date-picker v-model:value="form.expiryDate" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="最近检测时间"><a-date-picker v-model:value="form.lastInspectionTime" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="机构核准证书"><a-input v-model:value="form.institutionApprovalCertificate" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="使用部门名称"><a-input v-model:value="form.usageDepartmentName" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="保管岗位名称"><a-input v-model:value="form.custodianPostName" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="出日期"><a-date-picker v-model:value="form.outDate" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="下次检测时间"><a-date-picker v-model:value="form.nextInspectionTime" value-format="YYYY-MM-DD" style="width: 100%" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="NFCID"><a-input v-model:value="form.nfcId" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="存放位置"><a-input v-model:value="form.storageLocation" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="地图坐标"><a-input v-model:value="form.mapCoordinate" placeholder="例如 120.12,30.16" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="检测周期"><a-input v-model:value="form.detectionCycle" placeholder="例如 30天" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="失效预警天数"><a-input-number v-model:value="form.failureWarningDays" :min="0" style="width: 100%" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="巡检周期"><a-input v-model:value="form.inspectionCycle" placeholder="例如 每日/每周" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="最近检测结论"><a-input v-model:value="form.lastInspectionConclusion" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="检测预警天数"><a-input-number v-model:value="form.inspectionWarningDays" :min="0" style="width: 100%" /></a-form-item></a-col>
-          </a-row>
-
-          <a-row :gutter="16">
-            <a-col :span="8"><a-form-item label="巡检窗口"><a-input v-model:value="form.inspectionWindow" placeholder="例如 08:00-18:00" /></a-form-item></a-col>
-            <a-col :span="8"><a-form-item label="设施编码"><a-input v-model:value="form.code" placeholder="默认同设施编号" /></a-form-item></a-col>
-            <a-col :span="8">
-              <a-form-item label="来源">
-                <a-select v-model:value="form.source">
-                  <a-select-option value="manual">手动维护</a-select-option>
-                  <a-select-option value="synced">三方同步</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-          </a-row>
-
-          <a-form-item label="参考图（单张）">
-            <a-space direction="vertical" style="width: 100%">
-              <a-upload :show-upload-list="false" :before-upload="() => false" @change="handleUploadChange">
-                <a-button>上传参考图</a-button>
-              </a-upload>
-              <img :src="form.referenceImageUrl || defaultDeviceImage" class="preview-image" alt="reference" />
-            </a-space>
+        <a-row :gutter="16">
+          <a-col :span="8"><a-form-item label="设施名称" required><a-input v-model:value="form.name" /></a-form-item></a-col>
+        <a-col :span="8">
+            <a-form-item label="设施类别" required>
+              <a-select v-model:value="form.facilityKind">
+                <a-select-option value="normal">普通设施</a-select-option>
+                <a-select-option value="pipeline">管路类设施</a-select-option>
+              </a-select>
           </a-form-item>
+          </a-col>
+          <a-col :span="8"><a-form-item label="设施编号" required><a-input v-model:value="form.deviceNo" /></a-form-item></a-col>
+        </a-row>
+        <a-row :gutter="16">
+          <a-col :span="8"><a-form-item label="设施位号" required><a-input v-model:value="form.facilityPositionNo" /></a-form-item></a-col>
+          <a-col :span="8">
+            <a-form-item label="所属区域" required>
+              <a-select v-model:value="form.areaId" @change="syncArea">
+                <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="8">
+            <a-form-item label="所属装置" required>
+              <a-select v-model:value="form.installationId" @change="syncInstallation">
+                <a-select-option v-for="item in installationOptions" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="16">
+         
+          <a-col :span="8">
+            <a-form-item label="设施状态">
+              <a-select v-model:value="form.status">
+                <a-select-option value="active">在用</a-select-option>
+                <a-select-option value="inactive">停用</a-select-option>
+                <a-select-option value="maintenance">维护中</a-select-option>
+                <a-select-option value="scrapped">报废</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :span="8"><a-form-item label="备注"><a-input v-model:value="form.remark" /></a-form-item></a-col>
+        </a-row>
+
+        <a-card size="small" title="关联部件" class="model-card">
+          <a-alert type="info" show-icon style="margin-bottom: 12px" message="设施页不直接维护规则，只显示当前设施下已有部件。若需新增部件，请前往部件管理。" />
+          <a-table :columns="componentColumns" :data-source="facilityComponents" row-key="id" :pagination="false" size="small" />
+          <div style="margin-top: 12px">
+            <a-button @click="goToComponentManage">去部件管理</a-button>
+          </div>
         </a-card>
 
-        <a-card size="small" title="设施部件配置（建议只配置需要检测的部件/连接处）" class="model-card">
-          <a-tabs>
-            <a-tab-pane key="components" tab="部件">
-              <a-table :data-source="assetComponents" row-key="localKey" :pagination="false" size="small" :scroll="{ x: 1550 }">
-                <a-table-column title="部件名称" width="180">
-                  <template #default="{ record }"><a-input v-model:value="record.name" /></template>
-                </a-table-column>
-                <a-table-column title="部件类型" width="180">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.type" style="width: 100%">
-                      <a-select-option value="valve">阀门</a-select-option>
-                      <a-select-option value="meter">压力表</a-select-option>
-                      <a-select-option value="temperature_gauge">温度表</a-select-option>
-                      <a-select-option value="flange">法兰</a-select-option>
-                      <a-select-option value="motor">电机</a-select-option>
-                      <a-select-option value="pipe">管体</a-select-option>
-                      <a-select-option value="cable">电缆</a-select-option>
-                      <a-select-option value="joint">接头</a-select-option>
-                      <a-select-option value="sensor">传感器</a-select-option>
-                      <a-select-option value="screw">螺杆</a-select-option>
-                      <a-select-option value="other">其他</a-select-option>
-                    </a-select>
-                  </template>
-                </a-table-column>
-                <a-table-column title="优先级" width="130">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.priority" style="width: 100%" allow-clear placeholder="继承设施">
-                      <a-select-option value="high">高</a-select-option>
-                      <a-select-option value="medium">中</a-select-option>
-                      <a-select-option value="low">低</a-select-option>
-                    </a-select>
-                  </template>
-                </a-table-column>
-                <a-table-column title="检测规则" width="340">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.ruleIds" mode="multiple" style="width: 100%" :options="getComponentRuleOptions(record)" option-filter-prop="label" show-search />
-                  </template>
-                </a-table-column>
-                <a-table-column title="巡检周期" width="150">
-                  <template #default="{ record }"><a-input v-model:value="record.inspectionCycle" :placeholder="form.inspectionCycle || '继承设施'" /></template>
-                </a-table-column>
-                <a-table-column title="巡检窗口" width="170">
-                  <template #default="{ record }"><a-input v-model:value="record.inspectionWindow" :placeholder="form.inspectionWindow || '继承设施'" /></template>
-                </a-table-column>
-                <a-table-column title="操作" width="90">
-                  <template #default="{ index }"><a-button type="link" size="small" danger @click="assetComponents.splice(index, 1)">删除</a-button></template>
-                </a-table-column>
-              </a-table>
-              <a-button size="small" style="margin-top: 10px" @click="addAssetComponent">新增部件</a-button>
-            </a-tab-pane>
-
-            <a-tab-pane key="connections" tab="连接处">
-              <a-table :data-source="connectionObjects" row-key="localKey" :pagination="false" size="small" :scroll="{ x: 1900 }">
-                <a-table-column title="连接说明" width="180">
-                  <template #default="{ record }"><a-input v-model:value="record.name" /></template>
-                </a-table-column>
-                <a-table-column title="当前设施部件" width="220">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.sourceComponentId" style="width: 100%" @change="syncConnectionEndpoint(record)">
-                      <a-select-option v-for="component in assetComponents" :key="component.id" :value="component.id">{{ component.name }}</a-select-option>
-                    </a-select>
-                  </template>
-                </a-table-column>
-                <a-table-column title="连接范围" width="140">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.sinkScope" style="width: 100%" @change="onSinkScopeChange(record)">
-                      <a-select-option value="self">本设施</a-select-option>
-                      <a-select-option value="other">其他设施</a-select-option>
-                    </a-select>
-                  </template>
-                </a-table-column>
-                <a-table-column title="连接设施" width="220">
-                  <template #default="{ record }">
-                    <a-input v-if="record.sinkScope !== 'other'" :value="currentDeviceLabel" disabled />
-                    <a-select v-else v-model:value="record.sinkDeviceId" style="width: 100%" @change="onSinkDeviceChange(record)">
-                      <a-select-option v-for="device in otherDeviceOptions" :key="device.id" :value="device.id">{{ device.name }}{{ device.deviceNo ? `（${device.deviceNo}）` : '' }}</a-select-option>
-                    </a-select>
-                  </template>
-                </a-table-column>
-                <a-table-column title="连接部件" width="220">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.sinkComponentId" style="width: 100%" @change="syncConnectionEndpoint(record)">
-                      <a-select-option v-for="component in getSinkComponentOptions(record)" :key="component.id" :value="component.id">{{ component.name }}</a-select-option>
-                    </a-select>
-                  </template>
-                </a-table-column>
-                <a-table-column title="优先级" width="130">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.priority" style="width: 100%" allow-clear placeholder="继承设施">
-                      <a-select-option value="high">高</a-select-option>
-                      <a-select-option value="medium">中</a-select-option>
-                      <a-select-option value="low">低</a-select-option>
-                    </a-select>
-                  </template>
-                </a-table-column>
-                <a-table-column title="检测规则" width="320">
-                  <template #default="{ record }">
-                    <a-select v-model:value="record.ruleIds" mode="multiple" style="width: 100%" :options="connectionRuleOptions" option-filter-prop="label" show-search />
-                  </template>
-                </a-table-column>
-                <a-table-column title="巡检周期" width="150">
-                  <template #default="{ record }"><a-input v-model:value="record.inspectionCycle" :placeholder="form.inspectionCycle || '继承设施'" /></template>
-                </a-table-column>
-                <a-table-column title="巡检窗口" width="170">
-                  <template #default="{ record }"><a-input v-model:value="record.inspectionWindow" :placeholder="form.inspectionWindow || '继承设施'" /></template>
-                </a-table-column>
-                <a-table-column title="操作" width="90">
-                  <template #default="{ index }"><a-button type="link" size="small" danger @click="connectionObjects.splice(index, 1)">删除</a-button></template>
-                </a-table-column>
-              </a-table>
-              <a-button size="small" style="margin-top: 10px" @click="addConnectionObject">新增连接对象</a-button>
-            </a-tab-pane>
-          </a-tabs>
-        </a-card>
-
-        <a-card size="small" title="点位与关联" class="model-card">
+        <a-card size="small" title="点位与执行顺序" class="model-card">
           <a-alert
+            v-if="!isEdit"
             type="warning"
+            show-icon
+            style="margin-bottom: 12px"
+            message="新增设施请先保存，再配置执行顺序。执行顺序按当前设施下部件与巡检点/停车点建立绑定。"
+          />
+          <a-alert
+            v-else
+            type="info"
             show-icon
             style="margin-bottom: 12px"
             message="每条绑定仅选择一个停车点；使用框选巡检点（停车点）选择多个停车点时，会按执行顺序新增多条绑定。"
           />
-          <a-table :data-source="parkingBindings" row-key="localKey" :pagination="false" size="small" :scroll="{ x: 1400 }">
-            <a-table-column title="执行顺序" width="120">
-              <template #default="{ record, index }">
-                <a-input-number
-                  v-model:value="record.executionOrder"
-                  :min="1"
-                  :precision="0"
-                  style="width: 100%"
-                  :placeholder="String(index + 1)"
-                />
+          <a-table
+            :columns="bindingColumns"
+            :data-source="bindingRows"
+            row-key="id"
+            :pagination="false"
+            size="small"
+            :scroll="{ x: 1280 }"
+            :custom-row="getBindingRowProps"
+            :row-class-name="getBindingRowClassName"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'dragHandle'">
+                <span class="drag-handle" draggable="true" @dragstart="onDragStart(record.id, $event)" @dragend="onDragEnd">⠿</span>
               </template>
-            </a-table-column>
-            <a-table-column title="停车点" width="320">
-              <template #default="{ record }">
-                <a-select
-                  v-model:value="record.parkingSelection"
-                  style="width: 100%"
-                  allow-clear
-                  placeholder="选择停车点"
-                  :options="parkingSelectOptions"
-                  @change="onBindingParkingChange(record)"
-                />
+              <template v-else-if="column.key === 'executionOrder'">
+                <span class="order-pill">{{ record.executionOrder }}</span>
               </template>
-            </a-table-column>
-            <a-table-column title="巡检模式" width="180">
-              <template #default="{ record }">
-                <a-select v-model:value="record.inspectionMode" style="width: 100%" @change="onBindingModeChange(record)">
-                  <a-select-option value="fixed">固定巡检</a-select-option>
-                  <a-select-option value="area">区域巡检</a-select-option>
-                </a-select>
+              <template v-else-if="column.key === 'inspectionPointId'">
+                {{ record.inspectionPointName || '-' }}
               </template>
-            </a-table-column>
-            <a-table-column title="关联部件（检测部件或连接）" width="420">
-              <template #default="{ record }">
-                <a-select
-                  v-model:value="record.targetObjectRefs"
-                  mode="multiple"
-                  style="width: 100%"
-                  allow-clear
-                  placeholder="选择检测部件或连接对象"
-                  :options="targetObjectOptions"
-                />
+              <template v-else-if="column.key === 'parkingPointId'">
+                {{ record.parkingPointName || '-' }}
               </template>
-            </a-table-column>
-            <a-table-column title="操作" width="90">
-              <template #default="{ index }"><a-button type="link" size="small" danger @click="parkingBindings.splice(index, 1)">删除</a-button></template>
-            </a-table-column>
+              <template v-else-if="column.key === 'componentIds'">
+                <a-tag v-if="getComponentName(record.componentIds)" color="blue">{{ getComponentName(record.componentIds) }}</a-tag>
+                <span v-else>-</span>
+              </template>
+              <template v-else-if="column.key === 'ruleIds'">
+                <a-space wrap>
+                  <a-tag v-for="item in getRuleNames(record.ruleIds)" :key="item">{{ item }}</a-tag>
+                  <span v-if="!getRuleNames(record.ruleIds).length">-</span>
+                </a-space>
+              </template>
+            </template>
           </a-table>
-          <a-button size="small" style="margin-top: 10px" @click="openParkingPicker">配置巡检点（停车点）</a-button>
+          <a-button style="margin-top: 12px" :disabled="!isEdit" @click="openParkingPicker">新增执行顺序</a-button>
         </a-card>
 
         <div class="form-actions">
@@ -305,11 +147,7 @@
           >
             <div class="parking-picker-mask" />
             <div class="parking-picker-tip">拖拽框选停车点，也可以点击单个停车点进行增减选择。</div>
-            <div
-              v-if="selectionBox.visible"
-              class="selection-box"
-              :style="selectionBoxStyle"
-            />
+            <div v-if="selectionBox.visible" class="selection-box" :style="selectionBoxStyle" />
             <div
               v-for="parking in pickerParkingRows"
               :key="parking.parkingId"
@@ -336,43 +174,10 @@
                     <b>{{ item.parkingName }}</b>
                     <span>{{ item.pointName }}</span>
                   </div>
-                  <button class="parking-thumb" type="button" @click="openParkingPreview(item)">
-                    <span class="parking-thumb-map" :style="parkingVisualPreviewStyle">
-                      <span class="parking-thumb-mask" />
-                      <span class="parking-thumb-dot" :style="{ left: `${item.x}%`, top: `${item.y}%` }" />
-                    </span>
-                    <span class="parking-thumb-text">预览</span>
-                  </button>
                 </div>
               </a-list-item>
             </template>
           </a-list>
-        </div>
-      </div>
-    </a-modal>
-
-    <a-modal
-      v-model:open="parkingPreviewVisible"
-      title="停车点位置预览"
-      width="720px"
-      :footer="null"
-      destroy-on-close
-    >
-      <div v-if="previewParking" class="parking-preview">
-        <div class="parking-preview-title">
-          <b>{{ previewParking.parkingName }}</b>
-          <span>{{ previewParking.pointName }}</span>
-        </div>
-        <div class="parking-preview-map" :style="parkingVisualPreviewStyle">
-          <div class="parking-picker-mask" />
-          <div
-            class="parking-preview-marker"
-            :style="{ left: `${previewParking.x}%`, top: `${previewParking.y}%` }"
-          >
-            <span class="parking-preview-pulse" />
-            <span class="parking-preview-dot">停</span>
-            <span class="parking-preview-label">{{ previewParking.parkingName }}</span>
-          </div>
         </div>
       </div>
     </a-modal>
@@ -384,22 +189,18 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
-import type { ConnectionObject, FacilityParkingPointBinding, InspectedAssetComponent, ObjectDetectionConfig } from '@/types/inspection'
-import { DeviceStatus } from '@/types/inspection'
-import { getDetectionItemConfigs, type DetectionItemConfig } from '@/views/implementation/detection-item-config/model'
+import type { FacilityParkingPointBinding } from '@/types/inspection'
+import { getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
 
-interface AssetComponentRow extends InspectedAssetComponent {
-  localKey: string
-}
-
-interface ConnectionObjectRow extends ConnectionObject {
-  localKey: string
-}
-
-interface ParkingBindingRow extends FacilityParkingPointBinding {
-  localKey: string
-  parkingSelection?: string
-  executionOrder?: number
+interface BindingRow {
+  id: string
+  inspectionPointId: string
+  inspectionPointName: string
+  parkingPointId: string
+  parkingPointName: string
+  executionOrder: number
+  componentIds: string[]
+  ruleIds: string[]
 }
 
 interface PickerParkingRow {
@@ -417,59 +218,32 @@ interface PickerParkingRow {
 const route = useRoute()
 const router = useRouter()
 const inspectionStore = useInspectionStore()
+
 const isEdit = computed(() => Boolean(route.params.id))
-const defaultDeviceImage = new URL('../../../设施.png', import.meta.url).href
+const currentId = computed(() => String(route.params.id || ''))
+const currentDevice = computed(() => inspectionStore.inspectionDevices.find((item) => item.id === currentId.value))
 const fallbackMapBackgroundUrl = new URL('../../../地图.png', import.meta.url).href
 
 const form = reactive<any>({
-  id: '',
   name: '',
-  code: '',
-  deviceNo: '',
   deviceClassification: '',
-  specModel: '',
-  owner: '',
-  manufacturer: '',
+  deviceNo: '',
+  facilityPositionNo: '',
   areaId: '',
   areaName: '',
-  storageLocation: '',
-  systemName: '',
-  lastInspectionTime: '',
-  nextInspectionTime: '',
-  mapCoordinate: '',
-  deviceCategory: '',
-  referenceImageUrl: '',
+  installationId: '',
+  installationName: '',
+  facilityKind: 'normal',
   status: 'active',
-  source: 'manual',
-  factoryNo: '',
-  commissioningDate: '',
-  certificateIssueDate: '',
-  usageCertificateNo: '',
-  inspectionPostName: '',
-  expiryDate: '',
-  institutionApprovalCertificate: '',
-  usageDepartmentName: '',
-  custodianPostName: '',
-  outDate: '',
-  nfcId: '',
-  detectionCycle: '',
-  failureWarningDays: undefined,
-  inspectionCycle: '',
-  lastInspectionConclusion: '',
-  inspectionWarningDays: undefined,
-  inspectionWindow: ''
+  remark: ''
 })
 
-const assetComponents = ref<AssetComponentRow[]>([])
-const connectionObjects = ref<ConnectionObjectRow[]>([])
-const parkingBindings = ref<ParkingBindingRow[]>([])
-const existingObjectDetectionConfigs = ref<ObjectDetectionConfig[]>([])
+const bindingRows = ref<BindingRow[]>([])
 const parkingPickerVisible = ref(false)
 const selectedPickerMapId = ref('')
 const pickerSelectedIds = ref<Set<string>>(new Set())
-const parkingPreviewVisible = ref(false)
-const previewParking = ref<PickerParkingRow | null>(null)
 const dragStart = ref<{ x: number; y: number } | null>(null)
+const draggingRowId = ref('')
 const selectionBox = reactive({
   visible: false,
   startX: 0,
@@ -478,42 +252,37 @@ const selectionBox = reactive({
   endY: 0
 })
 
-const currentDeviceId = computed(() => form.id || 'new-device')
-const currentDeviceLabel = computed(() => `${form.name || '当前设施'}${form.deviceNo ? `（${form.deviceNo}）` : ''}`)
-const otherDeviceOptions = computed(() => inspectionStore.inspectionDevices.filter(device => device.id !== currentDeviceId.value && (device.assetComponents || []).length))
-const detectionRules = computed(() => getDetectionItemConfigs().filter(item => item.publishStatus === '已发布' && item.enabled))
+const areaOptions = computed(() => {
+  const map = new Map<string, string>()
+  inspectionStore.inspectionPoints.forEach((point) => {
+    if (point.areaId) map.set(point.areaId, point.areaName || point.areaId)
+  })
+  return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+})
 
-const parkingSelectOptions = computed(() => inspectionStore.inspectionPoints
-  .filter(point => point.pointBizType === 'inspection' || !point.pointBizType)
-  .flatMap(point => (point.parkingPoints || []).map(parking => ({
-    value: parking.id,
-    label: `${point.name} / ${parking.name}`,
-    pointId: point.id,
-    pointName: point.name,
-    parkingName: parking.name
-  }))))
-
-const pickerMapOptions = computed(() => inspectionStore.inspectionMaps.filter(map =>
-  inspectionStore.inspectionPoints.some(point => point.mapId === map.id && (point.parkingPoints || []).length)
+const installationOptions = computed(() => inspectionStore.installations.filter((item) => !form.areaId || item.areaId === form.areaId))
+const facilityComponents = computed(() => inspectionStore.getFacilityComponentsByFacilityId(currentId.value))
+const detectionRuleNameMap = computed(() => {
+  const map = new Map<string, string>()
+  getDetectionItemConfigs().forEach((item) => {
+    map.set(item.id, item.name)
+  })
+  return map
+})
+const allPublishedRuleIds = computed(() => getDetectionItemConfigs().filter((item) => item.publishStatus === '已发布' && item.enabled).map((item) => item.id))
+const draggingRowIndex = computed(() => bindingRows.value.findIndex((item) => item.id === draggingRowId.value))
+const pickerMapOptions = computed(() => inspectionStore.inspectionMaps.filter((map) =>
+  inspectionStore.inspectionPoints.some((point) => point.mapId === map.id && (point.parkingPoints || []).length)
 ))
-
-const currentPickerMap = computed(() => pickerMapOptions.value.find(map => map.id === selectedPickerMapId.value))
-
+const currentPickerMap = computed(() => pickerMapOptions.value.find((map) => map.id === selectedPickerMapId.value))
 const pickerMapStyle = computed(() => ({
   backgroundImage: `url(${currentPickerMap.value?.imageUrl || fallbackMapBackgroundUrl})`,
   backgroundColor: '#eef3ff'
 }))
-
-const parkingVisualPreviewStyle = computed(() => ({
-  backgroundImage: `url(${form.referenceImageUrl || defaultDeviceImage})`,
-  backgroundColor: '#f8fafc'
-}))
-
 const pickerRawParkingRows = computed(() =>
   inspectionStore.inspectionPoints
-    .filter(point => point.mapId === selectedPickerMapId.value)
-    .filter(point => point.pointBizType === 'inspection' || !point.pointBizType)
-    .flatMap(point => (point.parkingPoints || []).map(parking => ({
+    .filter((point) => point.mapId === selectedPickerMapId.value)
+    .flatMap((point) => (point.parkingPoints || []).map((parking) => ({
       parkingId: parking.id,
       parkingName: parking.name,
       pointId: point.id,
@@ -523,11 +292,11 @@ const pickerRawParkingRows = computed(() =>
       rawY: Number(parking.position?.y ?? point.mapPosition?.y ?? 0)
     })))
 )
-
 const pickerParkingRows = computed<PickerParkingRow[]>(() => {
   const rows = pickerRawParkingRows.value
-  const xs = rows.map(item => item.rawX)
-  const ys = rows.map(item => item.rawY)
+  if (!rows.length) return []
+  const xs = rows.map((item) => item.rawX)
+  const ys = rows.map((item) => item.rawY)
   const minX = Math.min(...xs)
   const maxX = Math.max(...xs)
   const minY = Math.min(...ys)
@@ -537,18 +306,16 @@ const pickerParkingRows = computed<PickerParkingRow[]>(() => {
   const spreadX = maxX - minX
   const spreadY = maxY - minY
 
-  return rows.map(item => ({
+  return rows.map((item) => ({
     ...item,
     x: normalizeMapCoordinateToCenter(item.rawX, centerX, spreadX),
     y: normalizeMapCoordinateToCenter(item.rawY, centerY, spreadY)
   }))
 })
-
 const selectedPickerParkingRows = computed(() => {
   const selectedIds = pickerSelectedIds.value
-  return pickerParkingRows.value.filter(item => selectedIds.has(item.parkingId))
+  return pickerParkingRows.value.filter((item) => selectedIds.has(item.parkingId))
 })
-
 const selectionBoxStyle = computed(() => {
   const left = Math.min(selectionBox.startX, selectionBox.endX)
   const top = Math.min(selectionBox.startY, selectionBox.endY)
@@ -562,223 +329,62 @@ const selectionBoxStyle = computed(() => {
   }
 })
 
-const targetObjectOptions = computed(() => [
-  ...assetComponents.value.map(component => ({ value: `component:${component.id}`, label: `部件 / ${component.name}` })),
-  ...connectionObjects.value.map(connection => ({ value: `connection:${connection.id}`, label: `连接 / ${connection.name}` }))
-])
-
-const connectionRuleOptions = computed(() => detectionRules.value
-  .slice()
-  .sort((a, b) => Number(isConnectionRule(b)) - Number(isConnectionRule(a)))
-  .map(rule => ({
-    value: rule.id,
-    label: `${isConnectionRule(rule) ? '推荐 - ' : ''}${rule.name}（${rule.category}）`
-  })))
-
-const componentTypeText: Record<InspectedAssetComponent['type'], string> = {
-  valve: '阀门',
-  meter: '压力表',
-  temperature_gauge: '温度表',
-  flange: '法兰',
-  motor: '电机',
-  pipe: '管体',
-  cable: '电缆',
-  joint: '接头',
-  sensor: '传感器',
-  screw: '螺杆',
-  other: '其他'
-}
-
-const areas = computed(() => {
-  const map = new Map<string, string>()
-  inspectionStore.inspectionMaps.forEach((inspectionMap) => {
-    inspectionMap.regions?.forEach((region) => map.set(region.id, region.name))
-  })
-  return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
-})
-
-function seedAssetModel(deviceId: string) {
-  form.id = deviceId
-  form.code = form.deviceNo || ''
-  assetComponents.value = [
-    { id: `${deviceId}-valve`, localKey: `${deviceId}-valve`, assetId: deviceId, name: '入口阀门', type: 'valve', subType: 'pressure_valve', subTypeName: '压力阀', ruleIds: [], priority: undefined, inspectionCycle: '', inspectionWindow: '' },
-    { id: `${deviceId}-meter`, localKey: `${deviceId}-meter`, assetId: deviceId, name: '压力表', type: 'meter', subType: 'mechanical_pressure_gauge', subTypeName: '机械压力表', ruleIds: [], priority: undefined, inspectionCycle: '', inspectionWindow: '' },
-    { id: `${deviceId}-flange`, localKey: `${deviceId}-flange`, assetId: deviceId, name: '出口法兰', type: 'flange', subType: 'pipe_flange', subTypeName: '管道法兰', ruleIds: [], priority: undefined, inspectionCycle: '', inspectionWindow: '' }
-  ]
-  connectionObjects.value = [
-    {
-      id: `${deviceId}-conn-valve-pipe`,
-      localKey: `${deviceId}-conn-valve-pipe`,
-      name: '阀门-管线',
-      endpointA: '当前设施 / 入口阀门',
-      endpointB: '当前设施 / 压力表',
-      sourceComponentId: `${deviceId}-valve`,
-      sinkScope: 'self',
-      sinkDeviceId: deviceId,
-      sinkComponentId: `${deviceId}-meter`,
-      ruleIds: [],
-      priority: undefined,
-      inspectionCycle: '',
-      inspectionWindow: '',
-      detectionFocus: '开闭状态/泄漏'
+const componentColumns = [
+  { title: '部件名称', dataIndex: 'name', key: 'name' },
+  { title: '部件编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
+  { title: '部件位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 140 },
+  { title: '所属装置', dataIndex: 'installationName', key: 'installationName', width: 140 },
+  {
+    title: '检查规则',
+    dataIndex: 'ruleIds',
+    key: 'ruleIds',
+    customRender: ({ record }: any) => {
+      const names = (record.ruleIds || []).map((ruleId: string) => detectionRuleNameMap.value.get(ruleId) || ruleId)
+      return names.length ? names.join('、') : '-'
     }
-  ]
-  parkingBindings.value = []
-}
-
-function loadDetail() {
-  inspectionStore.initialize()
-  if (!isEdit.value) {
-    seedAssetModel(`device-${Date.now()}`)
-    return
   }
-  const detail = inspectionStore.inspectionDevices.find(item => item.id === String(route.params.id))
-  if (!detail) return
-  existingObjectDetectionConfigs.value = Array.isArray(detail.objectDetectionConfigs) ? detail.objectDetectionConfigs : []
+]
 
-  Object.assign(form, {
-    id: detail.id,
-    name: detail.name,
-    code: detail.code || detail.deviceNo,
-    deviceNo: detail.deviceNo || detail.code,
-    deviceClassification: detail.deviceClassification || '',
-    specModel: detail.specModel || '',
-    owner: detail.owner || '',
-    manufacturer: detail.manufacturer || '',
-    areaId: detail.areaId || '',
-    areaName: detail.areaName || '',
-    storageLocation: detail.storageLocation || '',
-    systemName: detail.systemName || '',
-    lastInspectionTime: detail.lastInspectionTime || '',
-    nextInspectionTime: detail.nextInspectionTime || '',
-    mapCoordinate: detail.mapCoordinate || '',
-    deviceCategory: detail.deviceCategory || '',
-    referenceImageUrl: detail.referenceImageUrl || '',
-    status: detail.status || 'active',
-    source: detail.source || 'manual',
-    factoryNo: detail.factoryNo || '',
-    commissioningDate: detail.commissioningDate || '',
-    certificateIssueDate: detail.certificateIssueDate || detail.issueDate || '',
-    usageCertificateNo: detail.usageCertificateNo || '',
-    inspectionPostName: detail.inspectionPostName || '',
-    expiryDate: detail.expiryDate || '',
-    institutionApprovalCertificate: detail.institutionApprovalCertificate || detail.authorityCertificateNo || '',
-    usageDepartmentName: detail.usageDepartmentName || detail.departmentName || '',
-    custodianPostName: detail.custodianPostName || '',
-    outDate: detail.outDate || '',
-    nfcId: detail.nfcId || '',
-    detectionCycle: detail.detectionCycle || '',
-    failureWarningDays: detail.failureWarningDays,
-    inspectionCycle: detail.inspectionCycle || '',
-    lastInspectionConclusion: detail.lastInspectionConclusion || '',
-    inspectionWarningDays: detail.inspectionWarningDays,
-    inspectionWindow: detail.inspectionWindow || ''
-  })
+const bindingColumns = [
+  { title: '', key: 'dragHandle', width: 44 },
+  { title: '执行顺序', key: 'executionOrder', width: 110 },
+  { title: '巡检点', key: 'inspectionPointId', width: 220 },
+  { title: '停车点', key: 'parkingPointId', width: 220 },
+  { title: '关联部件', key: 'componentIds' },
+  { title: '巡检规则', key: 'ruleIds' }
+]
 
-  assetComponents.value = (detail.assetComponents || []).map((item, index) => ({
-    ...item,
-    ruleIds: Array.isArray(item.ruleIds) ? item.ruleIds : getRuleIdsFromUnifiedConfig('component', item.id),
-    localKey: `${item.id}-${index}`
-  }))
-
-  connectionObjects.value = (detail.connectionObjects || []).map((item, index) => ({
-    ...item,
-    ruleIds: Array.isArray(item.ruleIds) ? item.ruleIds : getRuleIdsFromUnifiedConfig('connection', item.id),
-    localKey: `${item.id}-${index}`,
-    sinkScope: item.sinkScope || 'self',
-    sinkDeviceId: item.sinkDeviceId || currentDeviceId.value
-  }))
-
-  parkingBindings.value = expandParkingBindings(detail.parkingPointBindings || [])
+function syncArea(id: string) {
+  const area = areaOptions.value.find((item) => item.id === id)
+  form.areaName = area?.name || ''
+  form.installationId = ''
+  form.installationName = ''
 }
 
-function handleUploadChange(info: any) {
-  const file = info?.file?.originFileObj
-  if (!file) return
-  const reader = new FileReader()
-  reader.onload = () => {
-    form.referenceImageUrl = String(reader.result || '')
-  }
-  reader.readAsDataURL(file)
-}
-
-function syncCodeWithDeviceNo() {
-  if (!form.code || form.code === form.deviceNo) {
-    form.code = form.deviceNo
+function syncInstallation(id: string) {
+  const installation = inspectionStore.installations.find((item) => item.id === id)
+  form.installationName = installation?.name || ''
+  if (installation?.areaId) {
+    form.areaId = installation.areaId
+    form.areaName = installation.areaName
   }
 }
 
-function addAssetComponent() {
-  const id = `component-${Date.now()}`
-  assetComponents.value.push({ id, localKey: id, assetId: currentDeviceId.value, name: '新增部件', type: 'valve', ruleIds: [], priority: undefined, inspectionCycle: '', inspectionWindow: '' })
-}
-
-function addConnectionObject() {
-  const id = `connection-${Date.now()}`
-  const firstSource = assetComponents.value[0]?.id
-  const firstSink = assetComponents.value[1]?.id || firstSource
-  connectionObjects.value.push({
-    id,
-    localKey: id,
-    name: '新增连接对象',
-    endpointA: formatSourceEndpoint(firstSource),
-    endpointB: formatSinkEndpoint('self', currentDeviceId.value, firstSink),
-    sourceComponentId: firstSource,
-    sinkScope: 'self',
-    sinkDeviceId: currentDeviceId.value,
-    sinkComponentId: firstSink,
-    ruleIds: [],
-    priority: undefined,
-    inspectionCycle: '',
-    inspectionWindow: '',
-    detectionFocus: '泄漏/紧密度'
-  })
-}
-
-function expandParkingBindings(bindings: FacilityParkingPointBinding[]) {
-  return bindings.flatMap((item, bindingIndex) => {
-    const parkingIds = item.parkingPointIds?.length ? item.parkingPointIds : [item.parkingPointId].filter(Boolean)
-    const parkingNames = item.parkingPointNames?.length ? item.parkingPointNames : [item.parkingPointName].filter(Boolean)
-    const targetObjectRefs = item.targetObjectRefs?.length ? item.targetObjectRefs : (item.componentIds || []).map(id => `component:${id}`)
-    const ids = parkingIds.length ? parkingIds : ['']
-
-    return ids.map((parkingId, parkingIndex) => {
-      const parkingName = parkingNames[parkingIndex] || parkingNames[0] || ''
-      const executionOrder = item.executionOrder || item.sequence || bindingIndex + parkingIndex + 1
-      return {
-        ...item,
-        id: parkingIds.length > 1 ? `${item.id}-${parkingId || parkingIndex}` : item.id,
-        localKey: `${item.id}-${parkingId || parkingIndex}-${bindingIndex}`,
-        parkingPointId: parkingId,
-        parkingPointName: parkingName,
-        parkingPointIds: parkingId ? [parkingId] : [],
-        parkingPointNames: parkingName ? [parkingName] : [],
-        inspectionMode: item.inspectionMode || 'fixed',
-        targetObjectRefs,
-        parkingSelection: parkingId,
-        executionOrder
-      }
-    })
-  })
-}
-
-function buildParkingBindingFromRow(row: PickerParkingRow, index: number) {
-  const order = parkingBindings.value.length + index + 1
+function buildBindingFromRow(row: PickerParkingRow, index: number): BindingRow {
   return {
-    id: `binding-${Date.now()}-${row.parkingId}`,
-    localKey: `binding-${Date.now()}-${row.parkingId}`,
+    id: `binding-${Date.now()}-${row.parkingId}-${index}`,
     inspectionPointId: row.pointId,
     inspectionPointName: row.pointName,
     parkingPointId: row.parkingId,
     parkingPointName: row.parkingName,
-    componentIds: [],
-    inspectionMode: 'fixed',
-    parkingPointIds: [row.parkingId],
-    parkingPointNames: [row.parkingName],
-    targetObjectRefs: [],
-    parkingSelection: row.parkingId,
-    executionOrder: order
-  } as ParkingBindingRow
+    executionOrder: bindingRows.value.length + index + 1,
+    componentIds: facilityComponents.value[0] ? [facilityComponents.value[0].id] : [],
+    ruleIds: allPublishedRuleIds.value.slice()
+  }
+}
+
+function getBindingRowClassName(_record: BindingRow, index: number) {
+  return draggingRowIndex.value === index ? 'binding-row binding-row--dragging' : 'binding-row'
 }
 
 function openParkingPicker() {
@@ -787,7 +393,7 @@ function openParkingPicker() {
     return
   }
   selectedPickerMapId.value = selectedPickerMapId.value || pickerMapOptions.value[0].id
-  pickerSelectedIds.value = new Set()
+  clearPickerSelection()
   resetSelectionBox()
   parkingPickerVisible.value = true
 }
@@ -803,11 +409,8 @@ function clearPickerSelection() {
 
 function togglePickerParking(parkingId: string) {
   const next = new Set(pickerSelectedIds.value)
-  if (next.has(parkingId)) {
-    next.delete(parkingId)
-  } else {
-    next.add(parkingId)
-  }
+  if (next.has(parkingId)) next.delete(parkingId)
+  else next.add(parkingId)
   pickerSelectedIds.value = next
 }
 
@@ -816,15 +419,46 @@ function confirmParkingPicker() {
     message.warning('请先框选停车点')
     return
   }
-  const rows = selectedPickerParkingRows.value.map((row, index) => buildParkingBindingFromRow(row, index))
-  parkingBindings.value.push(...rows)
-  message.success(`已回填 ${selectedPickerParkingRows.value.length} 个停车点`)
+  const rows = selectedPickerParkingRows.value.map((row, index) => buildBindingFromRow(row, index))
+  bindingRows.value.push(...rows)
+  message.success(`已新增 ${rows.length} 条执行顺序`)
   closeParkingPicker()
 }
 
-function openParkingPreview(parking: PickerParkingRow) {
-  previewParking.value = parking
-  parkingPreviewVisible.value = true
+function getBindingRowProps(record: BindingRow, index: number) {
+  return {
+    draggable: true,
+    onDragstart: (event: DragEvent) => onDragStart(record.id, event),
+    onDragover: (event: DragEvent) => event.preventDefault(),
+    onDrop: (event: DragEvent) => onDropRow(index, event),
+    onDragend: onDragEnd
+  }
+}
+
+function onDragStart(rowId: string, event: DragEvent) {
+  draggingRowId.value = rowId
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', rowId)
+  }
+}
+
+function onDropRow(targetIndex: number, event: DragEvent) {
+  event.preventDefault()
+  const sourceIndex = bindingRows.value.findIndex((item) => item.id === draggingRowId.value)
+  if (sourceIndex < 0 || sourceIndex === targetIndex) {
+    draggingRowId.value = ''
+    return
+  }
+  const rows = [...bindingRows.value]
+  const [moved] = rows.splice(sourceIndex, 1)
+  rows.splice(targetIndex, 0, moved)
+  bindingRows.value = rows.map((item, idx) => ({ ...item, executionOrder: idx + 1 }))
+  draggingRowId.value = ''
+}
+
+function onDragEnd() {
+  draggingRowId.value = ''
 }
 
 function getPickerPosition(event: MouseEvent) {
@@ -865,8 +499,8 @@ function endPickerDrag() {
     const next = new Set(pickerSelectedIds.value)
     const tolerance = 3
     pickerParkingRows.value
-      .filter(item => item.x >= minX - tolerance && item.x <= maxX + tolerance && item.y >= minY - tolerance && item.y <= maxY + tolerance)
-      .forEach(item => next.add(item.parkingId))
+      .filter((item) => item.x >= minX - tolerance && item.x <= maxX + tolerance && item.y >= minY - tolerance && item.y <= maxY + tolerance)
+      .forEach((item) => next.add(item.parkingId))
     pickerSelectedIds.value = next
   }
   resetSelectionBox()
@@ -893,303 +527,210 @@ function clamp(value: number) {
   return Math.max(0, Math.min(100, Number(value.toFixed(2))))
 }
 
-function onAreaChange(value: string) {
-  const area = areas.value.find(item => item.id === value)
-  form.areaName = area?.name || ''
+function getComponentName(componentIds: string[]) {
+  const id = componentIds[0]
+  if (!id) return ''
+  return facilityComponents.value.find((item) => item.id === id)?.name || id
 }
 
-function onBindingModeChange(record: ParkingBindingRow) {
-  onBindingParkingChange(record)
+function getRuleNames(ruleIds: string[] = []) {
+  const ids = ruleIds.length ? ruleIds : allPublishedRuleIds.value
+  return ids.map((id) => detectionRuleNameMap.value.get(id) || id)
 }
 
-function onBindingParkingChange(record: ParkingBindingRow) {
-  const selected = parkingSelectOptions.value.find(item => item.value === record.parkingSelection)
-  record.inspectionPointId = selected?.pointId || ''
-  record.inspectionPointName = selected?.pointName || ''
-  record.parkingPointId = selected?.value || ''
-  record.parkingPointName = selected?.parkingName || ''
-  record.parkingPointIds = selected ? [selected.value] : []
-  record.parkingPointNames = selected ? [selected.parkingName] : []
-}
-
-function formatSourceEndpoint(componentId?: string) {
-  const component = assetComponents.value.find(item => item.id === componentId)
-  return `${form.name || '当前设施'} / ${component?.name || componentId || ''}`
-}
-
-function formatSinkEndpoint(scope: 'self' | 'other' = 'self', deviceId?: string, componentId?: string) {
-  const device = scope === 'self'
-    ? { id: currentDeviceId.value, name: form.name || '当前设施', deviceNo: form.deviceNo, assetComponents: assetComponents.value }
-    : inspectionStore.inspectionDevices.find(item => item.id === deviceId)
-  const component = (device?.assetComponents || []).find(item => item.id === componentId)
-  return `${device?.name || deviceId || ''}${device?.deviceNo ? `（${device.deviceNo}）` : ''} / ${component?.name || componentId || ''}`
-}
-
-function syncConnectionEndpoint(record: ConnectionObjectRow) {
-  record.endpointA = formatSourceEndpoint(record.sourceComponentId)
-  record.endpointB = formatSinkEndpoint(record.sinkScope, record.sinkDeviceId, record.sinkComponentId)
-}
-
-function onSinkScopeChange(record: ConnectionObjectRow) {
-  if (record.sinkScope === 'other') {
-    const firstOther = otherDeviceOptions.value[0]
-    record.sinkDeviceId = firstOther?.id
-    record.sinkComponentId = firstOther?.assetComponents?.[0]?.id
-  } else {
-    record.sinkDeviceId = currentDeviceId.value
-    record.sinkComponentId = assetComponents.value[0]?.id
-  }
-  syncConnectionEndpoint(record)
-}
-
-function onSinkDeviceChange(record: ConnectionObjectRow) {
-  const device = inspectionStore.inspectionDevices.find(item => item.id === record.sinkDeviceId)
-  record.sinkComponentId = device?.assetComponents?.[0]?.id
-  syncConnectionEndpoint(record)
-}
-
-function getSinkComponentOptions(record: ConnectionObjectRow) {
-  if (record.sinkScope === 'other') {
-    return inspectionStore.inspectionDevices.find(item => item.id === record.sinkDeviceId)?.assetComponents || []
-  }
-  return assetComponents.value
-}
-
-function getComponentRuleOptions(component: AssetComponentRow) {
-  return detectionRules.value
+function hydrateBindings(bindings: FacilityParkingPointBinding[] = []) {
+  bindingRows.value = bindings
     .slice()
-    .sort((a, b) => Number(isComponentRule(b, component)) - Number(isComponentRule(a, component)))
-    .map(rule => ({
-      value: rule.id,
-      label: `${isComponentRule(rule, component) ? '推荐 - ' : ''}${rule.name}（${rule.category}）`
+    .sort((a, b) => (a.executionOrder || a.sequence || 0) - (b.executionOrder || b.sequence || 0))
+    .map((item, index) => ({
+      id: item.id,
+      inspectionPointId: item.inspectionPointId,
+      inspectionPointName: item.inspectionPointName,
+      parkingPointId: item.parkingPointId,
+      parkingPointName: item.parkingPointName,
+      executionOrder: item.executionOrder || item.sequence || index + 1,
+      componentIds: [...(item.componentIds || [])],
+      ruleIds: [...(item.ruleIds || allPublishedRuleIds.value)]
     }))
 }
 
-function getRuleIdsFromUnifiedConfig(subjectType: ObjectDetectionConfig['subjectType'], subjectId: string) {
-  return existingObjectDetectionConfigs.value
-    .filter(item => item.subjectType === subjectType && item.subjectId === subjectId && item.enabled)
-    .map(item => item.ruleId)
-}
-
-function buildObjectDetectionConfigs(deviceId: string): ObjectDetectionConfig[] {
-  const previous = existingObjectDetectionConfigs.value
-  const now = new Date().toISOString()
-  const configs: ObjectDetectionConfig[] = []
-
-  function createConfig(subjectType: ObjectDetectionConfig['subjectType'], subjectId: string, subjectName: string, ruleId: string) {
-    const old = previous.find(item => item.subjectType === subjectType && item.subjectId === subjectId && item.ruleId === ruleId)
-    configs.push({
-      id: old?.id || `odc-${deviceId}-${subjectType}-${subjectId}-${ruleId}`,
-      deviceId,
-      subjectType,
-      subjectId,
-      subjectName,
-      ruleId,
-      collectionPoseId: old?.collectionPoseId,
-      requiredCoverage: old?.requiredCoverage ?? true,
-      failureStrategy: old?.failureStrategy || 'manual_review',
-      enabled: true,
-      remark: old?.remark,
-      updatedAt: now
-    })
-  }
-
-  assetComponents.value.forEach((component) => {
-    ;(component.ruleIds || []).forEach(ruleId => createConfig('component', component.id, component.name, ruleId))
-  })
-  connectionObjects.value.forEach((connection) => {
-    ;(connection.ruleIds || []).forEach(ruleId => createConfig('connection', connection.id, connection.name, ruleId))
-  })
-  return configs
-}
-
-function isComponentRule(rule: DetectionItemConfig, component: AssetComponentRow) {
-  const targetTypes = rule.targetTypes || []
-  const targetDetails = rule.targetDetails || ''
-  const typeText = componentTypeText[component.type] || component.type
-  return targetTypes.includes('设施部件') || targetDetails.includes(component.name) || targetDetails.includes(typeText)
-}
-
-function isConnectionRule(rule: DetectionItemConfig) {
-  const targetTypes = rule.targetTypes || []
-  const targetDetails = rule.targetDetails || ''
-  return targetTypes.includes('连接部位') || targetDetails.includes('法兰') || targetDetails.includes('连接') || targetDetails.includes('管线')
-}
-
-function normalizeParkingBindings() {
-  return parkingBindings.value.map(({ localKey, parkingSelection, executionOrder, ...item }, index) => {
-    const refs = item.targetObjectRefs || []
-    const componentIds = refs.filter(ref => ref.startsWith('component:')).map(ref => ref.split(':')[1])
-    const order = executionOrder || index + 1
-    return {
-      ...item,
-      inspectionMode: item.inspectionMode || 'fixed',
-      parkingPointIds: item.parkingPointId ? [item.parkingPointId] : [],
-      parkingPointNames: item.parkingPointName ? [item.parkingPointName] : [],
-      executionOrder: order,
-      sequence: order,
-      targetObjectRefs: refs,
-      componentIds
-    }
-  }).sort((a, b) => (a.executionOrder || 0) - (b.executionOrder || 0))
-}
-
-function handleSave() {
-  if (!form.deviceNo || !form.deviceClassification || !form.owner || !form.name || !form.areaId || !form.deviceCategory) {
-    message.error('请补充必填信息：设施名称、设施分类、设施编号、所在区域、设施类别、责任人')
-    return
-  }
-
-  const payloadId = form.id || `device-${Date.now()}`
-  const normalizedBindings = normalizeParkingBindings()
-  const primaryPointId = normalizedBindings[0]?.inspectionPointId || ''
-  const payload = {
-    id: payloadId,
-    inspectionPointId: primaryPointId,
-    name: form.name,
-    code: form.code || form.deviceNo,
-    deviceNo: form.deviceNo,
-    deviceClassification: form.deviceClassification,
-    specModel: form.specModel,
-    owner: form.owner,
-    manufacturer: form.manufacturer,
-    areaId: form.areaId,
-    areaName: form.areaName,
-    storageLocation: form.storageLocation,
-    systemName: form.systemName,
-    lastInspectionTime: form.lastInspectionTime,
-    nextInspectionTime: form.nextInspectionTime,
-    mapCoordinate: form.mapCoordinate,
-    deviceCategory: form.deviceCategory,
-    referenceImageUrl: form.referenceImageUrl || defaultDeviceImage,
-    status: form.status as DeviceStatus,
-    source: form.source as 'manual' | 'synced',
-    factoryNo: form.factoryNo,
-    commissioningDate: form.commissioningDate,
-    certificateIssueDate: form.certificateIssueDate,
-    usageCertificateNo: form.usageCertificateNo,
-    inspectionPostName: form.inspectionPostName,
-    expiryDate: form.expiryDate,
-    institutionApprovalCertificate: form.institutionApprovalCertificate,
-    usageDepartmentName: form.usageDepartmentName,
-    custodianPostName: form.custodianPostName,
-    outDate: form.outDate,
-    nfcId: form.nfcId,
-    detectionCycle: form.detectionCycle,
-    failureWarningDays: form.failureWarningDays,
-    inspectionCycle: form.inspectionCycle,
-    lastInspectionConclusion: form.lastInspectionConclusion,
-    inspectionWarningDays: form.inspectionWarningDays,
-    inspectionWindow: form.inspectionWindow,
-    type: 'general',
-    sequence: 1,
-    assetComponents: assetComponents.value.map(({ localKey, ...item }) => ({ ...item, assetId: payloadId })),
-    connectionObjects: connectionObjects.value.map(({ localKey, ...item }) => item),
-    parkingPointBindings: normalizedBindings,
-    objectDetectionConfigs: buildObjectDetectionConfigs(payloadId),
-    createdAt: new Date(),
-    updatedAt: new Date()
-  }
-
-  inspectionStore.saveInspectionDevice(payload)
-  message.success('设施信息已保存')
-  router.push('/implementation/device/list')
+function buildParkingBindings(): FacilityParkingPointBinding[] {
+  return bindingRows.value
+    .filter((item) => item.inspectionPointId && item.parkingPointId)
+    .map((item) => ({
+      id: item.id,
+      inspectionPointId: item.inspectionPointId,
+      inspectionPointName: item.inspectionPointName,
+      parkingPointId: item.parkingPointId,
+      parkingPointName: item.parkingPointName,
+      executionOrder: item.executionOrder,
+      sequence: item.executionOrder,
+      componentIds: item.componentIds,
+      ruleIds: item.ruleIds,
+      parkingPointIds: [item.parkingPointId],
+      parkingPointNames: [item.parkingPointName],
+      targetObjectRefs: item.componentIds.map((componentId) => `component:${componentId}`)
+    }))
 }
 
 function goBack() {
   router.push('/implementation/device/list')
 }
 
-onMounted(loadDetail)
+function goToComponentManage() {
+  router.push('/implementation/device/component-usage')
+}
+
+function handleSave() {
+  if (!form.name || !form.deviceNo || !form.facilityPositionNo || !form.areaId || !form.installationId) {
+    message.error('请补齐设施必填字段')
+    return
+  }
+
+  const now = new Date()
+  inspectionStore.saveInspectionDevice({
+    ...(currentDevice.value || { inspectionPointId: inspectionStore.inspectionPoints[0]?.id || '' }),
+    id: currentId.value || `device-${Date.now()}`,
+    name: form.name,
+    deviceClassification: form.deviceClassification,
+    deviceNo: form.deviceNo,
+    facilityPositionNo: form.facilityPositionNo,
+    areaId: form.areaId,
+    areaName: form.areaName,
+    installationId: form.installationId,
+    installationName: form.installationName,
+    facilityKind: form.facilityKind,
+    status: form.status,
+    source: 'manual',
+    assetComponents: currentDevice.value?.assetComponents || [],
+    connectionObjects: currentDevice.value?.connectionObjects || [],
+    objectDetectionConfigs: currentDevice.value?.objectDetectionConfigs || [],
+    parkingPointBindings: buildParkingBindings(),
+    updatedAt: now,
+    createdAt: currentDevice.value?.createdAt || now,
+    sequence: currentDevice.value?.sequence || 1,
+    type: currentDevice.value?.type || form.deviceClassification || '设施',
+    checkItems: currentDevice.value?.checkItems || [],
+    code: currentDevice.value?.code || form.deviceNo,
+    storageLocation: form.remark
+  })
+  message.success('设施已保存')
+  if (!isEdit.value) {
+    router.push('/implementation/device/list')
+  }
+}
+
+onMounted(() => {
+  inspectionStore.initialize()
+  if (currentDevice.value) {
+    Object.assign(form, {
+      name: currentDevice.value.name || '',
+      deviceClassification: currentDevice.value.deviceClassification || '',
+      deviceNo: currentDevice.value.deviceNo || currentDevice.value.code || '',
+      facilityPositionNo: currentDevice.value.facilityPositionNo || '',
+      areaId: currentDevice.value.areaId || '',
+      areaName: currentDevice.value.areaName || '',
+      installationId: currentDevice.value.installationId || '',
+      installationName: currentDevice.value.installationName || '',
+      facilityKind: currentDevice.value.facilityKind || 'normal',
+      status: currentDevice.value.status || 'active',
+      remark: currentDevice.value.storageLocation || ''
+    })
+    hydrateBindings(currentDevice.value.parkingPointBindings || [])
+  }
+})
 </script>
 
-<style scoped lang="css">
-.preview-image {
-  margin-top: 6px;
-  width: 260px;
-  height: 140px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
+<style scoped>
 .model-card {
   margin-top: 16px;
 }
-
+.form-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: grab;
+  user-select: none;
+}
+.drag-handle:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.order-pill {
+  display: inline-flex;
+  min-width: 36px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-weight: 600;
+  justify-content: center;
+}
+.binding-row--dragging :deep(td) {
+  background: #f8fafc !important;
+}
 .parking-picker {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 16px;
 }
-
-.parking-picker-main,
-.parking-picker-side {
+.parking-picker-main {
   min-width: 0;
 }
-
 .parking-picker-toolbar {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
-
 .parking-picker-map {
   position: relative;
-  height: 560px;
-  border: 1px solid #b4c9ff;
-  border-radius: 12px;
+  height: 520px;
+  overflow: hidden;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  overflow: hidden;
-  user-select: none;
+  cursor: crosshair;
 }
-
 .parking-picker-mask {
   position: absolute;
   inset: 0;
-  z-index: 1;
-  background: linear-gradient(180deg, rgba(4, 12, 26, 0.08) 0%, rgba(4, 12, 26, 0.22) 100%);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.18));
 }
-
 .parking-picker-tip {
   position: absolute;
   top: 12px;
   left: 12px;
-  z-index: 5;
-  max-width: calc(100% - 24px);
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #1f2937;
-  font-size: 13px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+  z-index: 2;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 12px;
 }
-
 .selection-box {
   position: absolute;
-  z-index: 6;
-  border: 1px solid #1677ff;
-  background: rgba(22, 119, 255, 0.16);
-  pointer-events: none;
+  z-index: 3;
+  border: 1px dashed #2563eb;
+  background: rgba(37, 99, 235, 0.16);
 }
-
 .parking-point-marker {
   position: absolute;
   z-index: 4;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  max-width: 240px;
+  gap: 8px;
   transform: translate(-50%, -50%);
   cursor: pointer;
 }
-
 .parking-point-dot {
   display: inline-flex;
   align-items: center;
@@ -1198,200 +739,61 @@ onMounted(loadDetail)
   height: 28px;
   border: 2px solid #fff;
   border-radius: 999px;
-  background: #1677ff;
+  background: #0f766e;
   color: #fff;
   font-size: 12px;
-  font-weight: 700;
-  box-shadow: 0 8px 16px rgba(22, 119, 255, 0.35);
+  font-weight: 600;
+  box-shadow: 0 10px 24px -12px rgba(15, 118, 110, 0.9);
 }
-
 .parking-point-label {
-  max-width: 180px;
+  max-width: 220px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
   font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.18);
 }
-
-.parking-point-marker.selected {
-  z-index: 7;
-}
-
 .parking-point-marker.selected .parking-point-dot {
-  background: #ef4444;
-  box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.16), 0 10px 20px rgba(239, 68, 68, 0.36);
+  background: #2563eb;
+  box-shadow: 0 12px 28px -12px rgba(37, 99, 235, 0.95);
 }
-
 .parking-point-marker.selected .parking-point-label {
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #991b1b;
-  font-weight: 600;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
-
+.parking-picker-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .parking-picker-side-title {
-  margin-bottom: 10px;
-  color: #0f172a;
+  font-size: 14px;
   font-weight: 600;
+  color: #0f172a;
 }
-
 .selected-parking-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
 }
-
 .selected-parking-info {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-
 .selected-parking-info span {
   color: #64748b;
   font-size: 12px;
 }
-
-.parking-thumb {
-  flex: 0 0 auto;
-  width: 74px;
-  padding: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.parking-thumb:hover {
-  border-color: #1677ff;
-  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.16);
-}
-
-.parking-thumb-map {
-  position: relative;
-  display: block;
-  height: 46px;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-}
-
-.parking-thumb-mask {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.14);
-}
-
-.parking-thumb-dot {
-  position: absolute;
-  z-index: 2;
-  width: 10px;
-  height: 10px;
-  border: 2px solid #fff;
-  border-radius: 999px;
-  background: #ef4444;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.22);
-  transform: translate(-50%, -50%);
-}
-
-.parking-thumb-text {
-  display: block;
-  padding: 2px 0 3px;
-  color: #475569;
-  font-size: 11px;
-  line-height: 1.3;
-  text-align: center;
-}
-
-.parking-preview {
-  display: grid;
-  gap: 12px;
-}
-
-.parking-preview-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.parking-preview-title span {
-  color: #64748b;
-  font-size: 13px;
-}
-
-.parking-preview-map {
-  position: relative;
-  height: 420px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  overflow: hidden;
-}
-
-.parking-preview-marker {
-  position: absolute;
-  z-index: 5;
-  display: grid;
-  justify-items: center;
-  transform: translate(-50%, -50%);
-}
-
-.parking-preview-pulse {
-  position: absolute;
-  width: 54px;
-  height: 54px;
-  border-radius: 999px;
-  background: rgba(239, 68, 68, 0.2);
-}
-
-.parking-preview-dot {
-  position: relative;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: 3px solid #fff;
-  border-radius: 999px;
-  background: #ef4444;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  box-shadow: 0 10px 24px rgba(127, 29, 29, 0.42);
-}
-
-.parking-preview-label {
-  margin-top: 8px;
-  max-width: 240px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
-  color: #991b1b;
-  font-size: 12px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
-}
-
-@media (max-width: 992px) {
+@media (max-width: 960px) {
   .parking-picker {
     grid-template-columns: 1fr;
   }
-
   .parking-picker-map {
-    height: 420px;
+    height: 400px;
   }
 }
 </style>

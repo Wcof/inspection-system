@@ -47,6 +47,7 @@
         <a-space>
           <a-button @click="$emit('coverage-check')">检测覆盖检查</a-button>
           <a-button type="primary" @click="$emit('create-temporary')">创建临时任务</a-button>
+          <a-button danger @click="$emit('create-emergency')">紧急任务</a-button>
           <a-button @click="$emit('refresh')">刷新数据</a-button>
         </a-space>
       </div>
@@ -71,6 +72,7 @@ const props = defineProps<{ control: DispatchControlState; robotOptions: Array<{
 const emit = defineEmits<{
   (e: 'update:control', value: DispatchControlState): void
   (e: 'create-temporary'): void
+  (e: 'create-emergency'): void
   (e: 'coverage-check'): void
   (e: 'refresh'): void
 }>()

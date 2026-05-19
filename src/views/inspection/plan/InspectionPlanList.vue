@@ -11,6 +11,19 @@
     </a-page-header>
 
     <a-card style="margin-top: 16px">
+      <div class="scene-switch" style="margin-bottom: 12px">
+        <button
+          v-for="item in sceneOptions"
+          :key="item.value"
+          type="button"
+          class="scene-switch__item"
+          :class="{ 'scene-switch__item--active': activeScene === item.value }"
+          @click="activeScene = item.value"
+        >
+          {{ item.label }}
+        </button>
+      </div>
+
       <div class="search-panel">
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
@@ -28,9 +41,8 @@
               <a-form-item label="业务场景" class="search-item">
                 <a-select v-model:value="searchForm.businessScene" placeholder="请选择业务场景" allow-clear>
                   <a-select-option value="daily_inspection">日常巡检</a-select-option>
-                  <a-select-option value="hazard_screening">隐患排查</a-select-option>
-                  <a-select-option value="environment_check">环境检查</a-select-option>
-                  <a-select-option value="operation_guard">作业监护</a-select-option>
+                  <a-select-option value="work_ticket_guard">作业票监护</a-select-option>
+                  <a-select-option value="emergency_arrival">应急到场</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -82,7 +94,15 @@
         message="执行规划只定义要覆盖的业务区域与设施范围；具体任务由调度台结合资源、风险优先级和现场约束生成。"
       />
 
-      <a-table :columns="columns" :data-source="filteredPlans" :loading="loading" row-key="id" :scroll="{ x: 1560 }">
+      <div class="scene-summary">
+        <a-card size="small"><span>当前场景规划</span><strong>{{ filteredPlans.length }}</strong></a-card>
+        <a-card size="small"><span>装置数</span><strong>{{ sceneSummary.installationCount }}</strong></a-card>
+        <a-card size="small"><span>设施/管路数</span><strong>{{ sceneSummary.facilityCount }}</strong></a-card>
+        <a-card size="small"><span>部件数</span><strong>{{ sceneSummary.componentCount }}</strong></a-card>
+        <a-card size="small"><span>规则数</span><strong>{{ sceneSummary.ruleCount }}</strong></a-card>
+      </div>
+
+      <a-table :columns="columns" :data-source="filteredPlans" :loading="loading" row-key="id" :scroll="{ x: 1680 }">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'planType'">
             <a-tag :color="getSceneColor(record.businessScene)">{{ getSceneText(record.businessScene) }}</a-tag>
@@ -99,8 +119,11 @@
           <template v-else-if="column.key === 'facilityCount'">
             {{ record.linkedDeviceIds?.length || 0 }}
           </template>
-          <template v-else-if="column.key === 'componentConnectionCount'">
-            {{ record.componentConnectionCount || 0 }}
+          <template v-else-if="column.key === 'installationCount'">
+            {{ record.installationCount || 0 }}
+          </template>
+          <template v-else-if="column.key === 'componentCount'">
+            {{ record.componentCount || 0 }}
           </template>
           <template v-else-if="column.key === 'ruleCount'">
             {{ record.ruleCount || 0 }}
@@ -156,10 +179,12 @@
           <a-descriptions-item label="检查范围">{{ currentCoverage.name }}</a-descriptions-item>
           <a-descriptions-item label="规划数量">{{ currentCoverage.planCount }}</a-descriptions-item>
           <a-descriptions-item label="已覆盖区域">{{ currentCoverage.regionCount }}</a-descriptions-item>
+          <a-descriptions-item label="已覆盖装置">{{ currentCoverage.installationCount }}</a-descriptions-item>
           <a-descriptions-item label="已覆盖设施">{{ currentCoverage.facilityCount }}</a-descriptions-item>
           <a-descriptions-item label="遗漏区域">{{ currentCoverage.missingRegions.length || 0 }}</a-descriptions-item>
+          <a-descriptions-item label="遗漏装置">{{ currentCoverage.missingInstallations.length || 0 }}</a-descriptions-item>
           <a-descriptions-item label="遗漏设施">{{ currentCoverage.missingDevices.length || 0 }}</a-descriptions-item>
-          <a-descriptions-item label="遗漏部件/连接">{{ currentCoverage.missingSubjects.length || 0 }}</a-descriptions-item>
+          <a-descriptions-item label="遗漏部件">{{ currentCoverage.missingSubjects.length || 0 }}</a-descriptions-item>
           <a-descriptions-item label="遗漏巡检规则">{{ currentCoverage.missingRules.length || 0 }}</a-descriptions-item>
         </a-descriptions>
 
@@ -174,6 +199,15 @@
             </a-card>
           </a-col>
           <a-col :xs="24" :lg="12" :xl="6">
+            <a-card size="small" title="遗漏装置">
+              <a-empty v-if="currentCoverage.missingInstallations.length === 0" description="无遗漏装置" />
+              <div v-for="item in currentCoverage.missingInstallations" :key="item.installationId" class="coverage-missing-item">
+                <div class="coverage-title">{{ item.installationName }}</div>
+                <div class="coverage-meta">该装置尚未被任何执行规划覆盖</div>
+              </div>
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :lg="12" :xl="6">
             <a-card size="small" title="遗漏设施">
               <a-empty v-if="currentCoverage.missingDevices.length === 0" description="无遗漏设施" />
               <div v-for="item in currentCoverage.missingDevices" :key="item.deviceId" class="coverage-missing-item danger">
@@ -183,8 +217,8 @@
             </a-card>
           </a-col>
           <a-col :xs="24" :lg="12" :xl="6">
-            <a-card size="small" title="遗漏部件/连接">
-              <a-empty v-if="currentCoverage.missingSubjects.length === 0" description="无遗漏部件/连接" />
+            <a-card size="small" title="遗漏部件">
+              <a-empty v-if="currentCoverage.missingSubjects.length === 0" description="无遗漏部件" />
               <div v-for="item in currentCoverage.missingSubjects" :key="item.subjectId" class="coverage-missing-item warning">
                 <div class="coverage-title">{{ item.subjectName }}</div>
                 <div class="coverage-meta">{{ item.regionName }} / {{ item.deviceName }} / {{ item.subjectType }}</div>
@@ -227,6 +261,7 @@ const loading = ref(false)
 const plans = ref<PlanRow[]>([])
 const coverageVisible = ref(false)
 const currentCoverage = ref<PlanRow | null>(null)
+const activeScene = ref('all')
 
 const searchForm = reactive({
   name: '',
@@ -244,12 +279,19 @@ const columns = [
   { title: '业务场景', key: 'planType', width: 130 },
   { title: '规划类型', key: 'taskSource', width: 120 },
   { title: '巡检区域', key: 'regionCount', width: 220 },
+  { title: '装置数', key: 'installationCount', width: 100 },
   { title: '巡检设施数', key: 'facilityCount', width: 120 },
-  { title: '巡检部件/连接数', key: 'componentConnectionCount', width: 150 },
+  { title: '巡检部件数', key: 'componentCount', width: 120 },
   { title: '巡检规则数', key: 'ruleCount', width: 120 },
   { title: '状态', key: 'status', width: 100 },
   { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 180 },
   { title: '操作', key: 'actions', width: 180, fixed: 'right' }
+]
+
+const sceneOptions = [
+  { label: '全部', value: 'all' },
+  { label: '日常巡检', value: 'daily_inspection' },
+  { label: '作业票监护', value: 'work_ticket_guard' },
 ]
 
 const regionOptions = computed(() => {
@@ -281,9 +323,9 @@ function enrichPlan(plan: any) {
   })
   linkedDevices.forEach((device: any) => {
     ;(device.assetComponents || []).forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
-    ;(device.connectionObjects || []).forEach((connection: any) => (connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
   })
-  const componentConnectionCount = linkedDevices.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0) + (device.connectionObjects?.length || 0), 0)
+  const installationIds = Array.from(new Set(linkedDevices.map((device: any) => device.installationId).filter(Boolean)))
+  const componentCount = linkedDevices.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0)
   const missingRegions = regionOptions.value
     .filter((region) => !regionIds.includes(region.id))
     .slice(0, 2)
@@ -292,7 +334,7 @@ function enrichPlan(plan: any) {
   const missingRules = linkedDetectionConfigs.filter((item: any) => !item.ruleId).slice(0, 3).map((item: any) => item.subjectName)
   const planType = plan.planType || (plan.schedule ? 'manual' : 'auto')
   const seed = String(plan.id || plan.code || plan.name || '')
-  const sceneOptions = ['daily_inspection', 'hazard_screening', 'environment_check', 'operation_guard']
+  const sceneOptions = ['daily_inspection', 'operation_guard', 'work_ticket_guard', 'hazard_screening', 'emergency_arrival', 'environment_check']
   return {
     ...plan,
     planType,
@@ -300,10 +342,11 @@ function enrichPlan(plan: any) {
     regionNames: regionIds.map((id) => regionOptions.value.find((region) => region.id === id)?.name || id),
     businessScene: plan.businessScene || sceneOptions[seed.length % sceneOptions.length],
     taskSource: planType,
+    installationCount: installationIds.length,
     linkedDeviceIds: linkedDevices.map((item: any) => item.id),
     facilityIds: plan.facilityIds?.length ? plan.facilityIds : linkedDevices.map((item: any) => item.id),
     linkedCheckItemIds: linkedDetectionConfigs.map((item: any) => item.id),
-    componentConnectionCount,
+    componentCount,
     ruleCount: ruleIds.size,
     hasMissingCoverage: Boolean(!regionIds.length || missingDevices.length || missingRules.length),
     missingRegions,
@@ -334,7 +377,7 @@ const filteredPlans = computed(() => {
   return plans.value.filter((plan) => {
     const matchName = !name || String(plan.name).toLowerCase().includes(name)
     const matchCode = !code || String(plan.code).toLowerCase().includes(code)
-    const matchScene = !searchForm.businessScene || plan.businessScene === searchForm.businessScene
+    const matchScene = (!searchForm.businessScene || plan.businessScene === searchForm.businessScene) && (activeScene.value === 'all' || plan.businessScene === activeScene.value)
     const matchPlanType = !searchForm.planType || plan.planType === searchForm.planType
     const matchRegion = !searchForm.regionId || (plan.regionIds || []).includes(searchForm.regionId)
     const matchDevice = !searchForm.deviceId || (plan.linkedDeviceIds || []).includes(searchForm.deviceId)
@@ -342,6 +385,13 @@ const filteredPlans = computed(() => {
     return matchName && matchCode && matchScene && matchPlanType && matchRegion && matchDevice && matchStatus
   })
 })
+
+const sceneSummary = computed(() => ({
+  installationCount: filteredPlans.value.reduce((sum, plan: any) => sum + (plan.installationCount || 0), 0),
+  facilityCount: filteredPlans.value.reduce((sum, plan: any) => sum + (plan.linkedDeviceIds?.length || 0), 0),
+  componentCount: filteredPlans.value.reduce((sum, plan: any) => sum + (plan.componentCount || 0), 0),
+  ruleCount: filteredPlans.value.reduce((sum, plan: any) => sum + (plan.ruleCount || 0), 0)
+}))
 
 function handleReset() {
   searchForm.name = ''
@@ -362,11 +412,11 @@ function getPlanStatusColor(status: string) {
 }
 
 function getSceneText(scene?: string) {
-  return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护' } as Record<string, string>)[scene || ''] || '日常巡检'
+  return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护', work_ticket_guard: '作业票监护', emergency_arrival: '应急到场' } as Record<string, string>)[scene || ''] || '日常巡检'
 }
 
 function getSceneColor(scene?: string) {
-  return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple' } as Record<string, string>)[scene || ''] || 'blue'
+  return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple', work_ticket_guard: 'gold', emergency_arrival: 'red' } as Record<string, string>)[scene || ''] || 'blue'
 }
 
 function getPlanTypeText(type?: string) {
@@ -396,6 +446,19 @@ function openAllCoverageModal() {
       regionId: region.id,
       regionName: region.name
     }))
+  const coveredInstallations = new Set<string>()
+  enrichedPlans.forEach((plan) => {
+    const devices = inspectionStore.inspectionDevices.filter((item: any) => (plan.linkedDeviceIds || []).includes(item.id))
+    devices.forEach((item: any) => item.installationId && coveredInstallations.add(item.installationId))
+  })
+  const allInstallations = Array.from(new Map(
+    inspectionStore.inspectionDevices
+      .filter((item: any) => item.installationId && item.installationName)
+      .map((item: any) => [item.installationId, item.installationName])
+  ).entries())
+  const missingInstallations = allInstallations
+    .filter(([installationId]) => !coveredInstallations.has(installationId))
+    .map(([installationId, installationName]) => ({ installationId, installationName }))
 
   const missingDevices = inspectionStore.inspectionDevices
     .filter((device: any) => !coveredDeviceIds.has(device.id))
@@ -419,14 +482,7 @@ function openAllCoverageModal() {
       typeLabel: '部件',
       ruleIds: component.ruleIds || []
     }))
-    const connections = (device.connectionObjects || []).map((connection: any) => ({
-      id: connection.id,
-      name: connection.name,
-      typeLabel: '连接',
-      ruleIds: connection.ruleIds || []
-    }))
-
-    ;[...components, ...connections].forEach((subject: any) => {
+    ;components.forEach((subject: any) => {
       const subjectConfigs = configs.filter((config: any) => config.subjectId === subject.id && config.enabled)
       const hasRule = subjectConfigs.some((config: any) => config.ruleId) || subject.ruleIds.length > 0
       if (!hasRule) {
@@ -456,12 +512,14 @@ function openAllCoverageModal() {
     name: '全部执行规划',
     planCount: enrichedPlans.length,
     regionCount: coveredRegionIds.size,
+    installationCount: coveredInstallations.size,
     facilityCount: coveredDeviceIds.size,
     missingRegions: missingRegions.slice(0, 12),
+    missingInstallations: missingInstallations.slice(0, 12),
     missingDevices: missingDevices.slice(0, 12),
     missingSubjects: missingSubjects.slice(0, 12),
     missingRules: missingRules.slice(0, 12),
-    hasMissingCoverage: missingRegions.length > 0 || missingDevices.length > 0 || missingSubjects.length > 0 || missingRules.length > 0
+    hasMissingCoverage: missingRegions.length > 0 || missingInstallations.length > 0 || missingDevices.length > 0 || missingSubjects.length > 0 || missingRules.length > 0
   }
   coverageVisible.value = true
 }
@@ -528,6 +586,48 @@ onMounted(() => {
 .inspection-plan-list :deep(.coverage-check-modal .ant-modal-body) {
   max-height: 78vh;
   overflow-y: auto;
+}
+.scene-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.scene-summary strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+}
+.scene-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fcfcfd, #f8fafc);
+}
+.scene-switch__item {
+  min-width: 108px;
+  padding: 9px 14px;
+  border: 1px solid #dbe2ea;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.scene-switch__item:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+.scene-switch__item--active {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+  box-shadow: 0 8px 16px -12px rgba(15, 118, 110, 0.9);
 }
 .coverage-card-grid :deep(.ant-card) {
   height: 100%;

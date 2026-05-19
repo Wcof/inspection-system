@@ -119,10 +119,10 @@ const filters = reactive({
 })
 
 const kpis = [
-  { label: '计划派生任务', value: '42', desc: '自动规划占 68%', status: 'ok' },
-  { label: '临时插单', value: '9', desc: '严重告警触发 3 次', status: 'warn' },
-  { label: '补检任务', value: '6', desc: '遮挡/未到达触发', status: 'warn' },
-  { label: '取消/并入', value: '5', desc: '低风险同区域合并', status: 'ok' }
+  { label: '作业票任务', value: '32', desc: '第三方下发 + 内部创建', status: 'ok' },
+  { label: '应急任务', value: '18', desc: '应急平均到场 4.2 分钟', status: 'warn' },
+  { label: '插单/补检', value: '27', desc: '插单 15，补检 12', status: 'warn' },
+  { label: '中断任务', value: '9', desc: '含替换机器人 6 次', status: 'ok' }
 ]
 
 const sceneRows = [
@@ -141,10 +141,10 @@ const actionColumns = [
 ]
 
 const actionRows = [
-  { action: '插单', reason: '甲烷浓度严重告警，需立即复检', risk: '严重告警', riskColor: 'red', impact: '2 个', result: '已执行' },
-  { action: '补检', reason: '压力表反光无法读取，不计覆盖', risk: '预警', riskColor: 'orange', impact: '1 个', result: '待执行' },
-  { action: '替换机器人', reason: '机器人-02 电量低于 25%', risk: '普通', riskColor: 'blue', impact: '1 个', result: '已替换' },
-  { action: '并入', reason: '同区域低风险设施可合并巡检', risk: '普通', riskColor: 'green', impact: '3 个', result: '已并入' }
+  { action: '作业票任务', reason: '作业票窗口触发，优先安排监护任务', risk: '预警', riskColor: 'orange', impact: '5 个', result: '已执行' },
+  { action: '应急插单', reason: '事故/异常快速到场', risk: '严重告警', riskColor: 'red', impact: '3 个', result: '立即出发' },
+  { action: '补检', reason: '反光/遮挡导致不可检，触发自动补检', risk: '普通', riskColor: 'blue', impact: '4 个', result: '已重排' },
+  { action: '替换机器人', reason: '电量不足或模块故障，调度替换机器人', risk: '普通', riskColor: 'green', impact: '2 个', result: '已替换' }
 ]
 
 const confirmColumns = [

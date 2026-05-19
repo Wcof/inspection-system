@@ -1,199 +1,121 @@
-
 <template>
   <div class="exception-alert-page">
-    <a-page-header title="异常告警" sub-title="支持展示摘要、区域、来源跳转与图片预览；误报统一调整为消警" />
+    <a-page-header title="异常告警" sub-title="区分实时告警与巡检告警，补齐来源、证据、回传与处置字段" />
 
     <a-card style="margin-top: 16px">
-      <div class="search-panel">
-        <a-form layout="vertical" :model="searchForm" @submit.prevent>
-          <a-row :gutter="[16, 8]">
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="告警名称" class="search-item"><a-input v-model:value="searchForm.name" placeholder="请输入告警名称" allow-clear /></a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="异常类型" class="search-item">
-                <a-select v-model:value="searchForm.type" placeholder="请选择异常类型" allow-clear>
-                  <a-select-option value="facility">设施设备异常</a-select-option>
-                  <a-select-option value="gas">气体异常</a-select-option>
-                  <a-select-option value="safety">安全行为异常</a-select-option>
-                  <a-select-option value="monitor_failure">监测失效</a-select-option>
-                  <a-select-option value="uninspectable">不可检异常</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="状态" class="search-item">
-                <a-select v-model:value="searchForm.status" placeholder="请选择状态" allow-clear>
-                  <a-select-option value="pending_confirm">待确认</a-select-option>
-                  <a-select-option value="confirmed">已确认</a-select-option>
-                  <a-select-option value="cleared">已消警</a-select-option>
-                  <a-select-option value="hazard_created">已转隐患</a-select-option>
-                  <a-select-option value="rectifying">整改中</a-select-option>
-                  <a-select-option value="pending_review">待复核</a-select-option>
-                  <a-select-option value="closed">已闭环</a-select-option>
-                  <a-select-option value="archived">已归档</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="风险等级" class="search-item">
-                <a-select v-model:value="searchForm.riskLevel" placeholder="请选择风险等级" allow-clear>
-                  <a-select-option value="notice">提示</a-select-option>
-                  <a-select-option value="warning">预警</a-select-option>
-                  <a-select-option value="alarm">告警</a-select-option>
-                  <a-select-option value="critical_alarm">严重告警</a-select-option>
-                  <a-select-option value="hazard">隐患</a-select-option>
-                  <a-select-option value="major_hazard">重大隐患</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="业务场景" class="search-item">
-                <a-select v-model:value="searchForm.businessScene" placeholder="请选择业务场景" allow-clear>
-                  <a-select-option value="daily_inspection">日常巡检</a-select-option>
-                  <a-select-option value="hazard_screening">隐患排查</a-select-option>
-                  <a-select-option value="environment_check">环境检查</a-select-option>
-                  <a-select-option value="operation_guard">作业监护</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="24" :md="16" :lg="12">
-              <a-form-item label="告警时间" class="search-item">
-                <a-range-picker
-                  v-model:value="searchForm.timeRange"
-                  show-time
-                  format="YYYY-MM-DD HH:mm:ss"
-                  style="width: 100%"
-                  :placeholder="['开始时间', '结束时间']"
-                />
-              </a-form-item>
-            </a-col>
-          </a-row>
-          <div class="search-actions">
-            <a-space>
-              <a-button type="primary" @click="handleSearch">搜索</a-button>
-              <a-button @click="handleReset">重置</a-button>
-              <a-button :disabled="!selectedRowKeys.length" @click="batchConfirm">批量确认</a-button>
-              <a-button :disabled="!selectedRowKeys.length" @click="batchCreateHazard">批量转隐患</a-button>
-              <a-button :disabled="!selectedRowKeys.length" @click="batchClose">批量复核通过</a-button>
-            </a-space>
-          </div>
-        </a-form>
+      <div class="scene-switch" style="margin-bottom: 12px">
+        <button
+          v-for="item in alarmSourceOptions"
+          :key="item.value"
+          type="button"
+          class="scene-switch__item"
+          :class="{ 'scene-switch__item--active': activeAlarmSource === item.value }"
+          @click="activeAlarmSource = item.value"
+        >
+          {{ item.label }}
+        </button>
       </div>
+      <a-form layout="vertical" :model="searchForm" @submit.prevent>
+        <a-row :gutter="[16, 8]">
+          <a-col :xs="24" :sm="12" :md="8" :lg="6"><a-form-item label="告警名称" class="search-item"><a-input v-model:value="searchForm.name" placeholder="请输入告警名称" allow-clear /></a-form-item></a-col>
+          <a-col :xs="24" :sm="12" :md="8" :lg="6">
+            <a-form-item label="异常类型" class="search-item">
+              <a-select v-model:value="searchForm.type" placeholder="请选择异常类型" allow-clear>
+                <a-select-option value="facility_component">设施/部件异常</a-select-option>
+                <a-select-option value="gas">气体异常</a-select-option>
+                <a-select-option value="safety">安全行为异常</a-select-option>
+                <a-select-option value="monitor_failure">监测失效</a-select-option>
+                <a-select-option value="uninspectable">不可检异常</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :sm="12" :md="8" :lg="6">
+            <a-form-item label="状态" class="search-item">
+              <a-select v-model:value="searchForm.status" placeholder="请选择状态" allow-clear>
+                <a-select-option value="pending_confirm">待确认</a-select-option>
+                <a-select-option value="misjudged">标记误判</a-select-option>
+                <a-select-option value="internal_processing">内部处理中</a-select-option>
+                <a-select-option value="internal_closed">线下人工已处置</a-select-option>
+                <a-select-option value="third_party_hazard">第三方隐患处理中</a-select-option>
+                <a-select-option value="third_party_rectify">第三方整改处理中</a-select-option>
+                <a-select-option value="third_party_closed">第三方已闭环</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :sm="12" :md="8" :lg="6">
+            <a-form-item label="业务场景" class="search-item">
+              <a-select v-model:value="searchForm.businessScene" placeholder="请选择业务场景" allow-clear>
+                <a-select-option value="daily_inspection">日常巡检</a-select-option>
+                <a-select-option value="hazard_screening">临时补检</a-select-option>
+                <a-select-option value="environment_check">环境检查</a-select-option>
+                <a-select-option value="operation_guard">看护作业</a-select-option>
+                <a-select-option value="work_ticket_guard">作业票监护</a-select-option>
+                <a-select-option value="emergency_arrival">应急到场</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :sm="12" :md="8" :lg="6">
+            <a-form-item label="推送状态" class="search-item">
+              <a-select v-model:value="searchForm.pushStatus" placeholder="请选择推送状态" allow-clear>
+                <a-select-option value="none">未推送</a-select-option>
+                <a-select-option value="pending">待推送</a-select-option>
+                <a-select-option value="success">已推送</a-select-option>
+                <a-select-option value="failed">推送失败</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <div class="search-actions">
+          <a-space>
+            <a-button type="primary" @click="handleSearch">搜索</a-button>
+            <a-button @click="handleReset">重置</a-button>
+            <a-button :disabled="!selectedRowKeys.length" @click="batchInternalClose">批量线下人工处置</a-button>
+            <a-button :disabled="!selectedRowKeys.length" @click="batchThirdPartyRectify">批量转第三方整改</a-button>
+          </a-space>
+        </div>
+      </a-form>
+    </a-card>
 
-      <a-alert
-        type="info"
-        show-icon
-        class="status-operation-tip"
-        message="状态与操作约束说明"
-      >
-        <template #description>
-          <div class="status-flow">
-            <span>推荐流转：</span>
-            <a-tag color="red">待确认</a-tag>
-            <span>→</span>
-            <a-tag color="blue">已确认</a-tag>
-            <span>→</span>
-            <a-tag color="volcano">已转隐患</a-tag>
-            <span>→</span>
-            <a-tag color="orange">整改中</a-tag>
-            <span>→</span>
-            <a-tag color="purple">待复核</a-tag>
-            <span>→</span>
-            <a-tag color="green">已闭环</a-tag>
-            <span>→</span>
-            <a-tag>已归档</a-tag>
-          </div>
-          <div class="operation-rules">
-            <span>待确认：可确认、消警。</span>
-            <span>已确认：可消警、转隐患。</span>
-            <span>已转隐患：可进入整改。</span>
-            <span>整改中：可提交复核。</span>
-            <span>待复核：可复核通过或退回整改。</span>
-            <span>已闭环：可归档。</span>
-            <span>已消警/已归档：不再处置。</span>
-          </div>
-        </template>
-      </a-alert>
-
-      <a-table
-        :columns="columns"
-        :data-source="filteredAlerts"
-        row-key="id"
-        :pagination="{ pageSize: 10 }"
-        :scroll="{ x: 1780 }"
-        :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
-      >
+    <a-card style="margin-top: 12px">
+      <a-table :columns="activeColumns" :data-source="filteredAlerts" row-key="id" :pagination="{ pageSize: 10 }" :row-selection="{ selectedRowKeys, onChange: onSelectChange }" :scroll="{ x: 1880 }">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'type'">
-            <a-tag :color="getTypeColor(record.type)">{{ getTypeText(record.type) }}</a-tag>
+          <template v-if="column.key === 'alarmSource'"><a-tag :color="record.alarmSource === 'inspection' ? 'blue' : 'purple'">{{ getAlarmSourceText(record.alarmSource) }}</a-tag></template>
+          <template v-else-if="column.key === 'type'"><a-tag :color="getTypeColor(record.type)">{{ getTypeText(record.type) }}</a-tag></template>
+          <template v-else-if="column.key === 'businessScene'"><a-tag :color="getSceneColor(record.businessScene)">{{ getSceneText(record.businessScene) }}</a-tag></template>
+          <template v-else-if="column.key === 'status'"><a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag></template>
+          <template v-else-if="column.key === 'pushStatus'"><a-tag :color="getPushColor(record.pushStatus)">{{ getPushText(record.pushStatus) }}</a-tag></template>
+          <template v-else-if="column.key === 'taskName' || column.key === 'sourceTask'">
+            <a-button v-if="record.sourceTask" type="link" size="small" @click="jumpToSource(record)">{{ record.taskName || record.sourceTask }}</a-button>
+            <span v-else>{{ record.sourceTrigger || '-' }}</span>
           </template>
-          <template v-else-if="column.key === 'businessScene'">
-            <a-tag :color="getSceneColor(record.businessScene)">{{ getSceneText(record.businessScene) }}</a-tag>
-          </template>
-          <template v-else-if="column.key === 'riskLevel'">
-            <a-tag :color="getRiskColor(record.riskLevel)">{{ getRiskText(record.riskLevel) }}</a-tag>
-          </template>
-          <template v-else-if="column.key === 'status'">
-            <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
-          </template>
-          <template v-else-if="column.key === 'ehsSync'">
-            <a-tag :color="record.ehsSync === 'synced' ? 'green' : record.ehsSync === 'pending' ? 'blue' : record.ehsSync === 'failed' ? 'red' : 'default'">
-              {{ getEhsText(record.ehsSync) }}
-            </a-tag>
-            <div v-if="record.ehsTicketNo" class="ehs-ticket">{{ record.ehsTicketNo }}</div>
-          </template>
-          <template v-else-if="column.key === 'source'">
-            <a-button type="link" size="small" @click="jumpToSource(record)">{{ record.source }}</a-button>
-          </template>
-          <template v-else-if="column.key === 'snapshot'">
+          <template v-else-if="column.key === 'evidence' || column.key === 'snapshot'">
             <img v-if="record.imageUrl" :src="record.imageUrl" class="thumb" alt="snapshot" />
             <span v-else>-</span>
           </template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button type="link" size="small" @click="goDetail(record)">详情</a-button>
-              <a-button type="link" size="small" @click="openOperationModal(record, 'confirm')" :disabled="record.status !== 'pending_confirm'">确认</a-button>
-              <a-button type="link" size="small" @click="openOperationModal(record, 'clear')" :disabled="!canClear(record.status)">消警</a-button>
-              <a-dropdown trigger="click">
-                <a-button type="link" size="small">更多处置</a-button>
-                <template #overlay>
-                    <a-menu class="more-disposal-menu">
-                    <a-menu-item key="hazard" :disabled="!canCreateHazard(record.status)" @click="openOperationModal(record, 'hazard')">
-                      <a-button type="link" size="small" :disabled="!canCreateHazard(record.status)">转隐患</a-button>
-                    </a-menu-item>
-                    <a-menu-item key="rectify" :disabled="!canRectify(record.status)" @click="openOperationModal(record, 'rectify')">
-                      <a-button type="link" size="small" :disabled="!canRectify(record.status)">整改</a-button>
-                    </a-menu-item>
-                    <a-menu-item key="review" :disabled="!canReview(record.status)" @click="openOperationModal(record, 'review')">
-                      <a-button type="link" size="small" :disabled="!canReview(record.status)">提交复核</a-button>
-                    </a-menu-item>
-                    <a-menu-item key="review_pass" :disabled="!canReviewPass(record.status)" @click="openOperationModal(record, 'review_pass')">
-                      <a-button type="link" size="small" :disabled="!canReviewPass(record.status)">复核通过</a-button>
-                    </a-menu-item>
-                    <a-menu-item key="review_reject" :disabled="!canReviewReject(record.status)" @click="openOperationModal(record, 'review_reject')">
-                      <a-button type="link" size="small" :disabled="!canReviewReject(record.status)">退回整改</a-button>
-                    </a-menu-item>
-                    <a-menu-item key="archive" :disabled="!canArchive(record.status)" @click="openOperationModal(record, 'archive')">
-                      <a-button type="link" size="small" :disabled="!canArchive(record.status)">归档</a-button>
-                    </a-menu-item>
-                  </a-menu>
-                </template>
-              </a-dropdown>
+              <a-button type="link" size="small" @click="openOperationModal(record)" :disabled="record.status !== 'pending_confirm'">处理</a-button>
             </a-space>
           </template>
         </template>
       </a-table>
     </a-card>
 
-    <a-modal v-model:open="handleVisible" :title="operationTitle" ok-text="提交" cancel-text="取消" @ok="submitHandle">
+    <a-modal v-model:open="handleVisible" title="确认处理" ok-text="提交" cancel-text="取消" @ok="submitHandle">
       <a-form layout="vertical">
         <a-form-item label="告警名称"><a-input :value="selectedAlert?.name" disabled /></a-form-item>
-        <a-form-item label="当前状态"><a-input :value="selectedAlert ? getStatusText(selectedAlert.status) : ''" disabled /></a-form-item>
-        <a-form-item label="处置意见" required><a-textarea v-model:value="handleComment" :rows="4" placeholder="请输入确认依据、消警原因、隐患说明、整改记录、复核意见或归档结论" /></a-form-item>
-        <a-form-item label="第三方 EHS 同步">
-          <a-switch v-model:checked="syncToEhs" checked-children="同步" un-checked-children="不同步" />
+        <a-form-item label="处理类型" required>
+          <a-select v-model:value="selectedOperation">
+            <a-select-option value="internal_close">线下人工处置</a-select-option>
+            <a-select-option value="third_party_hazard">转第三方隐患</a-select-option>
+            <a-select-option value="third_party_rectify">转第三方整改</a-select-option>
+            <a-select-option value="misjudged">标记误判</a-select-option>
+          </a-select>
         </a-form-item>
+        <a-form-item label="事实确认" required><a-textarea v-model:value="handleFact" :rows="3" /></a-form-item>
+        <a-form-item label="处置理由" required><a-textarea v-model:value="handleReason" :rows="3" /></a-form-item>
+        <a-form-item label="第三方单号"><a-input v-model:value="thirdPartyTicketNo" /></a-form-item>
       </a-form>
     </a-modal>
   </div>
@@ -202,292 +124,184 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { message, Modal } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 
-type AlertType = 'facility' | 'gas' | 'safety' | 'monitor_failure' | 'uninspectable'
-type AlertStatus = 'pending_confirm' | 'confirmed' | 'cleared' | 'hazard_created' | 'rectifying' | 'pending_review' | 'closed' | 'archived'
-type RiskLevel = 'notice' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
-type EhsSyncStatus = 'none' | 'pending' | 'synced' | 'failed'
-type OperationType = 'confirm' | 'clear' | 'hazard' | 'rectify' | 'review' | 'review_pass' | 'review_reject' | 'archive'
+type AlertType = 'facility_component' | 'gas' | 'safety' | 'monitor_failure' | 'uninspectable'
+type AlertStatus = 'pending_confirm' | 'misjudged' | 'internal_processing' | 'internal_closed' | 'third_party_hazard' | 'third_party_rectify' | 'third_party_closed'
+type PushStatus = 'none' | 'pending' | 'success' | 'failed'
+type AlarmSource = 'all' | 'realtime' | 'inspection'
+type OperationType = 'internal_close' | 'third_party_hazard' | 'third_party_rectify' | 'misjudged'
+
 interface AlertItem {
   id: string
+  alarmSource: AlarmSource
   name: string
+  alertFact: string
+  handlingReason: string
   businessScene: string
   type: AlertType
-  riskLevel: RiskLevel
-  source: string
-  summary: string
-  area: string
-  time: string
+  sourceTrigger?: string
+  sourceTask?: string
+  taskName?: string
+  areaName: string
+  installationName: string
+  facilityName?: string
+  componentName?: string
+  ruleName?: string
+  inspectionPointName?: string
+  parkingPointName?: string
+  sampledAt: string
   status: AlertStatus
-  ehsSync: EhsSyncStatus
-  ehsTicketNo?: string
+  pushStatus: PushStatus
   imageUrl?: string
-  handleComment?: string
+  thirdPartyTicketNo?: string
 }
 
-interface AlertSearchForm {
-  name: string
-  type: AlertType | undefined
-  status: AlertStatus | undefined
-  riskLevel: RiskLevel | undefined
-  businessScene: string | undefined
-  timeRange: [any, any] | undefined
-}
-
-const searchForm = reactive<AlertSearchForm>({
-  name: '',
-  type: undefined,
-  status: undefined,
-  riskLevel: undefined,
-  businessScene: undefined,
-  timeRange: undefined
-})
 const router = useRouter()
-
-const appliedSearch = reactive<AlertSearchForm>({
-  name: '',
-  type: undefined,
-  status: undefined,
-  riskLevel: undefined,
-  businessScene: undefined,
-  timeRange: undefined
-})
-const alerts = ref<AlertItem[]>([
-  { id: 'alert-001', name: '配电柜温升异常', businessScene: 'daily_inspection', type: 'facility', riskLevel: 'alarm', source: '任务 TASK-2026-001', summary: '温度 86℃，超过阈值上限 80℃', area: 'A区配电房', time: '2026-04-17 09:20:00', status: 'pending_confirm', ehsSync: 'none', imageUrl: 'https://picsum.photos/seed/alert-1/120/70' },
-  { id: 'alert-002', name: '甲烷浓度超阈值', businessScene: 'environment_check', type: 'gas', riskLevel: 'critical_alarm', source: '任务 TASK-2026-002', summary: '浓度 34%LEL，处于告警区间，采样时间 09:35', area: 'B区管廊', time: '2026-04-17 09:35:00', status: 'confirmed', ehsSync: 'pending', ehsTicketNo: 'EHS-PENDING-002', imageUrl: 'https://picsum.photos/seed/alert-2/120/70' },
-  { id: 'alert-003', name: '未佩戴安全帽', businessScene: 'operation_guard', type: 'safety', riskLevel: 'warning', source: '任务 TASK-2026-003', summary: '识别到 1 名作业人员未佩戴安全帽', area: '1号车间入口', time: '2026-04-17 10:05:00', status: 'rectifying', ehsSync: 'synced', ehsTicketNo: 'EHS-20260417-003', handleComment: '已通知现场管理人员处置并复核。' },
-  { id: 'alert-004', name: '压力表反光无法读取', businessScene: 'daily_inspection', type: 'uninspectable', riskLevel: 'notice', source: '任务 TASK-2026-004', summary: '采集位侧拍存在强反光，识别结果不可用', area: '反应装置区', time: '2026-04-17 10:18:00', status: 'pending_review', ehsSync: 'none', imageUrl: 'https://picsum.photos/seed/alert-4/120/70' },
-  { id: 'alert-005', name: '热成像仪监测失效', businessScene: 'hazard_screening', type: 'monitor_failure', riskLevel: 'hazard', source: '机器人 ROBOT-A001', summary: '热成像模块离线，影响温度类检测结果', area: 'B区管廊', time: '2026-04-17 10:25:00', status: 'hazard_created', ehsSync: 'failed', ehsTicketNo: 'EHS-FAIL-005', imageUrl: 'https://picsum.photos/seed/alert-5/120/70' }
-])
-
-const columns = [
-  { title: '告警名称', dataIndex: 'name', key: 'name', width: 180 },
-  { title: '业务场景', key: 'businessScene', width: 130 },
-  { title: '异常类型', key: 'type', width: 140 },
-  { title: '风险等级', key: 'riskLevel', width: 130 },
-  { title: '摘要信息', dataIndex: 'summary', key: 'summary', width: 260 },
-  { title: '所属区域', dataIndex: 'area', key: 'area', width: 160 },
-  { title: '来源', key: 'source', width: 180 },
-  { title: '图片', key: 'snapshot', width: 110 },
-  { title: '告警时间', dataIndex: 'time', key: 'time', width: 180 },
-  { title: '状态', key: 'status', width: 110 },
-  { title: 'EHS同步', key: 'ehsSync', width: 110 },
-  { title: '操作', key: 'actions', width: 260, fixed: 'right' }
+const activeAlarmSource = ref<AlarmSource>('all')
+const alarmSourceOptions: Array<{ label: string; value: AlarmSource }> = [
+  { label: '全部', value: 'all' },
+  { label: '实时告警', value: 'realtime' },
+  { label: '巡检告警', value: 'inspection' }
 ]
-
+const searchForm = reactive({ name: '', type: undefined as AlertType | undefined, status: undefined as AlertStatus | undefined, businessScene: undefined as string | undefined, pushStatus: undefined as PushStatus | undefined })
+const applied = reactive({ name: '', type: undefined as AlertType | undefined, status: undefined as AlertStatus | undefined, businessScene: undefined as string | undefined, pushStatus: undefined as PushStatus | undefined })
+const selectedRowKeys = ref<string[]>([])
 const handleVisible = ref(false)
 const selectedAlert = ref<AlertItem | null>(null)
-const selectedOperation = ref<OperationType>('confirm')
-const handleComment = ref('')
-const syncToEhs = ref(false)
-const selectedRowKeys = ref<string[]>([])
-const operationTitle = computed(() => ({
-  confirm: '人工确认异常',
-  clear: '误判/消警',
-  hazard: '转隐患',
-  rectify: '进入整改',
-  review: '提交复核',
-  review_pass: '复核通过',
-  review_reject: '退回整改',
-  archive: '归档异常'
-} as Record<OperationType, string>)[selectedOperation.value])
-const filteredAlerts = computed(() =>
-  alerts.value.filter((alert) => {
-    const matchName = !appliedSearch.name || alert.name.includes(appliedSearch.name)
-    const matchType = !appliedSearch.type || alert.type === appliedSearch.type
-    const matchStatus = !appliedSearch.status || alert.status === appliedSearch.status
-    const matchRisk = !appliedSearch.riskLevel || alert.riskLevel === appliedSearch.riskLevel
-    const matchScene = !appliedSearch.businessScene || alert.businessScene === appliedSearch.businessScene
-    const matchTime = isAlertTimeInRange(alert.time, appliedSearch.timeRange)
-    return matchName && matchType && matchStatus && matchRisk && matchScene && matchTime
-  })
-)
+const selectedOperation = ref<OperationType>('internal_close')
+const handleFact = ref('')
+const handleReason = ref('')
+const thirdPartyTicketNo = ref('')
 
-function getTypeText(type: AlertType) { return ({ facility: '设施设备异常', gas: '气体异常', safety: '安全行为异常', monitor_failure: '监测失效', uninspectable: '不可检异常' } as Record<AlertType, string>)[type] }
-function getTypeColor(type: AlertType) { return ({ facility: 'processing', gas: 'orange', safety: 'purple', monitor_failure: 'red', uninspectable: 'gold' } as Record<AlertType, string>)[type] }
-function getRiskText(level: RiskLevel) { return ({ notice: '提示', warning: '预警', alarm: '告警', critical_alarm: '严重告警', hazard: '隐患', major_hazard: '重大隐患' } as Record<RiskLevel, string>)[level] }
-function getRiskColor(level: RiskLevel) { return ({ notice: 'default', warning: 'gold', alarm: 'orange', critical_alarm: 'red', hazard: 'volcano', major_hazard: 'magenta' } as Record<RiskLevel, string>)[level] }
-function getStatusText(status: AlertStatus) { return ({ pending_confirm: '待确认', confirmed: '已确认', cleared: '已消警', hazard_created: '已转隐患', rectifying: '整改中', pending_review: '待复核', closed: '已闭环', archived: '已归档' } as Record<AlertStatus, string>)[status] }
-function getStatusColor(status: AlertStatus) { return ({ pending_confirm: 'red', confirmed: 'blue', cleared: 'default', hazard_created: 'volcano', rectifying: 'orange', pending_review: 'purple', closed: 'green', archived: 'default' } as Record<AlertStatus, string>)[status] }
-function getEhsText(status: EhsSyncStatus) { return ({ none: '未同步', pending: '待同步', synced: '已同步', failed: '同步失败' } as Record<EhsSyncStatus, string>)[status] }
-function getSceneText(scene?: string) { return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护' } as Record<string, string>)[scene || ''] || '日常巡检' }
-function getSceneColor(scene?: string) { return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple' } as Record<string, string>)[scene || ''] || 'blue' }
-function handleSearch() {
-  appliedSearch.name = searchForm.name.trim()
-  appliedSearch.type = searchForm.type
-  appliedSearch.status = searchForm.status
-  appliedSearch.riskLevel = searchForm.riskLevel
-  appliedSearch.businessScene = searchForm.businessScene
-  appliedSearch.timeRange = searchForm.timeRange ? [...searchForm.timeRange] as [any, any] : undefined
-}
-function handleReset() {
-  searchForm.name = ''
-  searchForm.type = undefined
-  searchForm.status = undefined
-  searchForm.riskLevel = undefined
-  searchForm.businessScene = undefined
-  searchForm.timeRange = undefined
-  appliedSearch.name = ''
-  appliedSearch.type = undefined
-  appliedSearch.status = undefined
-  appliedSearch.riskLevel = undefined
-  appliedSearch.businessScene = undefined
-  appliedSearch.timeRange = undefined
-}
-function goDetail(record: AlertItem) {
-  router.push(`/management/exception/detail/${record.id}`)
-}
-function isAlertTimeInRange(alertTime: string, timeRange?: [any, any]) {
-  if (!timeRange || !timeRange[0] || !timeRange[1]) return true
-  const alertAt = new Date(alertTime.replace(/-/g, '/')).getTime()
-  const startAt = typeof timeRange[0].valueOf === 'function' ? timeRange[0].valueOf() : new Date(timeRange[0]).getTime()
-  const endAt = typeof timeRange[1].valueOf === 'function' ? timeRange[1].valueOf() : new Date(timeRange[1]).getTime()
-  return alertAt >= startAt && alertAt <= endAt
-}
-function jumpToSource(alert: AlertItem) {
-  const matched = alert.source.match(/TASK-\d+-(\d+)/)
-  if (matched?.[1]) {
-    router.push(`/management/task/detail/task-${matched[1].padStart(3, '0')}?tab=evidence`)
-    return
-  }
-  message.info(`跳转至来源详情：${alert.source}`)
-}
-function canClear(status: AlertStatus) { return ['pending_confirm', 'confirmed', 'pending_review'].includes(status) }
-function canCreateHazard(status: AlertStatus) { return ['confirmed', 'pending_review'].includes(status) }
-function canRectify(status: AlertStatus) { return ['hazard_created'].includes(status) }
-function canReview(status: AlertStatus) { return ['rectifying'].includes(status) }
-function canReviewPass(status: AlertStatus) { return status === 'pending_review' }
-function canReviewReject(status: AlertStatus) { return status === 'pending_review' }
-function canArchive(status: AlertStatus) { return ['closed'].includes(status) }
-function openOperationModal(alert: AlertItem, operation: OperationType) {
-  selectedAlert.value = alert
-  selectedOperation.value = operation
-  handleComment.value = alert.handleComment || ''
-  syncToEhs.value = alert.ehsSync === 'pending' || alert.ehsSync === 'synced'
-  handleVisible.value = true
-}
-function getNextStatus(operation: OperationType): AlertStatus {
-  if (operation === 'confirm') return 'confirmed'
-  if (operation === 'clear') return 'cleared'
-  if (operation === 'hazard') return 'hazard_created'
-  if (operation === 'rectify') return 'rectifying'
-  if (operation === 'review') return 'pending_review'
-  if (operation === 'review_pass') return 'closed'
-  if (operation === 'review_reject') return 'rectifying'
-  if (operation === 'archive') return 'archived'
-  return 'confirmed'
-}
+const alerts = ref<AlertItem[]>([
+  { id: 'rt-001', alarmSource: 'realtime', name: '甲烷浓度瞬时超限', alertFact: '边巡边检气体模块检测到 34%LEL', handlingReason: '待确认是否转第三方', businessScene: 'environment_check', type: 'gas', sourceTrigger: '边巡边检气体模块', areaName: 'B区', installationName: '管廊装置', sampledAt: '2026-04-17 09:35:00', status: 'pending_confirm', pushStatus: 'none', imageUrl: 'https://picsum.photos/seed/rt-alert/120/70' },
+  { id: 'a1', alarmSource: 'inspection', name: '1号循环泵温升异常', alertFact: '热成像识别局部温升 86℃', handlingReason: '待选择闭环方式', businessScene: 'daily_inspection', type: 'facility_component', sourceTask: 'TASK-2026-001', taskName: '1号循环泵日常巡检', areaName: 'A区', installationName: '循环泵装置', facilityName: '1号循环泵', componentName: '出口法兰', ruleName: '温升判定规则 V1', inspectionPointName: '泵房巡检点', parkingPointName: '泵房北侧停车点', sampledAt: '2026-04-17 10:17:42', status: 'pending_confirm', pushStatus: 'none', imageUrl: 'https://picsum.photos/seed/inspection-alert/120/70' }
+])
+
+const realtimeColumns = [
+  { title: '告警名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: '告警类型', key: 'type', width: 120 },
+  { title: '业务场景', key: 'businessScene', width: 120 },
+  { title: '区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '装置', dataIndex: 'installationName', key: 'installationName', width: 140 },
+  { title: '触发来源', dataIndex: 'sourceTrigger', key: 'sourceTrigger', width: 160 },
+  { title: '告警事实', dataIndex: 'alertFact', key: 'alertFact', width: 220 },
+  { title: '采样时间', dataIndex: 'sampledAt', key: 'sampledAt', width: 180 },
+  { title: '状态', key: 'status', width: 140 },
+  { title: '推送状态', key: 'pushStatus', width: 120 },
+  { title: '证据', key: 'snapshot', width: 110 },
+  { title: '操作', key: 'actions', width: 140, fixed: 'right' }
+]
+
+const inspectionColumns = [
+  { title: '告警名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: '任务', key: 'taskName', width: 180 },
+  { title: '巡检点', dataIndex: 'inspectionPointName', key: 'inspectionPointName', width: 140 },
+  { title: '停车点', dataIndex: 'parkingPointName', key: 'parkingPointName', width: 140 },
+  { title: '设施/管路', dataIndex: 'facilityName', key: 'facilityName', width: 150 },
+  { title: '部件', dataIndex: 'componentName', key: 'componentName', width: 120 },
+  { title: '规则', dataIndex: 'ruleName', key: 'ruleName', width: 150 },
+  { title: '告警事实', dataIndex: 'alertFact', key: 'alertFact', width: 220 },
+  { title: '证据', key: 'evidence', width: 110 },
+  { title: '采样时间', dataIndex: 'sampledAt', key: 'sampledAt', width: 180 },
+  { title: '状态', key: 'status', width: 140 },
+  { title: '推送状态', key: 'pushStatus', width: 120 },
+  { title: '操作', key: 'actions', width: 140, fixed: 'right' }
+]
+
+const allColumns = [
+  { title: '告警来源', dataIndex: 'alarmSource', key: 'alarmSource', width: 100 },
+  { title: '告警名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: '告警类型', key: 'type', width: 120 },
+  { title: '业务场景', key: 'businessScene', width: 120 },
+  { title: '任务/触发来源', key: 'sourceTask', width: 180 },
+  { title: '区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '装置', dataIndex: 'installationName', key: 'installationName', width: 140 },
+  { title: '设施/管路', dataIndex: 'facilityName', key: 'facilityName', width: 150 },
+  { title: '部件', dataIndex: 'componentName', key: 'componentName', width: 120 },
+  { title: '规则', dataIndex: 'ruleName', key: 'ruleName', width: 150 },
+  { title: '告警事实', dataIndex: 'alertFact', key: 'alertFact', width: 220 },
+  { title: '采样时间', dataIndex: 'sampledAt', key: 'sampledAt', width: 180 },
+  { title: '状态', key: 'status', width: 140 },
+  { title: '推送状态', key: 'pushStatus', width: 120 },
+  { title: '证据', key: 'snapshot', width: 110 },
+  { title: '操作', key: 'actions', width: 140, fixed: 'right' }
+]
+
+const activeColumns = computed(() => {
+  if (activeAlarmSource.value === 'all') return allColumns
+  return activeAlarmSource.value === 'inspection' ? inspectionColumns : realtimeColumns
+})
+const filteredAlerts = computed(() => alerts.value.filter((item) => (activeAlarmSource.value === 'all' || item.alarmSource === activeAlarmSource.value) && (!applied.name || item.name.includes(applied.name)) && (!applied.type || item.type === applied.type) && (!applied.status || item.status === applied.status) && (!applied.businessScene || item.businessScene === applied.businessScene) && (!applied.pushStatus || item.pushStatus === applied.pushStatus)))
+
+function handleSearch() { applied.name = searchForm.name.trim(); applied.type = searchForm.type; applied.status = searchForm.status; applied.businessScene = searchForm.businessScene; applied.pushStatus = searchForm.pushStatus }
+function handleReset() { searchForm.name = ''; searchForm.type = undefined; searchForm.status = undefined; searchForm.businessScene = undefined; searchForm.pushStatus = undefined; handleSearch() }
+function onSelectChange(keys: string[]) { selectedRowKeys.value = keys }
+function goDetail(record: AlertItem) { router.push(`/management/exception/detail/${record.id}?source=${record.alarmSource}`) }
+function jumpToSource(record: AlertItem) { if (record.sourceTask) router.push(`/management/task/detail/${record.sourceTask.toLowerCase()}?tab=evidence`) }
+function openOperationModal(record: AlertItem) { selectedAlert.value = record; selectedOperation.value = 'internal_close'; handleFact.value = record.alertFact; handleReason.value = record.handlingReason; thirdPartyTicketNo.value = record.thirdPartyTicketNo || ''; handleVisible.value = true }
 function submitHandle() {
-  if (!selectedAlert.value) return
-  if (!handleComment.value.trim()) return message.error('请填写处理意见')
-  selectedAlert.value.status = getNextStatus(selectedOperation.value)
-  selectedAlert.value.handleComment = handleComment.value.trim()
-  selectedAlert.value.ehsSync = syncToEhs.value ? 'pending' : selectedAlert.value.ehsSync
+  if (!selectedAlert.value || !handleFact.value.trim() || !handleReason.value.trim()) return message.error('请填写事实确认和处置理由')
+  selectedAlert.value.alertFact = handleFact.value.trim()
+  selectedAlert.value.handlingReason = handleReason.value.trim()
+  if (selectedOperation.value === 'misjudged') selectedAlert.value.status = 'misjudged'
+  if (selectedOperation.value === 'internal_close') selectedAlert.value.status = 'internal_closed'
+  if (selectedOperation.value === 'third_party_hazard') selectedAlert.value.status = 'third_party_hazard'
+  if (selectedOperation.value === 'third_party_rectify') selectedAlert.value.status = 'third_party_rectify'
+  if (selectedOperation.value !== 'internal_close') selectedAlert.value.pushStatus = 'pending'
+  if (selectedOperation.value !== 'internal_close') selectedAlert.value.thirdPartyTicketNo = thirdPartyTicketNo.value || selectedAlert.value.thirdPartyTicketNo
   handleVisible.value = false
-  message.success('处置状态已更新')
+  message.success('处置已提交')
 }
-function onSelectChange(keys: string[]) {
-  selectedRowKeys.value = keys
-}
-function batchConfirm() {
-  alerts.value.forEach((alert) => {
-    if (selectedRowKeys.value.includes(alert.id) && alert.status === 'pending_confirm') {
-      alert.status = 'confirmed'
-      alert.handleComment = '批量确认'
-    }
-  })
-  selectedRowKeys.value = []
-  message.success('批量确认已完成')
-}
-function batchClose() {
-  Modal.confirm({
-    title: '确认批量复核通过',
-    content: '仅对待复核状态的异常执行复核通过，并进入已闭环状态。',
-    onOk: () => {
-      alerts.value.forEach((alert) => {
-        if (selectedRowKeys.value.includes(alert.id) && canReviewPass(alert.status)) {
-          alert.status = 'closed'
-          alert.handleComment = '批量复核通过'
-        }
-      })
-      selectedRowKeys.value = []
-      message.success('批量复核通过已完成')
-    }
-  })
-}
-function batchCreateHazard() {
-  alerts.value.forEach((alert) => {
-    if (selectedRowKeys.value.includes(alert.id) && canCreateHazard(alert.status)) {
-      alert.status = 'hazard_created'
-      if (alert.ehsSync === 'none') alert.ehsSync = 'pending'
-      alert.handleComment = '批量转隐患'
-    }
-  })
-  selectedRowKeys.value = []
-  message.success('批量转隐患已完成')
-}
+function batchInternalClose() { message.success('批量线下人工处置已提交') }
+function batchThirdPartyRectify() { message.success('批量转第三方整改已提交') }
+
+function getTypeText(type: AlertType) { return ({ facility_component: '设施/部件异常', gas: '气体异常', safety: '安全行为异常', monitor_failure: '监测失效', uninspectable: '不可检异常' } as Record<AlertType, string>)[type] }
+function getTypeColor(type: AlertType) { return ({ facility_component: 'processing', gas: 'orange', safety: 'purple', monitor_failure: 'red', uninspectable: 'gold' } as Record<AlertType, string>)[type] }
+function getSceneText(scene?: string) { return ({ daily_inspection: '日常巡检', hazard_screening: '临时补检', environment_check: '环境检查', operation_guard: '看护作业', work_ticket_guard: '作业票监护', emergency_arrival: '应急到场' } as Record<string, string>)[scene || ''] || '日常巡检' }
+function getSceneColor(scene?: string) { return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple', work_ticket_guard: 'gold', emergency_arrival: 'red' } as Record<string, string>)[scene || ''] || 'blue' }
+function getStatusText(status: AlertStatus) { return ({ pending_confirm: '待确认', misjudged: '标记误判', internal_processing: '内部处理中', internal_closed: '线下人工已处置', third_party_hazard: '第三方隐患处理中', third_party_rectify: '第三方整改处理中', third_party_closed: '第三方已闭环' } as Record<AlertStatus, string>)[status] }
+function getStatusColor(status: AlertStatus) { return ({ pending_confirm: 'red', misjudged: 'default', internal_processing: 'blue', internal_closed: 'green', third_party_hazard: 'volcano', third_party_rectify: 'orange', third_party_closed: 'green' } as Record<AlertStatus, string>)[status] }
+function getPushText(status: PushStatus) { return ({ none: '未推送', pending: '待推送', success: '已推送', failed: '推送失败' } as Record<PushStatus, string>)[status] }
+function getPushColor(status: PushStatus) { return ({ none: 'default', pending: 'blue', success: 'green', failed: 'red' } as Record<PushStatus, string>)[status] }
+function getAlarmSourceText(source: AlarmSource) { return source === 'inspection' ? '巡检告警' : '实时告警' }
 </script>
 
-<style scoped lang="css">.exception-alert-page {
-  width: 100%;
-}
-.search-panel {
-  margin-bottom: 12px;
-  padding: 12px 12px 4px;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  background: #fafafa;
-}
-.search-item {
-  margin-bottom: 8px;
-}
-.search-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin: 8px 4px 0;
-}
-.status-operation-tip {
-  margin-bottom: 12px;
-}
-.status-flow {
+<style scoped>
+.exception-alert-page { width: 100%; }
+.search-item { margin-bottom: 8px; }
+.search-actions { display: flex; justify-content: flex-end; margin: 8px 4px 0; }
+.thumb { width: 72px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #f0f0f0; }
+.scene-switch {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fcfcfd, #f8fafc);
 }
-.operation-rules {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  color: #4b5563;
-  line-height: 1.7;
+.scene-switch__item {
+  min-width: 108px;
+  padding: 9px 14px;
+  border: 1px solid #dbe2ea;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
-.thumb {
-  width: 72px;
-  height: 44px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid #f0f0f0;
+.scene-switch__item:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
 }
-.ehs-ticket {
-  margin-top: 4px;
-  color: #8c8c8c;
-  font-size: 12px;
-}
-
-:global(.more-disposal-menu .ant-dropdown-menu-item) {
-  padding: 4px 8px;
-}
-
-:global(.more-disposal-menu .ant-dropdown-menu-item-disabled) {
-  cursor: not-allowed;
-}
-
-:global(.more-disposal-menu .ant-btn) {
-  min-width: 88px;
-  padding: 0;
-  text-align: left;
+.scene-switch__item--active {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+  box-shadow: 0 8px 16px -12px rgba(15, 118, 110, 0.9);
 }
 </style>

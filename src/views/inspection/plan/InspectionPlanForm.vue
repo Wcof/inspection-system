@@ -33,6 +33,8 @@
                 <a-select-option value="hazard_screening">隐患排查</a-select-option>
                 <a-select-option value="environment_check">环境检查</a-select-option>
                 <a-select-option value="operation_guard">作业监护</a-select-option>
+                <a-select-option value="work_ticket_guard">作业票监护</a-select-option>
+                <a-select-option value="emergency_arrival">应急到场</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
@@ -87,13 +89,32 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
+            <a-form-item label="巡检装置" required>
+              <a-select
+                v-model:value="form.installationIds"
+                mode="multiple"
+                placeholder="请先选择巡检区域，再选择装置"
+                :max-tag-count="6"
+                :disabled="!form.regionIds.length"
+                @change="handleInstallationChange"
+              >
+                <a-select-option v-for="installation in installationOptions" :key="installation.id" :value="installation.id">
+                  {{ installation.name }}
+                </a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="16">
+          <a-col :span="12">
             <a-form-item label="巡检设施" required>
               <a-select
                 v-model:value="form.facilityIds"
                 mode="multiple"
-                placeholder="请先选择巡检区域，再选择设施"
+                placeholder="请先选择区域和装置，再选择设施/管路"
                 :max-tag-count="6"
-                :disabled="!form.regionIds.length"
+                :disabled="!form.regionIds.length || !form.installationIds.length"
               >
                 <a-select-option v-for="facility in facilityOptions" :key="facility.id" :value="facility.id">
                   {{ facility.name }}
@@ -117,10 +138,11 @@
         </a-row>
 
         <a-card size="small" title="计划覆盖预览" style="margin-bottom: 16px">
-          <a-descriptions :column="4" size="small" bordered>
+          <a-descriptions :column="5" size="small" bordered>
             <a-descriptions-item label="巡检区域">{{ coverageSummary.regionCount }}</a-descriptions-item>
+            <a-descriptions-item label="巡检装置">{{ coverageSummary.installationCount }}</a-descriptions-item>
             <a-descriptions-item label="巡检设施数">{{ coverageSummary.facilityCount }}</a-descriptions-item>
-            <a-descriptions-item label="巡检部件/连接数">{{ coverageSummary.componentConnectionCount }}</a-descriptions-item>
+            <a-descriptions-item label="巡检部件数">{{ coverageSummary.componentCount }}</a-descriptions-item>
             <a-descriptions-item label="巡检规则数">{{ coverageSummary.ruleCount }}</a-descriptions-item>
           </a-descriptions>
         </a-card>
@@ -160,6 +182,7 @@ const form = reactive<any>({
   riskLevel: 'normal',
   status: 'active',
   regionIds: [],
+  installationIds: [],
   facilityIds: [],
   inspectionPointIds: [],
   inspectionTimeStart: '08:00',
@@ -176,22 +199,35 @@ const regionOptions = computed(() => {
 })
 
 const selectedPoints = computed(() => inspectionStore.inspectionPoints.filter((point: any) => form.regionIds.includes(point.areaId)))
-const facilityOptions = computed(() => inspectionStore.inspectionDevices.filter((device: any) => form.regionIds.includes(device.areaId)))
+const installationOptions = computed(() => {
+  const map = new Map<string, string>()
+  inspectionStore.inspectionDevices
+    .filter((device: any) => form.regionIds.includes(device.areaId))
+    .forEach((device: any) => {
+      if (device.installationId && device.installationName) map.set(device.installationId, device.installationName)
+    })
+  return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+})
+const facilityOptions = computed(() => inspectionStore.inspectionDevices.filter((device: any) => {
+  const inRegion = form.regionIds.includes(device.areaId)
+  const inInstallation = !form.installationIds.length || form.installationIds.includes(device.installationId)
+  return inRegion && inInstallation
+}))
 const selectedFacilities = computed(() => facilityOptions.value.filter((device: any) => form.facilityIds.includes(device.id)))
 const coverageSummary = computed(() => {
   const ruleIds = new Set<string>()
-  const componentConnectionCount = selectedFacilities.value.reduce((sum: number, device: any) => {
+  const componentCount = selectedFacilities.value.reduce((sum: number, device: any) => {
     ;(device.objectDetectionConfigs || []).forEach((config: any) => {
       if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
     })
     ;(device.assetComponents || []).forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
-    ;(device.connectionObjects || []).forEach((connection: any) => (connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
-    return sum + (device.assetComponents?.length || 0) + (device.connectionObjects?.length || 0)
+    return sum + (device.assetComponents?.length || 0)
   }, 0)
   return {
     regionCount: form.regionIds.length,
+    installationCount: form.installationIds.length,
     facilityCount: selectedFacilities.value.length,
-    componentConnectionCount,
+    componentCount,
     ruleCount: ruleIds.size
   }
 })
@@ -212,6 +248,13 @@ function loadDetail() {
     .filter((point: any) => (detail.inspectionPointIds || []).includes(point.id) && point.areaId)
     .map((point: any) => point.areaId)
   form.regionIds = [...new Set(detail.regionIds?.length ? detail.regionIds : fallbackRegionIds)]
+  form.installationIds = detail.installationIds?.length
+    ? [...detail.installationIds]
+    : Array.from(new Set(
+      inspectionStore.inspectionDevices
+        .filter((device: any) => form.regionIds.includes(device.areaId) && device.installationId)
+        .map((device: any) => device.installationId)
+    ))
   form.facilityIds = detail.facilityIds?.length
     ? [...detail.facilityIds]
     : inspectionStore.inspectionDevices.filter((device: any) => form.regionIds.includes(device.areaId)).map((device: any) => device.id)
@@ -222,8 +265,8 @@ function loadDetail() {
 }
 
 function handleSave() {
-  if (!form.name || !form.code || !form.regionIds.length || !form.facilityIds.length) {
-    message.error('请补充规划名称、编码、巡检区域和巡检设施')
+  if (!form.name || !form.code || !form.regionIds.length || !form.installationIds.length || !form.facilityIds.length) {
+    message.error('请补充规划名称、编码、巡检区域、巡检装置和巡检设施')
     return
   }
   const inspectionPointIds = selectedPoints.value.map((point: any) => point.id)
@@ -241,6 +284,7 @@ function handleSave() {
     type: 'point',
     inspectionPointIds,
     regionIds: [...form.regionIds],
+    installationIds: [...form.installationIds],
     facilityIds: [...form.facilityIds],
     planType: form.planType,
     businessScene: form.businessScene,
@@ -280,6 +324,13 @@ function goBack() {
 }
 
 function handleRegionChange() {
+  const validInstallationIds = new Set(installationOptions.value.map((item) => item.id))
+  form.installationIds = form.installationIds.filter((id: string) => validInstallationIds.has(id))
+  const validFacilityIds = new Set(facilityOptions.value.map((device: any) => device.id))
+  form.facilityIds = form.facilityIds.filter((id: string) => validFacilityIds.has(id))
+}
+
+function handleInstallationChange() {
   const validFacilityIds = new Set(facilityOptions.value.map((device: any) => device.id))
   form.facilityIds = form.facilityIds.filter((id: string) => validFacilityIds.has(id))
 }

@@ -15,11 +15,11 @@
       </template>
     </a-page-header>
 
-    <a-row :gutter="[16, 16]" style="margin-top: 16px">
+    <a-row :gutter="[16, 16]" style="margin-top: 12px">
       <a-col :xs="24" :xl="14">
-        <a-card :title="isEditMode ? '基础信息' : '当前巡检点摘要'">
+        <a-card :title="isEditMode ? '基础信息' : '当前巡检点摘要'" class="panel-card">
           <a-form v-if="isEditMode" layout="vertical">
-            <a-row :gutter="16">
+            <a-row :gutter="16" class="form-grid">
               <a-col :span="8"><a-form-item label="点位名称" required><a-input v-model:value="form.name" :disabled="!isEditMode" /></a-form-item></a-col>
               <a-col :span="8"><a-form-item label="点位编码" required><a-input v-model:value="form.code" :disabled="!isEditMode" /></a-form-item></a-col>
               <a-col :span="8">
@@ -34,7 +34,7 @@
               </a-col>
             </a-row>
 
-            <a-row :gutter="16">
+            <a-row :gutter="16" class="form-grid">
               <a-col :span="8">
                 <a-form-item label="巡检模式" :required="form.pointBizType === 'inspection'">
                   <a-select v-model:value="form.inspectionMode" :disabled="!isEditMode || form.pointBizType !== 'inspection'">
@@ -57,37 +57,21 @@
               </a-col>
             </a-row>
 
-            <a-row :gutter="16">
+            <a-row :gutter="16" class="form-grid">
               <a-col :span="8"><a-form-item label="装置区 / 分区"><a-input v-model:value="form.workAreaName" :disabled="!isEditMode" /></a-form-item></a-col>
               <a-col :span="8"><a-form-item label="地图坐标"><a-input :value="coordinateText" disabled /></a-form-item></a-col>
               <a-col :span="8"><a-form-item label="车头朝向"><a-input-number v-model:value="form.yaw" :disabled="!isEditMode" :min="0" :max="360" style="width: 100%" /></a-form-item></a-col>
             </a-row>
           </a-form>
           <template v-else>
-            <a-descriptions bordered :column="3" size="small">
+            <a-descriptions bordered :column="3" size="small" class="summary-descriptions">
               <a-descriptions-item label="巡检点">{{ currentPoint?.name || '-' }}</a-descriptions-item>
               <a-descriptions-item label="所属地图">{{ currentMap?.name || '-' }}</a-descriptions-item>
               <a-descriptions-item label="所属区域">{{ form.areaName || currentPoint?.areaName || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="检测对象">{{ coverageRows.length }}</a-descriptions-item>
-              <a-descriptions-item label="采集位">{{ poseRows.length }}</a-descriptions-item>
-              <a-descriptions-item label="检测配置">{{ detectionRows.reduce((count, item) => count + item.ruleNames.length, 0) }}</a-descriptions-item>
+              <a-descriptions-item label="配置对象">{{ mergedConfigRows.length }}</a-descriptions-item>
+              <a-descriptions-item label="关联设施">{{ uniqueFacilityCount }}</a-descriptions-item>
+              <a-descriptions-item label="检测项">{{ totalRuleCount }}</a-descriptions-item>
             </a-descriptions>
-            <a-divider style="margin: 16px 0" />
-            <a-descriptions bordered :column="4" size="small">
-              <a-descriptions-item label="覆盖对象">{{ coverageRows.length }}</a-descriptions-item>
-              <a-descriptions-item label="采集位">{{ poseRows.length }}</a-descriptions-item>
-              <a-descriptions-item label="检测配置">{{ detectionRows.length }}</a-descriptions-item>
-              <a-descriptions-item label="检查结果">
-                <a-tag :color="coverageCheckStatus.color">{{ coverageCheckStatus.text }}</a-tag>
-              </a-descriptions-item>
-            </a-descriptions>
-            <a-alert
-              style="margin-top: 12px"
-              :type="coverageCheckStatus.type"
-              show-icon
-              :message="coverageCheckStatus.message"
-              :description="coverageCheckStatus.description"
-            />
           </template>
         </a-card>
       </a-col>
@@ -118,32 +102,34 @@
     <template v-if="isInspectionPoint">
       <a-row :gutter="[16, 16]" style="margin-top: 16px">
         <a-col :span="24">
-          <a-card>
-            <a-tabs>
-              <a-tab-pane key="coverage" tab="覆盖对象">
-                <a-table
-                  :columns="coverageColumns"
-                  :data-source="coverageTreeRows"
-                  row-key="id"
-                  :pagination="false"
-                  size="small"
-                  :expand-row-by-click="true"
-                  :default-expand-all-rows="true"
-                />
-              </a-tab-pane>
-              <a-tab-pane key="poses" tab="采集位">
-                <a-table :columns="poseColumns" :data-source="poseRows" row-key="id" :pagination="false" />
-              </a-tab-pane>
-              <a-tab-pane key="detection" tab="检测配置">
-                <a-table :columns="detectionColumns" :data-source="detectionRows" row-key="id" :pagination="false" />
-              </a-tab-pane>
-            </a-tabs>
+          <a-card title="巡检配置详情" class="panel-card">
+            <a-form layout="vertical" class="search-form" @submit.prevent>
+              <a-row :gutter="[16, 8]">
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="设施检索">
+                    <a-input v-model:value="filtersDraft.facilityKeyword" allow-clear placeholder="输入设施名称" />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6">
+                  <a-form-item label="部件检索">
+                    <a-input v-model:value="filtersDraft.componentKeyword" allow-clear placeholder="输入部件名称" />
+                  </a-form-item>
+                </a-col>
+                <a-col :xs="24" :sm="12" :md="8" :lg="6" style="display: flex; align-items: end">
+                  <a-space>
+                    <a-button type="primary" @click="handleSearch">搜索</a-button>
+                    <a-button @click="handleResetSearch">重置</a-button>
+                  </a-space>
+                </a-col>
+              </a-row>
+            </a-form>
+            <a-table class="config-table" :columns="configColumns" :data-source="filteredConfigRows" row-key="id" :pagination="false" :scroll="{ x: 1400 }" size="small" />
           </a-card>
         </a-col>
 
         <a-col :span="24">
-          <a-card title="执行记录">
-            <a-table :columns="recordColumns" :data-source="executionRows" row-key="id" :pagination="false" />
+          <a-card title="执行记录" class="panel-card">
+            <a-table class="record-table" :columns="recordColumns" :data-source="executionRows" row-key="id" :pagination="false" size="small" />
           </a-card>
         </a-col>
       </a-row>
@@ -178,12 +164,6 @@
             </a-descriptions>
           </a-card>
         </a-col>
-      </a-row>
-    </template>
-
-    <template v-else>
-      <a-row :gutter="[16, 16]" style="margin-top: 16px">
-        
       </a-row>
     </template>
   </div>
@@ -232,27 +212,14 @@ const constraintForm = reactive<ParkingPointConstraint>({
   detourRequired: false
 })
 
-const coverageColumns = [
-  { title: '所属设施', dataIndex: 'deviceName', key: 'deviceName', width: 220 },
-  { title: '检测对象', dataIndex: 'objectKindText', key: 'objectKindText', width: 140 },
-  { title: '部件 / 连接部位', dataIndex: 'name', key: 'name', width: 320 },
-  { title: '备注', dataIndex: 'remark', key: 'remark' , width: 120}
-]
-
-const poseColumns = [
-  { title: '所属设施', dataIndex: 'deviceName', key: 'facility', width: 220 },
-  { title: '检测部件/连接', dataIndex: 'targetObjectText', key: 'targetObject', width: 240 },
-  { title: '云台X轴', dataIndex: 'ptzYaw', key: 'ptzX', width: 110 },
-  { title: '云台Y轴', dataIndex: 'ptzPitch', key: 'ptzY', width: 110 },
-  { title: '焦距', dataIndex: 'focalLength', key: 'focalLength', width: 120 },
-  { title: '距离', dataIndex: 'distanceText', key: 'distanceMeter', width: 110 }
-]
-
-const detectionColumns = [
-  { title: '所属设施', dataIndex: 'deviceName', key: 'subject', width: 240 },
-  { title: '检测部件/连接', dataIndex: 'targetObjectText', key: 'targetObject', width: 260 },
-  { title: '检测规则', dataIndex: 'ruleNamesText', key: 'rule', width: 320 },
-  { title: '状态', dataIndex: 'enabledText', key: 'enabledText', width: 90 }
+const configColumns = [
+  { title: '装置', dataIndex: 'installationName', key: 'installationName', width: 180 },
+  { title: '设施', dataIndex: 'facilityName', key: 'facilityName', width: 200 },
+  { title: '部件', dataIndex: 'componentName', key: 'componentName', width: 220 },
+  { title: '云台X轴', dataIndex: 'ptzX', key: 'ptzX', width: 120 },
+  { title: '云台Y轴', dataIndex: 'ptzY', key: 'ptzY', width: 120 },
+  { title: '焦距', dataIndex: 'focalLength', key: 'focalLength', width: 140 },
+  { title: '检测规则', dataIndex: 'ruleNamesText', key: 'ruleNamesText' }
 ]
 
 const recordColumns = [
@@ -263,10 +230,18 @@ const recordColumns = [
 ]
 
 const areaOptions = computed(() => currentMap.value?.regions || [])
+const filters = reactive({
+  facilityKeyword: '',
+  componentKeyword: ''
+})
+const filtersDraft = reactive({
+  facilityKeyword: '',
+  componentKeyword: ''
+})
 
 const pageTitle = computed(() => `${form.name || currentPoint.value?.name || '点位'}${isEditMode.value ? '编辑' : '详情'}`)
 const pageSubtitle = computed(() => isInspectionPoint.value
-  ? '显示地图位置，并围绕覆盖对象、采集位、检测配置和覆盖检查查看当前巡检点。'
+  ? '显示地图位置，并围绕装置、设施、部件与检测规则查看当前巡检点。'
   : '显示当前点位的地图位置和基础属性。')
 
 const coordinateText = computed(() => {
@@ -291,83 +266,53 @@ const mapPoints = computed(() => inspectionStore.inspectionPoints
     pointBizType: item.pointBizType || inferPointBizType(item)
   })))
 
-const coverageRows = computed(() => (currentPoint.value?.coverageObjects || []).map((item) => ({
-  ...item,
-  deviceName: item.deviceId ? inspectionStore.inspectionDevices.find(device => device.id === item.deviceId)?.name || '-' : item.areaName || '-',
-  objectKindText: getCoverageTypeText(item.type),
-  typeText: getCoverageTypeText(item.type)
-})))
+const mergedConfigRows = computed(() => {
+  const point = currentPoint.value
+  if (!point) return []
+  const ruleMap = new Map(getDetectionItemConfigs().map((item) => [item.id, item.name]))
+  const componentMap = new Map(inspectionStore.facilityComponents.map((item) => [item.id, item]))
+  const poseMap = new Map<string, { ptzX: number; ptzY: number; focalLength: string }>()
 
-const coverageTreeRows = computed(() => {
-  const rows = coverageRows.value
-  const devices = inspectionStore.inspectionDevices
-  const deviceIds = Array.from(new Set(rows.map(item => item.deviceId).filter((id): id is string => Boolean(id))))
-  const groups = deviceIds.map((deviceId) => {
-    const asset = rows.find(item => item.deviceId === deviceId && item.type === 'asset')
-    const device = devices.find(item => item.id === deviceId)
-    return {
-      id: `asset-${deviceId}`,
-      name: asset?.name || device?.name || deviceId,
-      type: 'asset' as const,
-      deviceName: device?.name || asset?.name || deviceId,
-      objectKindText: '设施',
-      typeText: '设施',
-      remark: asset?.remark || '',
-      children: rows.filter(item => item.deviceId === deviceId && (item.type === 'component' || item.type === 'connection'))
-    }
-  })
-  const standaloneRows = rows.filter(item => !item.deviceId)
-  if (standaloneRows.length) {
-    groups.push({
-      id: 'standalone',
-      name: '其他覆盖对象',
-      type: 'asset',
-      deviceName: '其他覆盖对象',
-      objectKindText: '设施',
-      typeText: '设施',
-      remark: '',
-      children: standaloneRows
+  ;(point.parkingPoints || []).forEach((parking) => {
+    ;(parking.collectionPoses || []).forEach((pose) => {
+      if (pose.targetType !== 'component') return
+      poseMap.set(pose.targetName, {
+        ptzX: pose.ptzYaw,
+        ptzY: pose.ptzPitch,
+        focalLength: pose.focalLength || '-'
+      })
     })
-  }
-  return groups
+  })
+
+  return (point.coverageObjects || [])
+    .filter((item) => item.type === 'component' && item.componentId)
+    .map((item) => {
+      const component = componentMap.get(item.componentId || '')
+      const pose = poseMap.get(component?.name || item.name)
+      const ruleIds = (point.detectionConfigs || [])
+        .filter((cfg) => cfg.subjectType === 'component' && cfg.subjectId === item.componentId)
+        .map((cfg) => cfg.ruleId)
+      const uniqueRuleIds = Array.from(new Set(ruleIds.length ? ruleIds : (component?.ruleIds || [])))
+      return {
+        id: `detail-${item.componentId}`,
+        installationName: component?.installationName || '-',
+        facilityName: component?.facilityName || inspectionStore.inspectionDevices.find((device) => device.id === item.deviceId)?.name || '-',
+        componentName: component?.name || item.name,
+        ptzX: pose?.ptzX ?? 0,
+        ptzY: pose?.ptzY ?? 0,
+        focalLength: pose?.focalLength || '-',
+        ruleNamesText: uniqueRuleIds.map((ruleId) => ruleMap.get(ruleId) || ruleId).join('、') || '-'
+      }
+    })
 })
 
-const poseRows = computed(() => (currentPoint.value?.parkingPoints || []).flatMap((parking) =>
-  parking.collectionPoses.map((pose) => ({
-    ...pose,
-    deviceName: getDeviceNameBySubject(pose.targetType, pose.targetName),
-    parkingPointName: parking.name,
-    targetTypeText: getCoverageTypeText(pose.targetType),
-    targetObjectText: `${pose.targetName}（${pose.targetType === 'component' ? '部件' : '连接'}）`,
-    directionText: ({ front: '正拍', side: '侧拍', oblique: '斜拍', near: '近拍', overview: '全景' } as Record<string, string>)[pose.direction] || pose.direction,
-    methodText: ({ optical: '光学', thermal: '热成像', gas: '气体', safety: '安全行为', multi_spectrum: '多光谱' } as Record<string, string>)[pose.method] || pose.method,
-    distanceText: `${pose.distanceMeter}m`
-  }))
-))
-
-const detectionRows = computed(() => {
-  const rules = getDetectionItemConfigs()
-  const rowMap = new Map<string, any>()
-  ;(currentPoint.value?.detectionConfigs || []).forEach((config) => {
-    const key = `${config.subjectType}:${config.subjectId}`
-    const row = rowMap.get(key) || {
-      ...config,
-      deviceName: getDeviceNameBySubject(config.subjectType, config.subjectName),
-      targetObjectText: `${config.subjectName}（${config.subjectType === 'component' ? '部件' : '连接'}）`,
-      ruleNames: [],
-      enabled: true
-    }
-    const rule = rules.find(rule => rule.id === config.ruleId)
-    row.ruleNames.push(rule?.name || config.ruleId)
-    row.enabled = row.enabled && config.enabled
-    row.enabledText = row.enabled ? '启用' : '停用'
-    rowMap.set(key, row)
-  })
-  return Array.from(rowMap.values()).map((row) => {
-    return {
-      ...row,
-      ruleNamesText: row.ruleNames.join('、') || '-'
-    }
+const filteredConfigRows = computed(() => {
+  const facilityKeyword = filters.facilityKeyword.trim().toLowerCase()
+  const componentKeyword = filters.componentKeyword.trim().toLowerCase()
+  return mergedConfigRows.value.filter((row) => {
+    const byFacility = !facilityKeyword || row.facilityName.toLowerCase().includes(facilityKeyword)
+    const byComponent = !componentKeyword || row.componentName.toLowerCase().includes(componentKeyword)
+    return byFacility && byComponent
   })
 })
 
@@ -376,19 +321,8 @@ const executionRows = computed(() => (currentPoint.value?.executionRecords || []
   executedAtText: new Date(item.executedAt).toLocaleString()
 })))
 
-const coverageCheckStatus = computed(() => {
-  const point = currentPoint.value
-  const coverageCount = point?.coverageObjects?.length || 0
-  const poseCount = poseRows.value.length
-  const configCount = detectionRows.value.filter(item => item.enabled).length
-  if (!coverageCount) {
-    return { text: '未配置对象', color: 'red', type: 'warning' as const, message: '当前巡检点未配置覆盖对象', description: '请先进入巡检配置页，选择设施、部件或连接对象作为巡检覆盖范围。' }
-  }
-  if (!poseCount || !configCount) {
-    return { text: '存在漏配', color: 'orange', type: 'warning' as const, message: '当前巡检点采集位或检测配置不完整', description: '请补齐采集位和检测配置，避免执行时出现漏检。' }
-  }
-  return { text: '配置完整', color: 'green', type: 'success' as const, message: '当前巡检点覆盖配置完整', description: '已具备覆盖对象、采集位和检测配置，可用于任务执行。' }
-})
+const uniqueFacilityCount = computed(() => new Set(mergedConfigRows.value.map((item) => item.facilityName)).size)
+const totalRuleCount = computed(() => mergedConfigRows.value.reduce((count, row) => count + (row.ruleNamesText === '-' ? 0 : row.ruleNamesText.split('、').length), 0))
 
 function normalizeMapCoordinate(value?: number) {
   const raw = Number(value || 0)
@@ -424,6 +358,7 @@ function loadDetail() {
   form.workAreaName = point.workAreaName || ''
   form.yaw = Number(point.mapPosition?.yaw || 0)
   Object.assign(constraintForm, point.parkingPoints?.[0]?.constraint || constraintForm)
+  handleResetSearch()
 }
 
 function handleSave() {
@@ -466,23 +401,16 @@ function onAreaChange(value: string) {
   form.areaName = area?.name || ''
 }
 
-function getCoverageTypeText(type: string) {
-  return ({
-    asset: '设施',
-    component: '设施部件',
-    connection: '连接部位',
-    area_environment: '区域环境',
-    safety_behavior: '人员行为'
-  } as Record<string, string>)[type] || type
+function handleSearch() {
+  filters.facilityKeyword = filtersDraft.facilityKeyword
+  filters.componentKeyword = filtersDraft.componentKeyword
 }
 
-function getDeviceNameBySubject(subjectType: string, subjectName: string) {
-  if (subjectType === 'component' || subjectType === 'connection') {
-    return currentPoint.value?.coverageObjects?.find(item => item.name === subjectName)?.deviceId
-      ? inspectionStore.inspectionDevices.find(device => device.id === currentPoint.value?.coverageObjects?.find(item => item.name === subjectName)?.deviceId)?.name || '-'
-      : currentPoint.value?.areaName || '-'
-  }
-  return currentPoint.value?.areaName || '-'
+function handleResetSearch() {
+  filtersDraft.facilityKeyword = ''
+  filtersDraft.componentKeyword = ''
+  filters.facilityKeyword = ''
+  filters.componentKeyword = ''
 }
 
 function getBizTypeText(type: string) {
@@ -528,13 +456,50 @@ onMounted(loadDetail)
   width: 100%;
 }
 
+.panel-card {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.search-form {
+  margin-bottom: 6px;
+}
+
+.inspection-point-detail :deep(.search-form .ant-form-item) {
+  margin-bottom: 12px;
+}
+
+.inspection-point-detail :deep(.ant-card-head) {
+  min-height: 48px;
+}
+
+.inspection-point-detail :deep(.ant-card-head-title) {
+  padding: 12px 0;
+  font-weight: 600;
+}
+
+.inspection-point-detail :deep(.config-table .ant-table-thead > tr > th),
+.inspection-point-detail :deep(.record-table .ant-table-thead > tr > th) {
+  font-weight: 600;
+}
+
+.inspection-point-detail :deep(.summary-descriptions .ant-descriptions-item-label) {
+  width: 110px;
+}
+
+.inspection-point-detail :deep(.form-grid .ant-form-item) {
+  margin-bottom: 12px;
+}
+
 .map-stage {
   position: relative;
-  height: 320px;
+  height: 304px;
   border-radius: 10px;
   overflow: hidden;
-  background: #f6f8fb;
-  border: 1px solid #e5e7eb;
+  background: #f5f7fa;
+  border: 1px solid #e8e8e8;
 }
 
 .map-image {
@@ -558,11 +523,11 @@ onMounted(loadDetail)
   width: 24px;
   height: 24px;
   border-radius: 999px;
-  background: rgba(30, 64, 175, 0.72);
+  background: rgba(22, 119, 255, 0.75);
   color: #fff;
   font-size: 12px;
   font-weight: 600;
-  box-shadow: 0 8px 20px rgba(30, 64, 175, 0.24);
+  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.28);
 }
 
 .marker.active .marker-dot {
@@ -574,5 +539,11 @@ onMounted(loadDetail)
 
 .map-summary {
   margin-top: 12px;
+}
+
+@media (max-width: 1200px) {
+  .map-stage {
+    height: 240px;
+  }
 }
 </style>

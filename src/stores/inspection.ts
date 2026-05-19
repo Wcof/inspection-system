@@ -27,7 +27,9 @@ import {
   InspectionTaskInstanceStatus,
   InspectionPlan,
   InspectionTaskResult,
-  InspectionTaskSnapshot
+  InspectionTaskSnapshot,
+  Installation,
+  FacilityComponent
 } from '@/types/inspection'
 
 export const useInspectionStore = defineStore('inspection', () => {
@@ -41,6 +43,8 @@ export const useInspectionStore = defineStore('inspection', () => {
   const inspectionRoutes = ref<InspectionRoute[]>([])
   const inspectionDevices = ref<InspectionDevice[]>([])
   const inspectionDeviceCheckItems = ref<InspectionDeviceCheckItem[]>([])
+  const installations = ref<Installation[]>([])
+  const facilityComponents = ref<FacilityComponent[]>([])
   const standardComponents = ref<StandardComponent[]>([])
   const inspectionPlans = ref<InspectionPlan[]>([])
   const loading = ref(false)
@@ -58,6 +62,8 @@ export const useInspectionStore = defineStore('inspection', () => {
     fetchAllInspectionRoutes()
     fetchAllInspectionDevices()
     fetchAllInspectionDeviceCheckItems()
+    fetchAllInstallations()
+    fetchAllFacilityComponents()
     fetchAllStandardComponents()
     fetchAllInspectionPlans()
   }
@@ -557,6 +563,54 @@ export const useInspectionStore = defineStore('inspection', () => {
     MockService.deleteInspectionDevice(id)
     fetchAllInspectionDevices()
   }
+
+  function fetchAllInstallations() {
+    loading.value = true
+    try {
+      installations.value = MockService.getInstallations()
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function saveInstallation(data: Installation) {
+    MockService.saveInstallation(data)
+    fetchAllInstallations()
+    return data
+  }
+
+  function deleteInstallation(id: string) {
+    MockService.deleteInstallation(id)
+    fetchAllInstallations()
+  }
+
+  function fetchAllFacilityComponents() {
+    loading.value = true
+    try {
+      facilityComponents.value = MockService.getFacilityComponents()
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function getFacilityComponentsByFacilityId(facilityId: string) {
+    return facilityComponents.value.filter(item => item.facilityId === facilityId)
+  }
+
+  function getFacilityComponentsByInstallationId(installationId: string) {
+    return facilityComponents.value.filter(item => item.installationId === installationId)
+  }
+
+  function saveFacilityComponent(component: FacilityComponent) {
+    MockService.saveFacilityComponent(component)
+    fetchAllFacilityComponents()
+    return component
+  }
+
+  function deleteFacilityComponent(id: string) {
+    MockService.deleteFacilityComponent(id)
+    fetchAllFacilityComponents()
+  }
   
   // 设备检测项相关
   function fetchAllInspectionDeviceCheckItems() {
@@ -653,6 +707,8 @@ export const useInspectionStore = defineStore('inspection', () => {
     inspectionRoutes,
     inspectionDevices,
     inspectionDeviceCheckItems,
+    installations,
+    facilityComponents,
     standardComponents,
     inspectionPlans,
     loading,
@@ -696,6 +752,14 @@ export const useInspectionStore = defineStore('inspection', () => {
     getInspectionDevicesByInspectionPointId,
     saveInspectionDevice,
     deleteInspectionDevice,
+    fetchAllInstallations,
+    saveInstallation,
+    deleteInstallation,
+    fetchAllFacilityComponents,
+    getFacilityComponentsByFacilityId,
+    getFacilityComponentsByInstallationId,
+    saveFacilityComponent,
+    deleteFacilityComponent,
     fetchAllInspectionDeviceCheckItems,
     getInspectionDeviceCheckItemsByDeviceId,
     saveInspectionDeviceCheckItem,

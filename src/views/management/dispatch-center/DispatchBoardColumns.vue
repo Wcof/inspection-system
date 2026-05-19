@@ -182,7 +182,7 @@ export interface DispatchTask {
   status: 'running' | 'pending' | 'auto_pending' | 'conflict' | 'paused' | 'cancelled'
   robotName: string
   reason?: string
-  priority: 'high' | 'medium' | 'low'
+  priority: 'emergency' | 'high' | 'medium' | 'low'
   priorityLabel?: string
   createdAt: string
   scheduledAt?: string
@@ -195,6 +195,10 @@ export interface DispatchTask {
   queueOrder?: number
   changeFlag?: boolean
   changeReason?: string
+  inspectionPointIds?: string[]
+  interruptsCurrentTask?: boolean
+  immediateDeparture?: boolean
+  priorityLevel?: 'normal' | 'high' | 'emergency'
 }
 
 type ActionType = 'view-detail' | 'replace-robot' | 'move-up' | 'move-down' | 'cancel-task' | 'accept-auto' | 'view-reason'

@@ -13,6 +13,7 @@
       :robot-options="scopeRobotOptions"
       @update:control="onControlUpdate"
       @create-temporary="openTemporary()"
+      @create-emergency="openEmergency()"
       @coverage-check="showCoverageCheck"
       @refresh="refreshData"
     />
@@ -42,6 +43,7 @@
 
     <TemporaryDispatchModal
       v-model:visible="temporaryVisible"
+      :mode="temporaryMode"
       :running-task-exists="runningTasks.length > 0"
       :robot-options="robotOptions"
       :inspection-point-options="inspectionPointOptions"
@@ -308,6 +310,7 @@ const control = reactive<DispatchControlState>({
 })
 const activeSummaryFilter = ref<SummaryFilter | ''>('')
 const temporaryVisible = ref(false)
+const temporaryMode = ref<'temporary' | 'emergency'>('temporary')
 const temporaryPrefill = ref<Partial<TemporaryDispatchForm>>({})
 const supplementLevelVisible = ref(false)
 const manualHandlingLevel = ref<'temporary' | 'plan'>('temporary')
@@ -504,12 +507,23 @@ function onControlUpdate(value: DispatchControlState) {
   Object.assign(control, value)
   if (prevMode !== value.mode) message.success(`已切换为${control.mode === 'auto' ? '自动调度' : '手动执行'}模式`)
 }
-function openTemporary() { temporaryPrefill.value = {}; temporaryVisible.value = true }
+function openTemporary() { temporaryMode.value = 'temporary'; temporaryPrefill.value = {}; temporaryVisible.value = true }
+function openEmergency() {
+  temporaryMode.value = 'emergency'
+  temporaryPrefill.value = {
+    dispatchType: 'emergency',
+    businessScene: 'daily_inspection',
+    taskType: 'inspection',
+    name: '紧急任务'
+  }
+  temporaryVisible.value = true
+}
 function openTemporaryFromMap(payload: any) {
   const marker = payload?.marker
   const markerType = marker?.markerType || 'inspection'
   const markerId = marker?.id || ''
   const dispatchType = markerType === 'charging' ? 'charging' : markerType === 'parking' ? 'parking' : 'insert'
+  temporaryMode.value = 'temporary'
   temporaryPrefill.value = {
     dispatchType,
     businessScene: dispatchType === 'charging' || dispatchType === 'parking' ? 'daily_inspection' : 'hazard_screening',
@@ -759,37 +773,43 @@ function submitTemporaryDispatch(form: TemporaryDispatchForm) {
   const impacted = conflictCandidates.value.filter((item) => item.robotId === form.robotId).map((item) => item.name)
   const hasConflict = Boolean(impacted.length)
   const typeText = getTemporaryDispatchTypeText(form.dispatchType)
+  const isEmergencyTask = form.dispatchType === 'emergency' || temporaryMode.value === 'emergency'
   tasks.value.unshift({
     id: `temp-${Date.now()}`,
     name: form.name,
     type: 'temp',
-    typeLabel: `总调度台${typeText}`,
+    typeLabel: isEmergencyTask ? '紧急任务' : `总调度台${typeText}`,
     businessScene: form.businessScene,
     dispatchType: form.dispatchType,
     tempTaskType: form.taskType,
-    taskSource: 'dispatch_insert',
-    riskLevel: form.dispatchType === 'recheck' ? 'alarm' : 'normal',
-    suggestedAction: hasConflict ? `${typeText}后顺延` : typeText,
+    taskSource: isEmergencyTask ? 'emergency' : 'dispatch_insert',
+    riskLevel: isEmergencyTask ? 'critical_alarm' : form.dispatchType === 'recheck' ? 'alarm' : 'normal',
+    suggestedAction: isEmergencyTask ? '立即出发' : hasConflict ? `${typeText}后顺延` : typeText,
     dispatchReason: form.reason,
-    constraintSummary: hasConflict ? '存在机器人资源冲突，需人工确认' : '机器人资源可用',
+    constraintSummary: isEmergencyTask ? '最高优先级 / 允许中断当前任务 / 立即插队执行' : hasConflict ? '存在机器人资源冲突，需人工确认' : '机器人资源可用',
     status: hasConflict ? 'auto_pending' : (control.mode === 'auto' ? 'pending' : 'pending'),
     robotName: matchedRobot?.label || form.robotId,
-    priority: 'high',
-    priorityLabel: '高',
+    priority: isEmergencyTask ? 'emergency' : 'high',
+    priorityLabel: isEmergencyTask ? '紧急' : '高',
     createdAt: new Date().toLocaleTimeString(),
     scheduledAt: form.scheduledAt,
     reason: form.reason,
     affectedTaskName: impacted[0],
     changeFlag: hasConflict,
-    changeReason: hasConflict ? `冲突处理：${form.conflictStrategy === 'delay' ? '延后执行' : '暂停执行'}；受影响任务 ${impacted.join('、')}` : undefined
+    changeReason: hasConflict ? (isEmergencyTask ? `紧急任务插入，受影响任务 ${impacted.join('、')} 需顺延或暂停` : `冲突处理：${form.conflictStrategy === 'delay' ? '延后执行' : '暂停执行'}；受影响任务 ${impacted.join('、')}`) : undefined,
+    inspectionPointIds: [...(form.targetPointIds || [])],
+    interruptsCurrentTask: isEmergencyTask,
+    immediateDeparture: isEmergencyTask,
+    priorityLevel: isEmergencyTask ? 'emergency' : 'high'
   })
-  records.value.unshift({ id: `record-${Date.now()}`, time: new Date().toLocaleTimeString(), event: `人工创建临时任务：${form.name}（${typeText} / ${getSceneText(form.businessScene)}）`, taskName: form.name, resultStatus: hasConflict ? 'pending' : 'running', source: 'temp' })
+  records.value.unshift({ id: `record-${Date.now()}`, time: new Date().toLocaleTimeString(), event: `${isEmergencyTask ? '人工创建紧急任务' : '人工创建临时任务'}：${form.name}（${isEmergencyTask ? '最高优先级 / 固定巡查' : `${typeText} / ${getSceneText(form.businessScene)}` }）`, taskName: form.name, resultStatus: hasConflict ? 'pending' : 'running', source: 'temp' })
   temporaryVisible.value = false
-  message.success('临时任务已创建')
+  temporaryMode.value = 'temporary'
+  message.success(isEmergencyTask ? '紧急任务已创建' : '临时任务已创建')
 }
 
 function getTemporaryDispatchTypeText(type?: TemporaryDispatchForm['dispatchType']) {
-  return ({ insert: '插单', recheck: '补检', charging: '充电', parking: '停车', replace_robot: '替换机器人' } as Record<string, string>)[type || ''] || '插单'
+  return ({ insert: '插单', recheck: '补检', emergency: '紧急任务', charging: '充电', parking: '停车', replace_robot: '替换机器人' } as Record<string, string>)[type || ''] || '插单'
 }
 
 function formatCurrentDate() {

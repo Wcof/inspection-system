@@ -77,7 +77,7 @@
         </template>
       </a-table>
 
-      <a-empty v-if="!rows.length" description="当前设施暂无部件或连接对象，请先在设施编辑中维护资产结构。" />
+      <a-empty v-if="!rows.length" description="当前设施暂无可配置主体，请先在部件管理中维护资产结构。" />
     </a-card>
   </div>
 </template>
@@ -154,7 +154,7 @@ const poseOptions = computed(() => {
 const columns = [
   { title: '检测主体', dataIndex: 'subjectName', key: 'subjectName', width: 180 },
   { title: '主体类型', key: 'subjectType', width: 120 },
-  { title: '对象类别/连接关系', dataIndex: 'categoryText', key: 'categoryText', width: 260 },
+  { title: '对象类别/关系描述', dataIndex: 'categoryText', key: 'categoryText', width: 260 },
   { title: '关联检测规则', key: 'rules', width: 420 },
   { title: '采集位', key: 'collectionPose', width: 300 },
   { title: '覆盖要求', key: 'requiredCoverage', width: 110 },
@@ -182,7 +182,7 @@ function getComponentTypeText(type: string) {
 }
 
 function getSubjectTypeText(type: ObjectDetectionSubjectType) {
-  if (type === 'connection') return '连接部位'
+  if (type === 'connection') return '历史主体'
   if (type === 'area_environment') return '区域环境'
   if (type === 'asset') return '设施'
   return '设施部件'
@@ -227,7 +227,7 @@ function getRuleOptions(row: SubjectRow) {
 }
 
 function isRecommendedRule(rule: DetectionItemConfig, row: SubjectRow) {
-  const target = `${rule.targetTypes?.join('') || ''}${rule.targetDetails || ''}${rule.name || ''}`
+  const target = `${rule.name || ''}${rule.code || ''}${rule.detectionType || ''}${rule.detectionAlgorithm || ''}${rule.category || ''}${rule.description || ''}${rule.collectNote || ''}`
   if (row.subjectType === 'connection') return target.includes('连接') || target.includes('法兰') || target.includes(row.subjectName)
   return target.includes('设施部件') || target.includes(row.subjectName) || target.includes(row.categoryText)
 }

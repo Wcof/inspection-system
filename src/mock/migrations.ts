@@ -20,7 +20,8 @@ import type {
   InspectionPlan,
   InspectionTaskSnapshot,
   InspectionTaskResult,
-  ObjectDetectionConfig
+  ObjectDetectionConfig,
+  Installation
 } from '@/types/inspection'
 import { DeviceStatus, PositionSource } from '@/types/inspection'
 
@@ -61,6 +62,7 @@ interface MockDataConsistencyReport {
 
 export function migrateToV2(): void {
   normalizeImageReferences()
+  normalizeInstallations()
 
   const currentVersion = storage.get<number>(STORAGE_KEYS.SCHEMA_VERSION) || 1
   
@@ -81,6 +83,16 @@ export function migrateToV2(): void {
 
   enrichFiveLayerModel()
   runMockDataConsistencyCheck()
+}
+
+function normalizeInstallations(): void {
+  const installations = storage.get<Installation[]>(STORAGE_KEYS.INSTALLATIONS) || []
+  if (!installations.length) return
+  const next = installations.map((item) => ({
+    ...item,
+    installationPositionNo: item.installationPositionNo || item.code || item.id
+  }))
+  storage.set(STORAGE_KEYS.INSTALLATIONS, next)
 }
 
 function normalizeImageReferences(): void {
@@ -694,10 +706,11 @@ function ensureMockTaskSnapshots(
   const nextSnapshots = [...snapshots]
   const nextTasks = tasks.map((task) => {
     const plan = task.planId ? context.planById.get(task.planId) : undefined
+    const taskSource: InspectionTask['taskSource'] = task.taskSource || (plan ? 'execution_plan' : 'dispatch_insert')
     const taskBase = {
       ...task,
       businessScene: task.businessScene || plan?.businessScene || 'daily_inspection',
-      taskSource: task.taskSource || (plan?.planType === 'auto' ? 'auto_plan' : plan ? 'manual_plan' : 'dispatch_insert'),
+      taskSource,
       riskLevel: task.riskLevel || plan?.riskLevel || 'normal'
     }
     if (task.planId && !context.planById.has(task.planId)) {

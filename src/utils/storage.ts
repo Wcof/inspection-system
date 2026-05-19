@@ -14,7 +14,10 @@ const STORAGE_KEYS = {
   WAYPOINT_EDGES: 'waypoint_edges',
   INSPECTION_ROUTES: 'inspection_routes',
   INSPECTION_DEVICES: 'inspection_devices',
+  INSTALLATIONS: 'installations',
+  FACILITY_COMPONENTS: 'facility_components',
   INSPECTION_DEVICE_CHECK_ITEMS: 'inspection_device_check_items',
+  SYSTEM_CONFIG: 'system_config',
   STANDARD_COMPONENTS: 'standard_components',
   INSPECTION_TASK_SNAPSHOTS: 'inspection_task_snapshots',
   INSPECTION_TASK_RESULTS: 'inspection_task_results'

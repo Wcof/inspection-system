@@ -3,7 +3,7 @@
     v-model="selectedPeriod"
     badge="FACILITY ANALYSIS"
     title="设施对象分析"
-    subtitle="按设施、部件、连接部位、检测规则、异常和证据链复盘安全生产巡检结果。"
+    subtitle="按设施、部件、设施/管路与部件、检测规则、异常和证据链复盘安全生产巡检结果。"
     :period-options="periodOptions"
   >
     <template #hero-extra>
@@ -23,11 +23,11 @@
     </div>
 
     <div class="content-grid">
-      <a-card title="设施 / 部件 / 连接巡检清单" size="small" class="panel-card">
+      <a-card title="设施 / 部件巡检清单" size="small" class="panel-card">
         <a-table :columns="columns" :data-source="rows" row-key="id" :pagination="{ pageSize: 6 }" :scroll="{ x: 1320 }">
           <template #bodyCell="{ column, record, text }">
             <template v-if="column.key === 'objectType'">
-              <a-tag :color="record.objectType === '部件' ? 'blue' : 'purple'">{{ record.objectType }}</a-tag>
+              <a-tag color="blue">{{ record.objectType }}</a-tag>
             </template>
             <template v-else-if="column.key === 'rules'">
               <a-space wrap>
@@ -112,34 +112,17 @@ const rows = computed(() => inspectionStore.inspectionDevices.flatMap((facility:
       thermalImageUrl
     }
   })
-  const connectionRows = (facility.connectionObjects || []).map((connection: any, index: number) => {
-    const abnormalCount = index % 2 === 0 ? 1 : 0
-    return {
-      id: `${facility.id}-connection-${connection.id}`,
-      areaName: facility.areaName || '未配置区域',
-      facilityName: facility.name,
-      objectName: connection.name,
-      objectType: '连接',
-      rules: getRuleNames(connection.ruleIds),
-      exceptionCount: abnormalCount,
-      status: abnormalCount ? '需复核' : '正常',
-      evidenceCount: 1 + index,
-      opticalImageUrl,
-      thermalImageUrl
-    }
-  })
-  return [...componentRows, ...connectionRows]
+  return componentRows
 }))
 
 const summaryCards = computed(() => {
   const facilityCount = inspectionStore.inspectionDevices.length
   const componentCount = inspectionStore.inspectionDevices.reduce((sum: number, item: any) => sum + (item.assetComponents?.length || 0), 0)
-  const connectionCount = inspectionStore.inspectionDevices.reduce((sum: number, item: any) => sum + (item.connectionObjects?.length || 0), 0)
   const ruleCount = new Set(rows.value.flatMap(row => row.rules)).size
   return [
     { label: '设施数', value: facilityCount, desc: '按区域归属统计' },
     { label: '部件数', value: componentCount, desc: '仅统计需巡检部件' },
-    { label: '连接部位', value: connectionCount, desc: '法兰/管线等连接对象' },
+    { label: '设施/管路', value: facilityCount, desc: '按设施/管路对象统计' },
     { label: '检测规则', value: ruleCount, desc: '已生效规则种类' }
   ]
 })
@@ -163,7 +146,7 @@ const highRiskSummary = computed(() => riskRows.value[0]?.name || '暂无高风�
 const columns = [
   { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '设施', dataIndex: 'facilityName', key: 'facilityName', width: 180 },
-  { title: '部件/连接', dataIndex: 'objectName', key: 'objectName', width: 180 },
+  { title: '部件', dataIndex: 'objectName', key: 'objectName', width: 180 },
   { title: '对象类型', key: 'objectType', width: 100 },
   { title: '检测规则', key: 'rules', width: 260 },
   { title: '异常数', dataIndex: 'exceptionCount', key: 'exceptionCount', width: 90 },

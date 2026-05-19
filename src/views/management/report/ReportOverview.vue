@@ -7,6 +7,13 @@
     :period-options="periodOptions"
   >
     <template #actions>
+      <a-button @click="goTo('task-execution-analysis')">任务执行</a-button>
+      <a-button @click="goTo('plan-coverage-analysis')">规划覆盖</a-button>
+      <a-button @click="goTo('exception-analysis')">异常告警</a-button>
+      <a-button @click="goTo('dispatch-analysis')">调度决策</a-button>
+      <a-button @click="goTo('component-rule-analysis')">部件规则</a-button>
+      <a-button @click="goTo('evidence-playback-analysis')">证据回放</a-button>
+      <a-button @click="goTo('third-party-task-analysis')">第三方回传</a-button>
       <a-button @click="goTo('inspection-point-analysis')">巡检点分析</a-button>
       <a-button @click="goTo('facility-device-analysis')">设施设备分析</a-button>
       <a-button @click="goTo('gas-analysis')">气体分析</a-button>

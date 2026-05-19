@@ -4,7 +4,27 @@
     <a-page-header title="执行任务" :sub-title="pageSubTitle" @back="goBack" />
 
     <a-card style="margin-top: 16px">
+      <div class="scene-switch" style="margin-bottom: 12px">
+        <button
+          v-for="item in sceneOptions"
+          :key="item.value"
+          type="button"
+          class="scene-switch__item"
+          :class="{ 'scene-switch__item--active': activeScene === item.value }"
+          @click="activeScene = item.value"
+        >
+          {{ item.label }}
+        </button>
+      </div>
       <a-alert type="info" show-icon style="margin-bottom: 12px" :message="`执行任务由执行规划派生，真正控制机器人执行的是任务快照。当前任务生成周期是：${taskWindowLabel}`" />
+
+      <div class="scene-summary">
+        <a-card size="small"><span>当前场景任务数</span><strong>{{ filteredTasks.length }}</strong></a-card>
+        <a-card size="small"><span>执行中</span><strong>{{ taskSummary.running }}</strong></a-card>
+        <a-card size="small"><span>已完成</span><strong>{{ taskSummary.completed }}</strong></a-card>
+        <a-card size="small"><span>异常/失败</span><strong>{{ taskSummary.abnormal }}</strong></a-card>
+        <a-card size="small"><span>待回传</span><strong>{{ taskSummary.pendingFeedback }}</strong></a-card>
+      </div>
 
       <div class="search-panel">
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
@@ -26,17 +46,20 @@
                   <a-select-option value="hazard_screening">隐患排查</a-select-option>
                   <a-select-option value="environment_check">环境检查</a-select-option>
                   <a-select-option value="operation_guard">作业监护</a-select-option>
+                  <a-select-option value="work_ticket_guard">作业票监护</a-select-option>
+                  <a-select-option value="emergency_arrival">应急到场</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="任务来源" class="search-item">
                 <a-select v-model:value="searchForm.taskSource" placeholder="请选择任务来源" allow-clear>
-                  <a-select-option value="manual_plan">人工规划派生</a-select-option>
-                  <a-select-option value="auto_plan">自动规划派生</a-select-option>
+                  <a-select-option value="execution_plan">执行规划派生</a-select-option>
                   <a-select-option value="dispatch_insert">总调度台插单</a-select-option>
                   <a-select-option value="auto_recheck">自动补检</a-select-option>
-                  <a-select-option value="ehs">EHS 下发</a-select-option>
+                  <a-select-option value="work_ticket">作业票任务</a-select-option>
+                  <a-select-option value="third_party">第三方任务</a-select-option>
+                  <a-select-option value="emergency">事故/异常快速到场</a-select-option>
                   <a-select-option value="manual">人工创建</a-select-option>
                 </a-select>
               </a-form-item>
@@ -58,6 +81,29 @@
                   <a-select-option value="cancelled">已取消</a-select-option>
                   <a-select-option value="failed">失败</a-select-option>
                 </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="优先级" class="search-item">
+                <a-select v-model:value="searchForm.priorityLevel" placeholder="请选择优先级" allow-clear>
+                  <a-select-option value="normal">普通</a-select-option>
+                  <a-select-option value="high">高</a-select-option>
+                  <a-select-option value="emergency">应急</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="回传状态" class="search-item">
+                <a-select v-model:value="searchForm.feedbackStatus" placeholder="请选择回传状态" allow-clear>
+                  <a-select-option value="pending">待回传</a-select-option>
+                  <a-select-option value="success">已回传</a-select-option>
+                  <a-select-option value="failed">回传失败</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="作业票/第三方单号" class="search-item">
+                <a-input v-model:value="searchForm.thirdPartyTaskNo" placeholder="请输入单号" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
@@ -106,6 +152,15 @@
           <template v-else-if="column.key === 'planType'">
             <a-tag :color="record.planType === 'auto' ? 'purple' : 'blue'">{{ getPlanTypeText(record.planType) }}</a-tag>
           </template>
+          <template v-else-if="column.key === 'priorityLevel'">
+            <a-tag :color="record.priorityLevel === 'emergency' ? 'red' : record.priorityLevel === 'high' ? 'orange' : 'default'">{{ record.priorityLevel === 'emergency' ? '应急' : record.priorityLevel === 'high' ? '高' : '普通' }}</a-tag>
+          </template>
+          <template v-else-if="column.key === 'interruptsCurrentTask'">
+            {{ record.interruptsCurrentTask ? '是' : '否' }}
+          </template>
+          <template v-else-if="column.key === 'feedbackStatus'">
+            {{ record.feedbackStatus === 'pending' ? '待回传' : record.feedbackStatus === 'success' ? '已回传' : record.feedbackStatus === 'failed' ? '回传失败' : '-' }}
+          </template>
           <template v-else-if="column.key === 'regionNames'">
             <a-space wrap>
               <a-tag v-for="region in record.regionNames" :key="region">{{ region }}</a-tag>
@@ -140,6 +195,7 @@ const robotStore = useRobotStore()
 const loading = ref(false)
 const tasks = ref<TaskRow[]>([])
 const taskWindowLabel = ref('根据规划，任务开始前 7 天自动创建')
+const activeScene = ref('all')
 
 const searchForm = reactive({
   name: '',
@@ -148,6 +204,9 @@ const searchForm = reactive({
   status: undefined as string | undefined,
   businessScene: undefined as string | undefined,
   taskSource: undefined as string | undefined,
+  priorityLevel: undefined as string | undefined,
+  feedbackStatus: undefined as string | undefined,
+  thirdPartyTaskNo: '',
   startDate: '',
   endDate: ''
 })
@@ -167,15 +226,25 @@ const columns = [
   { title: '规划类型', key: 'planType', width: 110 },
   { title: '任务场景', key: 'businessScene', width: 130 },
   { title: '任务来源', key: 'taskSource', width: 140 },
+  { title: '优先级', key: 'priorityLevel', width: 90 },
+  { title: '作业票/第三方单号', dataIndex: 'thirdPartyTaskNo', key: 'thirdPartyTaskNo', width: 150 },
+  { title: '中断当前任务', key: 'interruptsCurrentTask', width: 110 },
+  { title: '回传状态', key: 'feedbackStatus', width: 100 },
   { title: '巡检区域', key: 'regionNames', width: 220 },
   { title: '巡检设施数', dataIndex: 'facilityCount', key: 'facilityCount', width: 120 },
-  { title: '部件/连接数', dataIndex: 'componentConnectionCount', key: 'componentConnectionCount', width: 120 },
+  { title: '部件数', dataIndex: 'componentCount', key: 'componentCount', width: 120 },
   { title: '巡检规则数', dataIndex: 'ruleCount', key: 'ruleCount', width: 120 },
   { title: '执行机器人', key: 'robot', width: 150 },
   { title: '异常数', dataIndex: 'exceptionCount', key: 'exceptionCount', width: 90 },
   { title: '执行时间', key: 'timeRange', width: 280 },
   { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 180 },
   { title: '操作', key: 'actions', width: 100, fixed: 'right' }
+]
+
+const sceneOptions = [
+  { label: '全部', value: 'all' },
+  { label: '日常巡检', value: 'daily_inspection' },
+  { label: '作业票监护', value: 'work_ticket_guard' },
 ]
 
 function getStatusText(status: string) {
@@ -187,15 +256,25 @@ function getStatusColor(status: string) {
 }
 
 function getSceneText(scene?: string) {
-  return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护' } as Record<string, string>)[scene || ''] || '日常巡检'
+  return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护', work_ticket_guard: '作业票监护', emergency_arrival: '应急到场' } as Record<string, string>)[scene || ''] || '日常巡检'
 }
 
 function getSceneColor(scene?: string) {
-  return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple' } as Record<string, string>)[scene || ''] || 'blue'
+  return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple', work_ticket_guard: 'gold', emergency_arrival: 'red' } as Record<string, string>)[scene || ''] || 'blue'
 }
 
 function getTaskSourceText(source?: string) {
-  return ({ execution_plan: '调度规划派生', dispatch_insert: '总调度台插单', auto_recheck: '自动补检', ehs: 'EHS下发', manual: '人工创建', manual_plan: '人工规划派生', auto_plan: '自动规划派生' } as Record<string, string>)[source || ''] || '调度系统派生'
+  return ({
+    execution_plan: '执行规划派生',
+    dispatch_insert: '总调度台插单',
+    auto_recheck: '自动补检',
+    work_ticket: '作业票任务',
+    third_party: '第三方任务',
+    emergency: '事故/异常快速到场',
+    manual: '人工创建',
+    manual_plan: '执行规划派生',
+    auto_plan: '执行规划派生'
+  } as Record<string, string>)[source || ''] || '执行规划派生'
 }
 
 function getPlanTypeText(type?: string) {
@@ -254,7 +333,6 @@ function getRuleCount(devices: any[]) {
       if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
     })
     ;(device.assetComponents || []).forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
-    ;(device.connectionObjects || []).forEach((connection: any) => (connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
   })
   return ruleIds.size
 }
@@ -295,21 +373,25 @@ function enrichTask(task: any, index: number) {
   const planType = isDailyRoutineTask ? 'auto' : (task.planType || plan?.planType || 'manual')
   const regionIds = plan ? getPlanRegionIds(plan) : []
   const facilities = plan ? getPlanFacilities(plan) : []
-  const sceneOptions = ['daily_inspection', 'hazard_screening', 'environment_check', 'operation_guard']
-  const sourceOptions = ['execution_plan', 'dispatch_insert', 'auto_recheck', 'ehs', 'manual']
+  const sceneOptions = ['daily_inspection', 'hazard_screening', 'environment_check', 'operation_guard', 'work_ticket_guard', 'emergency_arrival']
+  const sourceOptions = ['execution_plan', 'dispatch_insert', 'auto_recheck', 'work_ticket', 'third_party', 'emergency', 'manual']
   const riskOptions = ['normal', 'warning', 'alarm', 'critical_alarm', 'hazard', 'major_hazard']
-  const componentConnectionCount = facilities.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0) + (device.connectionObjects?.length || 0), 0)
+  const componentCount = facilities.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0)
   return {
     ...task,
     businessScene: task.businessScene || plan?.businessScene || sceneOptions[index % sceneOptions.length],
-    taskSource: task.taskSource || (planType === 'auto' ? 'auto_plan' : plan ? 'manual_plan' : sourceOptions[index % sourceOptions.length]),
+    taskSource: task.taskSource || (plan ? 'execution_plan' : sourceOptions[index % sourceOptions.length]),
     planType,
     riskLevel: task.riskLevel || plan?.riskLevel || riskOptions[index % riskOptions.length],
     regionIds,
     regionNames: regionIds.map((id: string) => getRegionName(id)),
     facilityCount: facilities.length,
-    componentConnectionCount,
+    componentCount,
     ruleCount: getRuleCount(facilities),
+    priorityLevel: task.priorityLevel || (task.taskSource === 'emergency' ? 'emergency' : task.taskSource === 'work_ticket' || task.taskSource === 'third_party' ? 'high' : 'normal'),
+    thirdPartyTaskNo: task.thirdPartyTaskNo || (task.taskSource === 'work_ticket' ? `WT-${String(index + 1).padStart(3, '0')}` : task.taskSource === 'third_party' ? `TP-${String(index + 1).padStart(3, '0')}` : '-'),
+    interruptsCurrentTask: task.interruptsCurrentTask ?? (task.taskSource === 'emergency'),
+    feedbackStatus: task.feedbackStatus || (task.taskSource === 'work_ticket' || task.taskSource === 'third_party' ? (index % 3 === 0 ? 'pending' : 'success') : ''),
     exceptionCount: task.exceptionCount ?? (index % 3),
     uninspectableCount: task.uninspectableCount ?? (index % 2),
     pendingReviewCount: task.pendingReviewCount ?? (index % 4 === 0 ? 1 : 0),
@@ -354,19 +436,30 @@ function fetchTasks() {
 const filteredTasks = computed(() => {
   const name = searchForm.name.trim().toLowerCase()
   const code = searchForm.code.trim().toLowerCase()
+  const thirdPartyTaskNo = searchForm.thirdPartyTaskNo.trim().toLowerCase()
   return tasks.value.filter((task) => {
     const timeRangeText = getTaskTimeRangeText(task)
     const matchName = !name || String(task.name).toLowerCase().includes(name)
     const matchCode = !code || String(task.code).toLowerCase().includes(code)
     const matchRobot = !searchForm.robotId || task.robotId === searchForm.robotId
     const matchStatus = !searchForm.status || task.status === searchForm.status
-    const matchScene = !searchForm.businessScene || task.businessScene === searchForm.businessScene
+    const matchScene = (!searchForm.businessScene || task.businessScene === searchForm.businessScene) && (activeScene.value === 'all' || task.businessScene === activeScene.value)
     const matchSource = !searchForm.taskSource || task.taskSource === searchForm.taskSource
+    const matchPriority = !searchForm.priorityLevel || task.priorityLevel === searchForm.priorityLevel
+    const matchFeedback = !searchForm.feedbackStatus || task.feedbackStatus === searchForm.feedbackStatus
+    const matchThirdPartyTaskNo = !thirdPartyTaskNo || String(task.thirdPartyTaskNo || '').toLowerCase().includes(thirdPartyTaskNo)
     const matchStart = !searchForm.startDate || timeRangeText.includes(searchForm.startDate)
     const matchEnd = !searchForm.endDate || timeRangeText.includes(searchForm.endDate)
-    return matchName && matchCode && matchRobot && matchStatus && matchScene && matchSource && matchStart && matchEnd
+    return matchName && matchCode && matchRobot && matchStatus && matchScene && matchSource && matchPriority && matchFeedback && matchThirdPartyTaskNo && matchStart && matchEnd
   })
 })
+
+const taskSummary = computed(() => ({
+  running: filteredTasks.value.filter((task: any) => task.status === 'running').length,
+  completed: filteredTasks.value.filter((task: any) => task.status === 'completed').length,
+  abnormal: filteredTasks.value.filter((task: any) => task.status === 'failed' || (task.exceptionCount || 0) > 0).length,
+  pendingFeedback: filteredTasks.value.filter((task: any) => task.feedbackStatus === 'pending').length
+}))
 
 function handleReset() {
   searchForm.name = ''
@@ -375,6 +468,9 @@ function handleReset() {
   searchForm.status = undefined
   searchForm.businessScene = undefined
   searchForm.taskSource = undefined
+  searchForm.priorityLevel = undefined
+  searchForm.feedbackStatus = undefined
+  searchForm.thirdPartyTaskNo = ''
   searchForm.startDate = ''
   searchForm.endDate = ''
 }
@@ -416,5 +512,47 @@ watch(() => route.query.planId, fetchTasks)
   display: flex;
   justify-content: flex-end;
   margin: 4px 0 8px;
+}
+.scene-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.scene-summary strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+}
+.scene-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fcfcfd, #f8fafc);
+}
+.scene-switch__item {
+  min-width: 108px;
+  padding: 9px 14px;
+  border: 1px solid #dbe2ea;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.scene-switch__item:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+.scene-switch__item--active {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+  box-shadow: 0 8px 16px -12px rgba(15, 118, 110, 0.9);
 }
 </style>

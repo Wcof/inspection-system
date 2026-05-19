@@ -25,8 +25,10 @@
         <a-descriptions-item label="任务总执行时间">{{ task ? getTaskRunTimeText(task) : '-' }}</a-descriptions-item>
         <a-descriptions-item label="巡检区域">{{ taskRegionNames.join('、') || '-' }}</a-descriptions-item>
         <a-descriptions-item label="巡检设施数">{{ taskFacilities.length }}</a-descriptions-item>
-        <a-descriptions-item label="部件/连接数">{{ taskComponentConnectionCount }}</a-descriptions-item>
+        <a-descriptions-item label="地图">{{ taskMapName }}</a-descriptions-item>
+        <a-descriptions-item label="部件数">{{ taskComponentCount }}</a-descriptions-item>
         <a-descriptions-item label="巡检规则数">{{ taskRuleCount }}</a-descriptions-item>
+        <a-descriptions-item label="回传状态">{{ taskFeedbackStatus }}</a-descriptions-item>
       </a-descriptions>
     </a-card>
 
@@ -113,7 +115,7 @@
             </template>
           </a-table>
         </a-tab-pane>
-        <a-tab-pane key="device" tab="按设施查看">
+        <a-tab-pane key="device" tab="对象链路">
           <a-table :columns="deviceColumns" :data-source="deviceRows" row-key="id" :pagination="false">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'checkItems'">{{ record.checkItems }}</template>
@@ -230,33 +232,37 @@ const pointColumns = [
   { title: '执行点位', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code', width: 160 },
   { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 180 },
+  { title: '停车点', dataIndex: 'parkingPointNames', key: 'parkingPointNames', width: 180 },
+  { title: '云台角度', dataIndex: 'ptzSummary', key: 'ptzSummary', width: 180 },
+  { title: '检测顺序', dataIndex: 'sequence', key: 'sequence', width: 100 },
   { title: '巡检状态', key: 'inspectionStatus', width: 120 },
   { title: '设施数', key: 'deviceCount', width: 80 },
-  { title: '部件/连接数', key: 'deviceCount', width: 80 },
+  { title: '部件数', key: 'deviceCount', width: 80 },
   { title: '检测规则数', key: 'inspectionItemCount', width: 80 },
   { title: '漏检数', key: 'missedItemCount', width: 80 },
   { title: '时间范围', key: 'timeRange', width: 260 }
 ]
 
 const deviceColumns = [
-  { title: '设施名称', dataIndex: 'name', key: 'name' },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 180 },
-  { title: '关联点位', dataIndex: 'pointNames', key: 'pointNames', width: 220 },
-  { title: '部件/连接数', dataIndex: 'componentConnectionCount', key: 'componentConnectionCount', width: 120 },
+  { title: '区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '装置', dataIndex: 'installationName', key: 'installationName', width: 140 },
+  { title: '设施/管路', dataIndex: 'name', key: 'name', width: 160 },
+  { title: '部件', dataIndex: 'componentNames', key: 'componentNames', width: 200 },
+  { title: '检测规则', key: 'checkItems' },
+  { title: '采集动作', key: 'collectionAction', width: 160 },
   { title: '状态', key: 'status', width: 110 },
-  { title: '检测数据', key: 'detectionData', width: 220 },
   { title: '检测结果', key: 'result', width: 110 },
-  { title: '光学截图', key: 'opticalShot', width: 120 },
-  { title: '热成像截图', key: 'thermalShot', width: 120 },
-  { title: '检测清单', key: 'checkItems' },
-  { title: '监测时间', key: 'inspectTime', width: 190 },
+  { title: '监测时间', key: 'inspectTime', width: 190 }
 ]
 
 const evidenceColumns = [
   { title: '巡检点', dataIndex: 'pointName', key: 'pointName', width: 160 },
   { title: '停车点/经过点', dataIndex: 'parkingPoint', key: 'parkingPoint', width: 180 },
   { title: '采集动作', dataIndex: 'collectionAction', key: 'collectionAction', width: 180 },
-  { title: '检测对象', dataIndex: 'targetObject', key: 'targetObject', width: 160 },
+  { title: '部件编号/位号', dataIndex: 'componentRef', key: 'componentRef', width: 180 },
+  { title: '命中规则', dataIndex: 'ruleName', key: 'ruleName', width: 150 },
+  { title: '规则结果', dataIndex: ['evidence', 'recognizedValue'], key: 'ruleResult', width: 140 },
+  { title: '是否生成告警', dataIndex: 'generatesAlert', key: 'generatesAlert', width: 120 },
   { title: '检测规则', dataIndex: 'ruleName', key: 'ruleName', width: 150 },
   { title: '结果状态', key: 'qualityStatus', width: 130 },
   { title: '覆盖口径', key: 'coverage', width: 110 },
@@ -268,7 +274,9 @@ const evidenceColumns = [
   { title: '气体值', key: 'gasValue', width: 120 },
   { title: '置信度', key: 'confidence', width: 100 },
   { title: '规则版本', key: 'ruleVersion', width: 110 },
-  { title: '人工复核', key: 'manualReview', width: 180 }
+  { title: '人工复核', key: 'manualReview', width: 180 },
+  { title: '历史回放', dataIndex: 'playbackEntry', key: 'playbackEntry', width: 120 },
+  { title: '第三方回传', dataIndex: 'feedbackStatus', key: 'feedbackStatus', width: 120 }
 ]
 
 const mapStageStyle = computed(() => ({
@@ -372,15 +380,25 @@ function getStatusColor(status?: string) {
 }
 
 function getSceneText(scene?: string) {
-  return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护' } as Record<string, string>)[scene || ''] || '日常巡检'
+  return ({ daily_inspection: '日常巡检', hazard_screening: '隐患排查', environment_check: '环境检查', operation_guard: '作业监护', work_ticket_guard: '作业票监护', emergency_arrival: '应急到场' } as Record<string, string>)[scene || ''] || '日常巡检'
 }
 
 function getSceneColor(scene?: string) {
-  return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple' } as Record<string, string>)[scene || ''] || 'blue'
+  return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple', work_ticket_guard: 'gold', emergency_arrival: 'red' } as Record<string, string>)[scene || ''] || 'blue'
 }
 
 function getTaskSourceText(source?: string) {
-  return ({ execution_plan: '执行规划派生', dispatch_insert: '总调度台插单', auto_recheck: '自动补检', ehs: 'EHS下发', manual: '人工创建', manual_plan: '人工规划派生', auto_plan: '自动规划派生' } as Record<string, string>)[source || ''] || '执行规划派生'
+  return ({
+    execution_plan: '执行规划派生',
+    dispatch_insert: '总调度台插单',
+    auto_recheck: '自动补检',
+    work_ticket: '作业票/第三方下发',
+    third_party: '作业票/第三方下发',
+    emergency: '事故/异常快速到场',
+    manual: '人工创建',
+    manual_plan: '执行规划派生',
+    auto_plan: '执行规划派生'
+  } as Record<string, string>)[source || ''] || '执行规划派生'
 }
 
 function getPlanTypeText(type?: string) {
@@ -528,11 +546,11 @@ function getDeviceRuleCount(device: any) {
     if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
   })
   ;(device.assetComponents || []).forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
-  ;(device.connectionObjects || []).forEach((connection: any) => (connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
   return ruleIds.size
 }
 
-const taskComponentConnectionCount = computed(() => taskFacilities.value.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0) + (device.connectionObjects?.length || 0), 0))
+const taskMapName = computed(() => inspectionStore.inspectionMaps.find((map: any) => map.id === inspectionPoints.value[0]?.mapId)?.name || '默认厂区地图')
+const taskComponentCount = computed(() => taskFacilities.value.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0))
 const taskRuleCount = computed(() => {
   const ruleIds = new Set<string>()
   taskFacilities.value.forEach((device: any) => {
@@ -540,10 +558,10 @@ const taskRuleCount = computed(() => {
       if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
     })
     ;(device.assetComponents || []).forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
-    ;(device.connectionObjects || []).forEach((connection: any) => (connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
   })
   return ruleIds.size
 })
+const taskFeedbackStatus = computed(() => task.value?.feedbackStatus === 'pending' ? '待回传' : task.value?.feedbackStatus === 'success' ? '已回传' : task.value?.feedbackStatus === 'failed' ? '回传失败' : '-')
 
 function getTaskStart(taskValue: any) {
   return taskValue?.schedule?.startTime ? new Date(taskValue.schedule.startTime) : new Date(taskValue?.createdAt || Date.now())
@@ -569,7 +587,10 @@ const inspectionPointRows = computed(() => {
     const inspectionStatus = getPointInspectionStatus(index)
     return {
       ...point,
+      sequence: index + 1,
       areaName: point.areaName || '-',
+      parkingPointNames: (point.parkingPoints || []).map((item: any) => item.name).join('、') || '-',
+      ptzSummary: (point.parkingPoints || []).flatMap((item: any) => item.collectionPoses || []).slice(0, 1).map((pose: any) => `Yaw ${pose.ptzYaw} / Pitch ${pose.ptzPitch}`).join('、') || '-',
       inspectionStatus,
       inspectionItemCount: itemCount,
       missedItemCount: getMissedItemCount(point.id, itemCount, inspectionStatus),
@@ -595,7 +616,8 @@ const deviceRows = computed(() => {
         name: device.name,
         areaName: device.areaName || getRegionName(device.areaId),
         pointNames: pointNames.join('、') || '-',
-        componentConnectionCount: (device.assetComponents?.length || 0) + (device.connectionObjects?.length || 0),
+        installationName: device.installationName || '-',
+        componentNames: (device.assetComponents || []).map((c: any) => c.name).join('、') || '-',
         ruleCount: getDeviceRuleCount(device),
         status: isChecked ? '已检测' : '待检测',
         result,
@@ -603,6 +625,7 @@ const deviceRows = computed(() => {
         inspectTime,
         opticalShot: opticalImage,
         thermalShot: thermalImage,
+        collectionAction: '停车采集 + 云台对焦',
         checkItems: '',
         primaryCount: 0,
         secondaryCount: 0
@@ -631,7 +654,10 @@ const collectionActionRows = computed(() => {
     pointName: string
     parkingPoint: string
     collectionAction: string
-      targetObject: string
+      componentRef: string
+      generatesAlert: string
+      playbackEntry: string
+      feedbackStatus: string
     ruleName: string
     ptz: string
     gasValue: string
@@ -648,8 +674,11 @@ const collectionActionRows = computed(() => {
       pointName: action.pointName,
       parkingPoint: action.parkingPointName,
       collectionAction: action.collectionAction,
-      targetObject: action.targetObject,
-      ruleName: action.ruleId ? `${action.ruleId}-V1` : '默认大模型规则',
+      componentRef: action.targetObject,
+      generatesAlert: result?.exceptionLogId ? '是' : '否',
+      playbackEntry: '历史回放',
+      feedbackStatus: '待回传',
+      ruleName: action.ruleName || (action.ruleId ? `${action.ruleId}-V1` : '默认大模型规则'),
       ptz: `Yaw ${(index * 18) % 360}° / Pitch ${-8 + index}° / 焦距 ${28 + index * 2}mm`,
       gasValue: index % 3 === 0 ? `${18 + index}%LEL` : '-',
       qualityStatus,
@@ -680,12 +709,12 @@ onMounted(() => {
   if (task.value) {
     const seed = String(task.value.id || '')
     const sceneOptions = ['daily_inspection', 'hazard_screening', 'environment_check', 'operation_guard']
-    const sourceOptions = ['execution_plan', 'dispatch_insert', 'auto_recheck', 'ehs', 'manual']
+    const sourceOptions = ['execution_plan', 'dispatch_insert', 'auto_recheck', 'work_ticket', 'third_party', 'emergency', 'manual']
     const riskOptions = ['normal', 'warning', 'alarm', 'critical_alarm', 'hazard', 'major_hazard']
       task.value = {
         ...task.value,
       businessScene: task.value.businessScene || taskPlan.value?.businessScene || sceneOptions[seed.length % sceneOptions.length],
-      taskSource: task.value.taskSource || (displayPlanType.value === 'auto' ? 'auto_plan' : taskPlan.value ? 'manual_plan' : sourceOptions[seed.length % sourceOptions.length]),
+      taskSource: task.value.taskSource || (taskPlan.value ? 'execution_plan' : sourceOptions[seed.length % sourceOptions.length]),
       riskLevel: task.value.riskLevel || taskPlan.value?.riskLevel || riskOptions[seed.length % riskOptions.length]
     }
   }
@@ -913,3 +942,6 @@ onMounted(() => {
   }
 }
 </style>
+      generatesAlert: index % 3 === 0 ? '是' : '否',
+      playbackEntry: '查看回放',
+      feedbackStatus: index % 4 === 0 ? '待回传' : '已回传',

@@ -1,151 +1,29 @@
 <template>
-  <div class="exception-analysis">
-    <a-card title="异常分析">
-      <a-button type="primary" @click="goBack">返回报表统计</a-button>
-      <div class="analysis-content">
-        <p>异常分析页面 - 骨架页</p>
-        <div class="analysis-filter">
-          <a-form :model="form" layout="inline">
-            <a-form-item label="时间范围">
-              <a-range-picker v-model:value="form.timeRange" />
-            </a-form-item>
-            <a-form-item label="异常类型">
-              <a-select v-model:value="form.type" placeholder="选择异常类型">
-                <a-select-option value="temperature">温度异常</a-select-option>
-                <a-select-option value="humidity">湿度异常</a-select-option>
-                <a-select-option value="pressure">压力异常</a-select-option>
-                <a-select-option value="vibration">振动异常</a-select-option>
-              </a-select>
-            </a-form-item>
-            <a-form-item>
-              <a-button type="primary" @click="search">查询</a-button>
-            </a-form-item>
-          </a-form>
-        </div>
-        <div class="analysis-charts">
-          <h3>异常统计图表</h3>
-          <div class="chart-placeholder">
-            <p>图表占位区域</p>
-            <p>异常分析图表将在此显示</p>
-          </div>
-        </div>
-        <div class="analysis-data">
-          <h3>异常数据</h3>
-          <a-table :columns="columns" :data-source="data" row-key="id">
-            <template #empty>
-              <p>暂无异常数据</p>
-            </template>
-          </a-table>
-        </div>
-      </div>
+  <ReportShell v-model="period" badge="EXCEPTION ANALYSIS" title="异常告警分析" subtitle="告警处置闭环统计，覆盖确认、误判、转隐患、整改、复核、第三方推送。" :period-options="periodOptions">
+    <div class="kpi-grid">
+      <a-card v-for="item in kpis" :key="item.label" size="small"><span>{{ item.label }}</span><strong>{{ item.value }}</strong></a-card>
+    </div>
+    <a-card title="处置分布" size="small" style="margin-top: 12px">
+      <a-table :columns="columns" :data-source="rows" row-key="name" :pagination="false" size="small" />
     </a-card>
-  </div>
+  </ReportShell>
 </template>
-
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
-
-const goBack = () => {
-  router.push('/management/report/statistics')
-}
-
-const form = ref({
-  timeRange: null,
-  type: ''
-})
-
-const search = () => {
-  // 查询逻辑
-  console.log('查询异常分析', form.value)
-}
-
-const columns = [
-  { title: '异常类型', dataIndex: 'type' },
-  { title: '发生次数', dataIndex: 'count' },
-  { title: '占比', dataIndex: 'percentage' },
-  { title: '处理率', dataIndex: 'handleRate' },
-  { title: '趋势', dataIndex: 'trend' }
+import ReportShell from './components/ReportShell.vue'
+const period = ref('week')
+const periodOptions = [{ label: '日', value: 'day' }, { label: '周', value: 'week' }, { label: '月', value: 'month' }, { label: '季', value: 'quarter' }]
+const kpis = [
+  { label: '告警总数', value: '126' }, { label: '待确认', value: '19' }, { label: '已确认', value: '44' }, { label: '标记误判', value: '11' },
+  { label: '转隐患', value: '26' }, { label: '转整改', value: '17' }, { label: '已推送第三方', value: '52' }, { label: '平均确认时长', value: '18 分钟' }, { label: '平均闭环时长', value: '9.6 小时' }
 ]
-
-const data = [
-  {
-    id: '1',
-    type: '温度异常',
-    count: 50,
-    percentage: '40%',
-    handleRate: '90%',
-    trend: '上升'
-  },
-  {
-    id: '2',
-    type: '湿度异常',
-    count: 30,
-    percentage: '24%',
-    handleRate: '85%',
-    trend: '稳定'
-  },
-  {
-    id: '3',
-    type: '压力异常',
-    count: 25,
-    percentage: '20%',
-    handleRate: '95%',
-    trend: '下降'
-  },
-  {
-    id: '4',
-    type: '振动异常',
-    count: 20,
-    percentage: '16%',
-    handleRate: '80%',
-    trend: '上升'
-  }
+const columns = [{ title: '类型', dataIndex: 'name', key: 'name' }, { title: '数量', dataIndex: 'count', key: 'count', width: 100 }, { title: '占比', dataIndex: 'ratio', key: 'ratio', width: 110 }, { title: '平均处理时长', dataIndex: 'duration', key: 'duration', width: 140 }]
+const rows = [
+  { name: '设施/部件异常', count: 53, ratio: '42.1%', duration: '8.3h' },
+  { name: '气体异常', count: 24, ratio: '19.0%', duration: '4.7h' },
+  { name: '安全行为异常', count: 28, ratio: '22.2%', duration: '2.4h' },
+  { name: '监测失效', count: 12, ratio: '9.5%', duration: '10.2h' },
+  { name: '不可检异常', count: 9, ratio: '7.2%', duration: '5.8h' }
 ]
 </script>
-
-<style scoped>
-.exception-analysis {
-  padding: 20px 0;
-}
-
-.analysis-content {
-  margin-top: 20px;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.analysis-filter,
-.analysis-charts,
-.analysis-data {
-  margin-top: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
-}
-
-.chart-placeholder {
-  height: 300px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: #f0f0f0;
-  border-radius: 4px;
-}
-
-h3 {
-  margin-bottom: 10px;
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-}
-
-p {
-  margin: 5px 0;
-  color: #666;
-}
-</style>
+<style scoped>.kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.kpi-grid strong{display:block;margin-top:6px;font-size:20px}@media(max-width:960px){.kpi-grid{grid-template-columns:1fr}}</style>
