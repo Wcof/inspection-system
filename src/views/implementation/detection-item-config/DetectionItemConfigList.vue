@@ -29,9 +29,9 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :sm="12" :md="8" :lg="6">
-            <a-form-item label="发布状态">
-              <a-select v-model:value="query.publishStatus" allow-clear>
-                <a-select-option v-for="value in publishStatuses" :key="value" :value="value">{{ value }}</a-select-option>
+            <a-form-item label="状态">
+              <a-select v-model:value="query.status" allow-clear>
+                <a-select-option v-for="value in statuses" :key="value" :value="value">{{ value }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
@@ -46,11 +46,8 @@
 
       <a-table :columns="columns" :data-source="filteredRows" row-key="id" :scroll="{ x: 1400 }">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'publishStatus'">
-            <a-tag :color="record.publishStatus === '已发布' ? 'green' : record.publishStatus === '草稿' ? 'gold' : 'default'">{{ record.publishStatus }}</a-tag>
-          </template>
-          <template v-else-if="column.key === 'enabled'">
-            <a-tag :color="record.enabled ? 'green' : 'default'">{{ record.enabled ? '启用' : '停用' }}</a-tag>
+          <template v-if="column.key === 'status'">
+            <a-tag :color="getStatusColor(record.status)">{{ record.status }}</a-tag>
           </template>
           <template v-else-if="column.key === 'updatedAt'">
             {{ formatDate(record.updatedAt) }}
@@ -59,7 +56,7 @@
             <a-space>
               <a-button type="link" size="small" @click="goDetail(record.id)">详情</a-button>
               <a-button type="link" size="small" @click="goEdit(record.id)">编辑</a-button>
-              <a-button type="link" size="small" @click="togglePublish(record)">{{ record.publishStatus === '草稿' ? '发布' : '停用' }}</a-button>
+              <a-button type="link" size="small" @click="toggleStatus(record)">{{ record.status === '启用' ? '停用' : '启用' }}</a-button>
               <a-button type="link" size="small" danger @click="remove(record.id)">删除</a-button>
             </a-space>
           </template>
@@ -86,13 +83,13 @@ import {
 
 const router = useRouter()
 const rows = ref<DetectionItemConfig[]>(getDetectionItemConfigs())
-const publishStatuses: PublishStatus[] = ['草稿', '已发布', '已停用']
+const statuses: PublishStatus[] = ['草稿', '启用', '停用']
 
 const query = reactive({
   name: '',
   detectionType: '',
   detectionAlgorithm: '',
-  publishStatus: ''
+  status: ''
 })
 
 const columns = [
@@ -103,8 +100,7 @@ const columns = [
   { title: '结果数量', key: 'resultCount', width: 100 },
   { title: '版本', dataIndex: 'version', key: 'version', width: 100 },
   { title: '引用数量', dataIndex: 'referenceCount', key: 'referenceCount', width: 100 },
-  { title: '发布状态', key: 'publishStatus', width: 100 },
-  { title: '启用状态', key: 'enabled', width: 100 },
+  { title: '状态', key: 'status', width: 100 },
   { title: '更新时间', key: 'updatedAt', width: 180 },
   { title: '操作', key: 'actions', width: 220, fixed: 'right' as const }
 ]
@@ -118,7 +114,7 @@ const filteredRows = computed(() => rows.value
   .filter(item => !query.name || item.name.includes(query.name.trim()))
   .filter(item => !query.detectionType || item.detectionType === query.detectionType)
   .filter(item => !query.detectionAlgorithm || item.detectionAlgorithm === query.detectionAlgorithm)
-  .filter(item => !query.publishStatus || item.publishStatus === query.publishStatus)
+  .filter(item => !query.status || item.status === query.status)
   .map(item => ({ ...item, resultCount: item.results.length }))
 )
 
@@ -130,7 +126,13 @@ function resetQuery() {
   query.name = ''
   query.detectionType = ''
   query.detectionAlgorithm = ''
-  query.publishStatus = ''
+  query.status = ''
+}
+
+function getStatusColor(status: PublishStatus) {
+  if (status === '启用') return 'green'
+  if (status === '草稿') return 'gold'
+  return 'default'
 }
 
 function formatDate(value: string) {
@@ -153,16 +155,18 @@ function isPublishable(record: DetectionItemConfig) {
   return Boolean(record.name && record.code && record.detectionType && record.detectionAlgorithm && record.results.length)
 }
 
-function togglePublish(record: DetectionItemConfig) {
-  if (record.publishStatus === '草稿') {
+function toggleStatus(record: DetectionItemConfig) {
+  if (record.status !== '启用') {
     if (!isPublishable(record)) {
-      message.error('发布前请补全规则名称、编码、检测类型、检测算法和结果定义')
+      message.error('启用前请补全规则名称、编码、检测类型、检测算法和结果定义')
       return
     }
-    record.publishStatus = '已发布'
+    record.status = '启用'
+    record.publishStatus = '启用'
     record.enabled = true
   } else {
-    record.publishStatus = '已停用'
+    record.status = '停用'
+    record.publishStatus = '停用'
     record.enabled = false
   }
   record.updatedAt = new Date().toISOString()

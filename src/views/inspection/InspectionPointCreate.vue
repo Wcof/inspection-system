@@ -143,7 +143,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
 import type { InspectionPointCoverageObject, InspectionPointDetectionConfig } from '@/types/inspection'
-import { getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
+import { getDetectionItemConfigs, isDetectionRuleActive } from '@/views/implementation/detection-item-config/model'
 
 type ConfigRow = {
   id: string
@@ -177,7 +177,7 @@ const configRows = ref<ConfigRow[]>([])
 const point = computed(() => inspectionStore.inspectionPoints.find((item) => item.id === String(route.params.id)))
 const currentMap = computed(() => inspectionStore.inspectionMaps.find((item) => item.id === point.value?.mapId))
 const installationOptions = computed(() => inspectionStore.installations.filter((item) => !point.value?.areaId || item.areaId === point.value.areaId))
-const ruleOptions = computed(() => getDetectionItemConfigs().filter((item) => item.enabled && item.publishStatus === '已发布'))
+const ruleOptions = computed(() => getDetectionItemConfigs().filter(isDetectionRuleActive))
 
 const markerPosition = computed(() => ({
   x: normalizeMapCoordinate(point.value?.mapPosition?.x),

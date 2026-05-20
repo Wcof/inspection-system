@@ -108,16 +108,14 @@ const ruleRows = computed(() => (component.value?.ruleIds || []).map((id) => {
     name: rule?.name || id,
     detectionType: rule?.detectionType || '-',
     detectionAlgorithm: rule?.detectionAlgorithm || '-',
-    publishStatus: rule?.publishStatus || '-',
-    status: rule?.enabled ? '启用' : '停用'
+    status: rule?.status || '-'
   }
 }))
 
 const ruleColumns = [
   { title: '规则名称', dataIndex: 'name', key: 'name', width: 140  },
   { title: '检测类型', dataIndex: 'detectionType', key: 'detectionType', width: 140 },
-  { title: '发布状态', dataIndex: 'publishStatus', key: 'publishStatus', width: 120 },
-  { title: '启用状态', dataIndex: 'status', key: 'status', width: 100 }
+  { title: '状态', dataIndex: 'status', key: 'status', width: 100 }
 ]
 
 const pointColumns = [

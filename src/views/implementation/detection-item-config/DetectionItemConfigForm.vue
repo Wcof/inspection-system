@@ -25,17 +25,12 @@
             </a-form-item>
           </a-col>
           <a-col :span="8">
-            <a-form-item label="发布状态">
-              <a-select v-model:value="form.publishStatus">
+            <a-form-item label="状态">
+              <a-select v-model:value="form.status">
                 <a-select-option value="草稿">草稿</a-select-option>
-                <a-select-option value="已发布">已发布</a-select-option>
-                <a-select-option value="已停用">已停用</a-select-option>
+                <a-select-option value="启用">启用</a-select-option>
+                <a-select-option value="停用">停用</a-select-option>
               </a-select>
-            </a-form-item>
-          </a-col>
-          <a-col :span="8">
-            <a-form-item label="是否启用">
-              <a-switch v-model:checked="form.enabled" />
             </a-form-item>
           </a-col>
         </a-row>
@@ -94,8 +89,8 @@
         <div style="margin-top: 16px; display: flex; justify-content: flex-end">
           <a-space>
             <a-button @click="goBack">取消</a-button>
-            <a-button type="primary" @click="save('草稿')">保存草稿</a-button>
-            <a-button type="primary" @click="save('已发布')">保存并发布</a-button>
+            <a-button type="primary" @click="save(form.status)">保存</a-button>
+            <a-button type="primary" @click="save('启用')">保存并启用</a-button>
           </a-space>
         </div>
       </a-form>
@@ -143,6 +138,7 @@ const form = reactive<DetectionItemConfig>(source.value ? JSON.parse(JSON.string
   rules: [{ id: `rule-${Date.now()}`, name: '外观识别', version: 'V1.0', algorithm: '外观识别', status: '启用' }],
   results: defaultResultsByDetectionType('图像识别'),
   version: 'V1.0',
+  status: '草稿',
   publishStatus: '草稿',
   enabled: false,
   referenceCount: 0,
@@ -240,19 +236,20 @@ function save(status: PublishStatus) {
     message.error('请填写规则名称和规则编码')
     return
   }
-  if (status === '已发布' && !form.results.every(isResultComplete)) {
-    message.error('发布校验未通过，请补全结果定义')
+  if (status === '启用' && !form.results.every(isResultComplete)) {
+    message.error('启用校验未通过，请补全结果定义')
     return
   }
   ensureRules()
+  form.status = status
   form.publishStatus = status
-  form.enabled = status === '已发布'
+  form.enabled = status === '启用'
   form.updatedAt = new Date().toISOString()
   if (!isEdit.value) {
     form.createdAt = new Date().toISOString()
   }
   upsertDetectionItemConfig(JSON.parse(JSON.stringify(form)))
-  message.success(status === '已发布' ? '已保存并发布' : '草稿已保存')
+  message.success(status === '启用' ? '已保存并启用' : status === '停用' ? '已保存并停用' : '草稿已保存')
   goBack()
 }
 

@@ -95,7 +95,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
 import type { DetectionType } from '@/views/implementation/detection-item-config/model'
-import { detectionTypeOptions, getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
+import { detectionTypeOptions, getDetectionItemConfigs, isDetectionRuleActive } from '@/views/implementation/detection-item-config/model'
 
 interface RuleBindingRow {
   key: string
@@ -124,7 +124,7 @@ const inspectionStore = useInspectionStore()
 const isEdit = computed(() => Boolean(route.params.componentId))
 const currentId = computed(() => String(route.params.componentId || ''))
 const current = computed(() => inspectionStore.facilityComponents.find((item) => item.id === currentId.value))
-const ruleLibrary = computed(() => getDetectionItemConfigs().filter((item) => item.publishStatus === '已发布' || current.value?.ruleIds.includes(item.id)))
+const ruleLibrary = computed(() => getDetectionItemConfigs().filter((item) => isDetectionRuleActive(item) || current.value?.ruleIds.includes(item.id)))
 
 const form = reactive({
   name: '',

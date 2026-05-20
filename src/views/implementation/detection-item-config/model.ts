@@ -1,7 +1,7 @@
 export type DetectionType = '图像识别' | '热成像' | '气体检测' | '远传对比' | '安全行为' | '设备状态' | '环境监测' | '其他'
 export type DetectionCategory = DetectionType
 export type CollectMethod = '光学图像' | '热成像' | '气体传感器' | '声音采集' | '远传数据' | '组合采集'
-export type PublishStatus = '草稿' | '已发布' | '已停用'
+export type PublishStatus = '草稿' | '启用' | '停用'
 export type ResultType = '数值型' | '状态型' | '布尔型' | '等级型' | '文本型' | '图像识别型'
 
 export interface RuleItem {
@@ -47,6 +47,7 @@ export interface DetectionItemConfig {
   rules: RuleItem[]
   results: ResultDef[]
   version: string
+  status: PublishStatus
   publishStatus: PublishStatus
   enabled: boolean
   referenceCount: number
@@ -146,8 +147,18 @@ function ensureAlgorithm(type: DetectionType, value?: string) {
   return candidates[0]
 }
 
+function normalizeStatus(item: Partial<DetectionItemConfig>): PublishStatus {
+  if (item.status === '草稿' || item.status === '启用' || item.status === '停用') return item.status
+  const legacyStatus = (item as any).publishStatus
+  if (legacyStatus === '草稿') return '草稿'
+  if (legacyStatus === '已发布') return item.enabled === false ? '停用' : '启用'
+  if (legacyStatus === '已停用') return '停用'
+  return item.enabled ? '启用' : '草稿'
+}
+
 function normalizeConfig(item: Partial<DetectionItemConfig>): DetectionItemConfig {
   const detectionType = detectionTypeFromLegacy((item as any).detectionType || item.category)
+  const status = normalizeStatus(item)
   return {
     id: item.id || `dic-${Date.now()}`,
     name: item.name || '',
@@ -171,8 +182,9 @@ function normalizeConfig(item: Partial<DetectionItemConfig>): DetectionItemConfi
       voiceBroadcastText: result.voiceBroadcastText || ''
     })),
     version: item.version || 'V1.0',
-    publishStatus: item.publishStatus || '草稿',
-    enabled: item.enabled ?? false,
+    status,
+    publishStatus: status,
+    enabled: status === '启用',
     referenceCount: item.referenceCount ?? 0,
     updatedAt: item.updatedAt || now(),
     createdAt: item.createdAt || now()
@@ -201,7 +213,8 @@ const defaultData: DetectionItemConfig[] = [
       createResult({ id: 'rs-002', name: '告警', code: 'ALARM', indicator: '仪表读数', riskLevel: '告警', needReview: true, generateException: true, judgmentBasis: '读数超过告警阈值', voiceBroadcastText: '检测到仪表读数异常，请立即复核。' }),
       createResult({ id: 'rs-003', name: '无法识别', code: 'UNREADABLE', group: '采集质量结果', indicator: '仪表读数', riskLevel: '预警', needReview: true, generateException: true, judgmentBasis: '画面模糊或表盘遮挡' })
     ],
-    publishStatus: '已发布',
+    status: '启用',
+    publishStatus: '启用',
     enabled: true,
     referenceCount: 12
   }),
@@ -212,7 +225,8 @@ const defaultData: DetectionItemConfig[] = [
     detectionType: '图像识别',
     detectionAlgorithm: '外观识别',
     description: '识别压力表表盘、外壳、玻璃罩是否存在破损或明显异常。',
-    publishStatus: '已发布',
+    status: '启用',
+    publishStatus: '启用',
     enabled: true
   }),
   normalizeConfig({
@@ -222,7 +236,8 @@ const defaultData: DetectionItemConfig[] = [
     detectionType: '图像识别',
     detectionAlgorithm: '指针状态识别',
     description: '识别压力表指针姿态是否异常。',
-    publishStatus: '已发布',
+    status: '启用',
+    publishStatus: '启用',
     enabled: true
   })
 ]
@@ -246,6 +261,10 @@ export function getDetectionItemConfigs(): DetectionItemConfig[] {
 
 export function saveDetectionItemConfigs(items: DetectionItemConfig[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(normalizeConfig)))
+}
+
+export function isDetectionRuleActive(item: DetectionItemConfig) {
+  return normalizeStatus(item) === '启用'
 }
 
 export function upsertDetectionItemConfig(item: DetectionItemConfig) {

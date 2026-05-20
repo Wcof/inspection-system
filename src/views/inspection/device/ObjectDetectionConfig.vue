@@ -88,7 +88,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
 import type { DetectionFailureStrategy, InspectedAssetComponent, ObjectDetectionConfig, ObjectDetectionSubjectType } from '@/types/inspection'
-import { getDetectionItemConfigs, type DetectionItemConfig } from '@/views/implementation/detection-item-config/model'
+import { getDetectionItemConfigs, isDetectionRuleActive, type DetectionItemConfig } from '@/views/implementation/detection-item-config/model'
 
 interface SubjectRow {
   id: string
@@ -116,7 +116,7 @@ const deviceId = computed(() => String(route.params.deviceId || ''))
 const componentId = computed(() => String(route.params.componentId || ''))
 const device = computed(() => inspectionStore.inspectionDevices.find(item => item.id === deviceId.value))
 const linkedPointNames = computed(() => Array.from(new Set((device.value?.parkingPointBindings || []).map(item => item.inspectionPointName))).join('、'))
-const ruleOptions = computed(() => getDetectionItemConfigs().filter(item => item.publishStatus === '已发布' && item.enabled))
+const ruleOptions = computed(() => getDetectionItemConfigs().filter(isDetectionRuleActive))
 const pageTitle = computed(() => componentId.value ? '部件检测配置' : '设施检测配置')
 
 const rows = computed<SubjectRow[]>(() => {

@@ -211,7 +211,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
 import type { FacilityParkingPointBinding } from '@/types/inspection'
-import { getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
+import { getDetectionItemConfigs, isDetectionRuleActive } from '@/views/implementation/detection-item-config/model'
 
 interface BindingRow {
   id: string
@@ -311,7 +311,7 @@ const detectionRuleNameMap = computed(() => {
   })
   return map
 })
-const allPublishedRuleIds = computed(() => getDetectionItemConfigs().filter((item) => item.publishStatus === '已发布' && item.enabled).map((item) => item.id))
+const allPublishedRuleIds = computed(() => getDetectionItemConfigs().filter(isDetectionRuleActive).map((item) => item.id))
 const draggingRowIndex = computed(() => bindingRows.value.findIndex((item) => item.id === draggingRowId.value))
 const pickerMapOptions = computed(() => inspectionStore.inspectionMaps.filter((map) =>
   inspectionStore.inspectionPoints.some((point) => point.mapId === map.id && (point.parkingPoints || []).length)

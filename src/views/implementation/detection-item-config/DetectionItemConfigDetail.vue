@@ -13,8 +13,7 @@
           <a-descriptions-item label="采集方式">{{ item.collectMethod }}</a-descriptions-item>
           <a-descriptions-item label="是否必须留证">{{ item.needEvidence ? '是' : '否' }}</a-descriptions-item>
           <a-descriptions-item label="当前版本">{{ item.version }}</a-descriptions-item>
-          <a-descriptions-item label="发布状态">{{ item.publishStatus }}</a-descriptions-item>
-          <a-descriptions-item label="启用状态">{{ item.enabled ? '启用' : '停用' }}</a-descriptions-item>
+          <a-descriptions-item label="状态">{{ item.status }}</a-descriptions-item>
           <a-descriptions-item label="配置说明" :span="2">{{ item.description || '-' }}</a-descriptions-item>
         </a-descriptions>
       </a-card>
@@ -97,12 +96,12 @@ function shouldShowThreshold(type?: DetectionType) {
 
 const versionColumns = [
   { title: '版本号', dataIndex: 'version', key: 'version', width: 120 },
-  { title: '发布状态', dataIndex: 'status', key: 'status', width: 120 },
-  { title: '发布时间', dataIndex: 'time', key: 'time', width: 180 },
+  { title: '状态', dataIndex: 'status', key: 'status', width: 120 },
+  { title: '更新时间', dataIndex: 'time', key: 'time', width: 180 },
   { title: '变更说明', dataIndex: 'change', key: 'change' }
 ]
 
-const versionRows = computed(() => item.value ? [{ version: item.value.version, status: item.value.publishStatus, time: new Date(item.value.updatedAt).toLocaleString('zh-CN', { hour12: false }), change: '当前版本配置' }] : [])
+const versionRows = computed(() => item.value ? [{ version: item.value.version, status: item.value.status, time: new Date(item.value.updatedAt).toLocaleString('zh-CN', { hour12: false }), change: '当前版本配置' }] : [])
 
 function playVoice(text?: string) {
   const value = (text || '').trim()
