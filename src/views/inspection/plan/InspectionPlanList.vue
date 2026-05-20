@@ -24,6 +24,14 @@
         </button>
       </div>
 
+      <div class="scene-summary">
+        <a-card size="small"><span>当前场景规划</span><strong>{{ filteredPlans.length }}</strong></a-card>
+        <a-card size="small"><span>装置数</span><strong>{{ sceneSummary.installationCount }}</strong></a-card>
+        <a-card size="small"><span>设施/管路数</span><strong>{{ sceneSummary.facilityCount }}</strong></a-card>
+        <a-card size="small"><span>部件数</span><strong>{{ sceneSummary.componentCount }}</strong></a-card>
+        <a-card size="small"><span>规则数</span><strong>{{ sceneSummary.ruleCount }}</strong></a-card>
+      </div>
+
       <div class="search-panel">
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
@@ -62,6 +70,13 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="装置" class="search-item">
+                <a-select v-model:value="searchForm.installationId" placeholder="按装置筛选" allow-clear show-search>
+                  <a-select-option v-for="installation in installationOptions" :key="installation.id" :value="installation.id">{{ installation.name }}</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="设施" class="search-item">
                 <a-select v-model:value="searchForm.deviceId" placeholder="按设施筛选" allow-clear show-search>
                   <a-select-option v-for="device in inspectionStore.inspectionDevices" :key="device.id" :value="device.id">{{ device.name }}</a-select-option>
@@ -80,7 +95,7 @@
           </a-row>
           <div class="search-actions">
             <a-space>
-              <a-button type="primary">搜索</a-button>
+              <a-button type="primary" @click="handleSearch">搜索</a-button>
               <a-button @click="handleReset">重置</a-button>
             </a-space>
           </div>
@@ -94,15 +109,7 @@
         message="执行规划只定义要覆盖的业务区域与设施范围；具体任务由调度台结合资源、风险优先级和现场约束生成。"
       />
 
-      <div class="scene-summary">
-        <a-card size="small"><span>当前场景规划</span><strong>{{ filteredPlans.length }}</strong></a-card>
-        <a-card size="small"><span>装置数</span><strong>{{ sceneSummary.installationCount }}</strong></a-card>
-        <a-card size="small"><span>设施/管路数</span><strong>{{ sceneSummary.facilityCount }}</strong></a-card>
-        <a-card size="small"><span>部件数</span><strong>{{ sceneSummary.componentCount }}</strong></a-card>
-        <a-card size="small"><span>规则数</span><strong>{{ sceneSummary.ruleCount }}</strong></a-card>
-      </div>
-
-      <a-table :columns="columns" :data-source="filteredPlans" :loading="loading" row-key="id" :scroll="{ x: 1680 }">
+      <a-table :columns="columns" :data-source="filteredPlans" :loading="loading" row-key="id" :scroll="{ x: 1900 }">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'planType'">
             <a-tag :color="getSceneColor(record.businessScene)">{{ getSceneText(record.businessScene) }}</a-tag>
@@ -114,6 +121,12 @@
             <a-space wrap>
               <a-tag v-for="region in record.regionNames" :key="region">{{ region }}</a-tag>
               <span v-if="!record.regionNames?.length">-</span>
+            </a-space>
+          </template>
+          <template v-else-if="column.key === 'installationNames'">
+            <a-space wrap>
+              <a-tag v-for="installation in record.installationNames" :key="installation">{{ installation }}</a-tag>
+              <span v-if="!record.installationNames?.length">-</span>
             </a-space>
           </template>
           <template v-else-if="column.key === 'facilityCount'">
@@ -269,6 +282,7 @@ const searchForm = reactive({
   businessScene: undefined as string | undefined,
   planType: undefined as string | undefined,
   regionId: undefined as string | undefined,
+  installationId: undefined as string | undefined,
   deviceId: undefined as string | undefined,
   status: undefined as string | undefined
 })
@@ -279,6 +293,7 @@ const columns = [
   { title: '业务场景', key: 'planType', width: 130 },
   { title: '规划类型', key: 'taskSource', width: 120 },
   { title: '巡检区域', key: 'regionCount', width: 220 },
+  { title: '巡检装置', key: 'installationNames', width: 220 },
   { title: '装置数', key: 'installationCount', width: 100 },
   { title: '巡检设施数', key: 'facilityCount', width: 120 },
   { title: '巡检部件数', key: 'componentCount', width: 120 },
@@ -302,6 +317,15 @@ const regionOptions = computed(() => {
   return Array.from(regionMap.entries()).map(([id, name]) => ({ id, name }))
 })
 
+const installationOptions = computed(() => {
+  if (inspectionStore.installations.length) return inspectionStore.installations
+  const map = new Map<string, string>()
+  inspectionStore.inspectionDevices.forEach((device: any) => {
+    if (device.installationId) map.set(device.installationId, device.installationName || device.installationId)
+  })
+  return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+})
+
 function getRegionName(regionId?: string) {
   if (!regionId) return '未配置区域'
   return regionOptions.value.find((region) => region.id === regionId)?.name || regionId
@@ -317,15 +341,16 @@ function enrichPlan(plan: any) {
     return regionIds.includes(device.areaId)
   })
   const linkedDetectionConfigs = linkedDevices.flatMap((device: any) => device.objectDetectionConfigs || [])
+  const linkedComponents = inspectionStore.facilityComponents.filter((component: any) => linkedDevices.some((device: any) => device.id === component.facilityId))
   const ruleIds = new Set<string>()
   linkedDetectionConfigs.forEach((config: any) => {
     if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
   })
-  linkedDevices.forEach((device: any) => {
-    ;(device.assetComponents || []).forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
-  })
+  const ruleComponents = linkedComponents.length ? linkedComponents : linkedDevices.flatMap((device: any) => device.assetComponents || [])
+  ruleComponents.forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
   const installationIds = Array.from(new Set(linkedDevices.map((device: any) => device.installationId).filter(Boolean)))
-  const componentCount = linkedDevices.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0)
+  const installationNames = installationIds.map((id) => installationOptions.value.find((item: any) => item.id === id)?.name || linkedDevices.find((device: any) => device.installationId === id)?.installationName || id)
+  const componentCount = linkedComponents.length ? linkedComponents.length : linkedDevices.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0)
   const missingRegions = regionOptions.value
     .filter((region) => !regionIds.includes(region.id))
     .slice(0, 2)
@@ -342,6 +367,8 @@ function enrichPlan(plan: any) {
     regionNames: regionIds.map((id) => regionOptions.value.find((region) => region.id === id)?.name || id),
     businessScene: plan.businessScene || sceneOptions[seed.length % sceneOptions.length],
     taskSource: planType,
+    installationIds,
+    installationNames,
     installationCount: installationIds.length,
     linkedDeviceIds: linkedDevices.map((item: any) => item.id),
     facilityIds: plan.facilityIds?.length ? plan.facilityIds : linkedDevices.map((item: any) => item.id),
@@ -371,6 +398,10 @@ function refreshData() {
   message.success('执行规划已刷新')
 }
 
+function handleSearch() {
+  // 当前页面通过 computed 实时过滤，保留显式搜索按钮以符合管理页交互规范。
+}
+
 const filteredPlans = computed(() => {
   const name = searchForm.name.trim().toLowerCase()
   const code = searchForm.code.trim().toLowerCase()
@@ -380,15 +411,16 @@ const filteredPlans = computed(() => {
     const matchScene = (!searchForm.businessScene || plan.businessScene === searchForm.businessScene) && (activeScene.value === 'all' || plan.businessScene === activeScene.value)
     const matchPlanType = !searchForm.planType || plan.planType === searchForm.planType
     const matchRegion = !searchForm.regionId || (plan.regionIds || []).includes(searchForm.regionId)
+    const matchInstallation = !searchForm.installationId || (plan.installationIds || []).includes(searchForm.installationId)
     const matchDevice = !searchForm.deviceId || (plan.linkedDeviceIds || []).includes(searchForm.deviceId)
     const matchStatus = !searchForm.status || plan.status === searchForm.status
-    return matchName && matchCode && matchScene && matchPlanType && matchRegion && matchDevice && matchStatus
+    return matchName && matchCode && matchScene && matchPlanType && matchRegion && matchInstallation && matchDevice && matchStatus
   })
 })
 
 const sceneSummary = computed(() => ({
-  installationCount: filteredPlans.value.reduce((sum, plan: any) => sum + (plan.installationCount || 0), 0),
-  facilityCount: filteredPlans.value.reduce((sum, plan: any) => sum + (plan.linkedDeviceIds?.length || 0), 0),
+  installationCount: new Set(filteredPlans.value.flatMap((plan: any) => plan.installationIds || [])).size,
+  facilityCount: new Set(filteredPlans.value.flatMap((plan: any) => plan.linkedDeviceIds || [])).size,
   componentCount: filteredPlans.value.reduce((sum, plan: any) => sum + (plan.componentCount || 0), 0),
   ruleCount: filteredPlans.value.reduce((sum, plan: any) => sum + (plan.ruleCount || 0), 0)
 }))
@@ -399,6 +431,7 @@ function handleReset() {
   searchForm.businessScene = undefined
   searchForm.planType = undefined
   searchForm.regionId = undefined
+  searchForm.installationId = undefined
   searchForm.deviceId = undefined
   searchForm.status = undefined
 }

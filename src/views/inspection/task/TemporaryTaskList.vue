@@ -16,6 +16,14 @@
         </button>
       </div>
 
+      <div class="scene-summary">
+        <a-card size="small"><span>当前分类任务</span><strong>{{ filteredTasks.length }}</strong></a-card>
+        <a-card size="small"><span>装置数</span><strong>{{ taskSummary.installationCount }}</strong></a-card>
+        <a-card size="small"><span>设施/管路数</span><strong>{{ taskSummary.facilityCount }}</strong></a-card>
+        <a-card size="small"><span>部件数</span><strong>{{ taskSummary.componentCount }}</strong></a-card>
+        <a-card size="small"><span>规则数</span><strong>{{ taskSummary.ruleCount }}</strong></a-card>
+      </div>
+
       <div class="search-panel">
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
@@ -59,6 +67,13 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="装置" class="search-item">
+                <a-select v-model:value="searchForm.installationId" placeholder="请选择装置" allow-clear show-search>
+                  <a-select-option v-for="installation in installationOptions" :key="installation.id" :value="installation.id">{{ installation.name }}</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="状态" class="search-item">
                 <a-select v-model:value="searchForm.status" placeholder="请选择状态" allow-clear>
                   <a-select-option value="pending">待执行</a-select-option>
@@ -96,12 +111,12 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="时间范围（起）" class="search-item">
+              <a-form-item label="执行起止时间" class="search-item">
                 <a-input v-model:value="searchForm.startDate" placeholder="YYYY-MM-DD" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="时间范围（止）" class="search-item">
+              <a-form-item label="创建时间" class="search-item">
                 <a-input v-model:value="searchForm.endDate" placeholder="YYYY-MM-DD" allow-clear />
               </a-form-item>
             </a-col>
@@ -115,7 +130,7 @@
         </a-form>
       </div>
 
-      <a-table :columns="columns" :data-source="filteredTasks" :loading="loading" row-key="id" :scroll="{ x: 1500 }">
+      <a-table :columns="columns" :data-source="filteredTasks" :loading="loading" row-key="id" :scroll="{ x: 1750 }">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
@@ -137,6 +152,12 @@
             <a-space wrap>
               <a-tag v-for="region in record.regionNames" :key="region">{{ region }}</a-tag>
               <span v-if="!record.regionNames?.length">-</span>
+            </a-space>
+          </template>
+          <template v-else-if="column.key === 'installationNames'">
+            <a-space wrap>
+              <a-tag v-for="installation in record.installationNames" :key="installation">{{ installation }}</a-tag>
+              <span v-if="!record.installationNames?.length">-</span>
             </a-space>
           </template>
           <template v-else-if="column.key === 'timeRange'">{{ getTaskTimeRangeText(record) }}</template>
@@ -170,6 +191,7 @@ const searchForm = reactive({
   dispatchType: '',
   businessScene: '',
   robotId: '',
+  installationId: '',
   priorityLevel: '',
   interruptsCurrentTask: '',
   fromThirdParty: '',
@@ -185,10 +207,9 @@ const columns = [
   { title: '任务场景', key: 'businessScene', width: 130 },
   { title: '任务来源', dataIndex: 'taskSourceText', key: 'taskSourceText', width: 180 },
   { title: '优先级', key: 'priorityLevel', width: 90 },
-  { title: '中断当前任务', key: 'interruptsCurrentTask', width: 110 },
-  { title: '立即出发', key: 'immediateDeparture', width: 90 },
-  { title: '来自第三方', key: 'fromThirdParty', width: 100 },
   { title: '巡检区域', key: 'regionNames', width: 220 },
+  { title: '巡检装置', key: 'installationNames', width: 220 },
+  { title: '装置数', dataIndex: 'installationCount', key: 'installationCount', width: 100 },
   { title: '巡检设施数', dataIndex: 'facilityCount', key: 'facilityCount', width: 120 },
   { title: '部件数', dataIndex: 'componentCount', key: 'componentCount', width: 120 },
   { title: '巡检规则数', dataIndex: 'ruleCount', key: 'ruleCount', width: 120 },
@@ -289,12 +310,38 @@ function getTaskTimeRangeText(task: any): string {
   return `${getTaskStartTimeText(task)} ~ ${getTaskEndTimeText(task)}`
 }
 
+function parseSearchDate(value: string, boundary: 'start' | 'end') {
+  const normalized = value.trim()
+  if (!normalized) return undefined
+  const date = new Date(`${normalized}T${boundary === 'start' ? '00:00:00' : '23:59:59'}`)
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+function matchesTaskDateRange(task: any) {
+  const searchStart = parseSearchDate(searchForm.startDate, 'start')
+  const searchEnd = parseSearchDate(searchForm.endDate, 'end')
+  const taskStart = getTaskStartTime(task)
+  const taskEnd = getTaskEndTime(task)
+  const matchStart = !searchStart || taskEnd.getTime() >= searchStart.getTime()
+  const matchEnd = !searchEnd || taskStart.getTime() <= searchEnd.getTime()
+  return matchStart && matchEnd
+}
+
 const regionOptions = computed(() => {
   const regionMap = new Map<string, string>()
   inspectionStore.inspectionMaps.forEach((map: any) => {
     ;(map.regions || []).forEach((region: any) => regionMap.set(region.id, `${map.name} / ${region.name}`))
   })
   return Array.from(regionMap.entries()).map(([id, name]) => ({ id, name }))
+})
+
+const installationOptions = computed(() => {
+  if (inspectionStore.installations.length) return inspectionStore.installations
+  const map = new Map<string, string>()
+  inspectionStore.inspectionDevices.forEach((device: any) => {
+    if (device.installationId) map.set(device.installationId, device.installationName || device.installationId)
+  })
+  return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
 })
 
 function getRegionName(regionId?: string) {
@@ -309,6 +356,11 @@ function getFacilitiesByPointIds(pointIds: string[]) {
 
 function getRuleCount(devices: any[]) {
   const ruleIds = new Set<string>()
+  const components = inspectionStore.facilityComponents.filter((component: any) => devices.some((device: any) => device.id === component.facilityId))
+  if (components.length) {
+    components.forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
+    return ruleIds.size
+  }
   devices.forEach((device: any) => {
     ;(device.objectDetectionConfigs || []).forEach((config: any) => {
       if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
@@ -323,6 +375,9 @@ function enrichTemporaryTask(task: any, index: number) {
   const points = inspectionStore.inspectionPoints.filter((point: any) => pointIds.includes(point.id))
   const regionIds = Array.from(new Set(points.map((point: any) => point.areaId).filter(Boolean)))
   const facilities = getFacilitiesByPointIds(pointIds)
+  const installationIds = Array.from(new Set(facilities.map((device: any) => device.installationId).filter(Boolean)))
+  const installationNames = installationIds.map((id) => installationOptions.value.find((item: any) => item.id === id)?.name || facilities.find((device: any) => device.installationId === id)?.installationName || id)
+  const linkedComponents = inspectionStore.facilityComponents.filter((component: any) => facilities.some((device: any) => device.id === component.facilityId))
   return {
     ...task,
     dispatchType: task.dispatchType || inferDispatchType(task),
@@ -332,8 +387,11 @@ function enrichTemporaryTask(task: any, index: number) {
     riskLevel: task.riskLevel || (task.dispatchType === 'recheck' ? 'alarm' : 'normal'),
     robotName: task.robotName || robotStore.robots.find((robot: any) => robot.id === task.robotId)?.name || '巡检机器人-01',
     regionNames: regionIds.map((id) => getRegionName(String(id))),
+    installationIds,
+    installationNames,
+    installationCount: installationIds.length,
     facilityCount: facilities.length,
-    componentCount: facilities.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0),
+    componentCount: linkedComponents.length ? linkedComponents.length : facilities.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0),
     ruleCount: getRuleCount(facilities),
     priorityLevel: task.dispatchType === 'emergency' ? 'emergency' : task.dispatchType === 'work_ticket' || task.dispatchType === 'third_party' ? 'high' : 'normal',
     interruptsCurrentTask: task.dispatchType === 'emergency',
@@ -487,6 +545,7 @@ function handleReset() {
   searchForm.dispatchType = ''
   searchForm.businessScene = ''
   searchForm.robotId = ''
+  searchForm.installationId = ''
   searchForm.priorityLevel = ''
   searchForm.interruptsCurrentTask = ''
   searchForm.fromThirdParty = ''
@@ -501,27 +560,32 @@ const filteredTasks = computed(() => {
   const dispatchType = searchForm.dispatchType
   const businessScene = searchForm.businessScene
   const robotId = searchForm.robotId
+  const installationId = searchForm.installationId
   const priorityLevel = searchForm.priorityLevel
   const interruptsCurrentTask = searchForm.interruptsCurrentTask
   const fromThirdParty = searchForm.fromThirdParty
-  const startDate = searchForm.startDate.trim()
-  const endDate = searchForm.endDate.trim()
   return tasks.value.filter(task => {
-    const timeRangeText = getTaskTimeRangeText(task)
     const matchesName = !name || task.name.toLowerCase().includes(name)
     const matchesCode = !code || task.code.toLowerCase().includes(code)
     const matchesStatus = !status || task.status === status
     const matchesDispatchType = !dispatchType || (task as any).dispatchType === dispatchType
     const matchesScene = (!businessScene || task.businessScene === businessScene) && matchesSceneTab(task)
     const matchesRobot = !robotId || task.robotId === robotId
+    const matchesInstallation = !installationId || (task.installationIds || []).includes(installationId)
     const matchesPriority = !priorityLevel || task.priorityLevel === priorityLevel
     const matchesInterrupt = !interruptsCurrentTask || String(Boolean(task.interruptsCurrentTask)) === interruptsCurrentTask
     const matchesThirdParty = !fromThirdParty || String(Boolean(task.fromThirdParty)) === fromThirdParty
-    const matchesStart = !startDate || timeRangeText.includes(startDate)
-    const matchesEnd = !endDate || timeRangeText.includes(endDate)
-    return matchesName && matchesCode && matchesStatus && matchesDispatchType && matchesScene && matchesRobot && matchesPriority && matchesInterrupt && matchesThirdParty && matchesStart && matchesEnd
+    const matchesDateRange = matchesTaskDateRange(task)
+    return matchesName && matchesCode && matchesStatus && matchesDispatchType && matchesScene && matchesRobot && matchesInstallation && matchesPriority && matchesInterrupt && matchesThirdParty && matchesDateRange
   })
 })
+
+const taskSummary = computed(() => ({
+  installationCount: new Set(filteredTasks.value.flatMap((task: any) => task.installationIds || [])).size,
+  facilityCount: filteredTasks.value.reduce((sum: number, task: any) => sum + (task.facilityCount || 0), 0),
+  componentCount: filteredTasks.value.reduce((sum: number, task: any) => sum + (task.componentCount || 0), 0),
+  ruleCount: filteredTasks.value.reduce((sum: number, task: any) => sum + (task.ruleCount || 0), 0)
+}))
 
 function goBack() {
   router.push('/management/plan/list')
@@ -593,5 +657,26 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin: 4px 0 8px;
+}
+.scene-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.scene-summary strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+}
+@media (max-width: 1200px) {
+  .scene-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 768px) {
+  .scene-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

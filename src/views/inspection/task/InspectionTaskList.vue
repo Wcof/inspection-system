@@ -20,10 +20,10 @@
 
       <div class="scene-summary">
         <a-card size="small"><span>当前场景任务数</span><strong>{{ filteredTasks.length }}</strong></a-card>
-        <a-card size="small"><span>执行中</span><strong>{{ taskSummary.running }}</strong></a-card>
-        <a-card size="small"><span>已完成</span><strong>{{ taskSummary.completed }}</strong></a-card>
-        <a-card size="small"><span>异常/失败</span><strong>{{ taskSummary.abnormal }}</strong></a-card>
-        <a-card size="small"><span>待回传</span><strong>{{ taskSummary.pendingFeedback }}</strong></a-card>
+        <a-card size="small"><span>装置数</span><strong>{{ taskSummary.installationCount }}</strong></a-card>
+        <a-card size="small"><span>设施/管路数</span><strong>{{ taskSummary.facilityCount }}</strong></a-card>
+        <a-card size="small"><span>部件数</span><strong>{{ taskSummary.componentCount }}</strong></a-card>
+        <a-card size="small"><span>规则数</span><strong>{{ taskSummary.ruleCount }}</strong></a-card>
       </div>
 
       <div class="search-panel">
@@ -72,6 +72,13 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="装置" class="search-item">
+                <a-select v-model:value="searchForm.installationId" placeholder="请选择装置" allow-clear show-search>
+                  <a-select-option v-for="installation in installationOptions" :key="installation.id" :value="installation.id">{{ installation.name }}</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="状态" class="search-item">
                 <a-select v-model:value="searchForm.status" placeholder="请选择状态" allow-clear>
                   <a-select-option value="pending">待执行</a-select-option>
@@ -107,26 +114,26 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="时间范围（起）" class="search-item">
+              <a-form-item label="执行起止时间" class="search-item">
                 <a-input v-model:value="searchForm.startDate" placeholder="YYYY-MM-DD" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="时间范围（止）" class="search-item">
+              <a-form-item label="创建时间" class="search-item">
                 <a-input v-model:value="searchForm.endDate" placeholder="YYYY-MM-DD" allow-clear />
               </a-form-item>
             </a-col>
           </a-row>
           <div class="search-actions">
             <a-space>
-              <a-button type="primary">搜索</a-button>
+              <a-button type="primary" @click="handleSearch">搜索</a-button>
               <a-button @click="handleReset">重置</a-button>
             </a-space>
           </div>
         </a-form>
       </div>
 
-      <a-table :columns="columns" :data-source="filteredTasks" :loading="loading" row-key="id" :scroll="{ x: 1280 }">
+      <a-table :columns="columns" :data-source="filteredTasks" :loading="loading" row-key="id" :scroll="{ x: 1700 }">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
@@ -167,6 +174,12 @@
               <span v-if="!record.regionNames?.length">-</span>
             </a-space>
           </template>
+          <template v-else-if="column.key === 'installationNames'">
+            <a-space wrap>
+              <a-tag v-for="installation in record.installationNames" :key="installation">{{ installation }}</a-tag>
+              <span v-if="!record.installationNames?.length">-</span>
+            </a-space>
+          </template>
           <template v-else-if="column.key === 'timeRange'">
             {{ getTaskTimeRangeText(record) }}
           </template>
@@ -201,6 +214,7 @@ const searchForm = reactive({
   name: '',
   code: '',
   robotId: undefined as string | undefined,
+  installationId: undefined as string | undefined,
   status: undefined as string | undefined,
   businessScene: undefined as string | undefined,
   taskSource: undefined as string | undefined,
@@ -231,6 +245,8 @@ const columns = [
   { title: '中断当前任务', key: 'interruptsCurrentTask', width: 110 },
   { title: '回传状态', key: 'feedbackStatus', width: 100 },
   { title: '巡检区域', key: 'regionNames', width: 220 },
+  { title: '巡检装置', key: 'installationNames', width: 220 },
+  { title: '装置数', dataIndex: 'installationCount', key: 'installationCount', width: 100 },
   { title: '巡检设施数', dataIndex: 'facilityCount', key: 'facilityCount', width: 120 },
   { title: '部件数', dataIndex: 'componentCount', key: 'componentCount', width: 120 },
   { title: '巡检规则数', dataIndex: 'ruleCount', key: 'ruleCount', width: 120 },
@@ -306,6 +322,15 @@ const regionOptions = computed(() => {
   return Array.from(regionMap.entries()).map(([id, name]) => ({ id, name }))
 })
 
+const installationOptions = computed(() => {
+  if (inspectionStore.installations.length) return inspectionStore.installations
+  const map = new Map<string, string>()
+  inspectionStore.inspectionDevices.forEach((device: any) => {
+    if (device.installationId) map.set(device.installationId, device.installationName || device.installationId)
+  })
+  return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+})
+
 function getRegionName(regionId?: string) {
   if (!regionId) return '未配置区域'
   return regionOptions.value.find((region) => region.id === regionId)?.name || regionId
@@ -326,8 +351,18 @@ function getPlanFacilities(plan: any) {
   })
 }
 
+function getFacilitiesByPointIds(pointIds: string[]) {
+  const regionIds = new Set(inspectionStore.inspectionPoints.filter((point: any) => pointIds.includes(point.id) && point.areaId).map((point: any) => point.areaId))
+  return inspectionStore.inspectionDevices.filter((device: any) => regionIds.has(device.areaId) || pointIds.includes(device.inspectionPointId))
+}
+
 function getRuleCount(devices: any[]) {
   const ruleIds = new Set<string>()
+  const components = inspectionStore.facilityComponents.filter((component: any) => devices.some((device: any) => device.id === component.facilityId))
+  if (components.length) {
+    components.forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
+    return ruleIds.size
+  }
   devices.forEach((device: any) => {
     ;(device.objectDetectionConfigs || []).forEach((config: any) => {
       if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
@@ -371,12 +406,17 @@ function enrichTask(task: any, index: number) {
   const plan = inspectionStore.inspectionPlans.find((item: any) => item.id === task.planId) as any
   const isDailyRoutineTask = task.name === '每日例行巡检' || task.planId === 'plan-001'
   const planType = isDailyRoutineTask ? 'auto' : (task.planType || plan?.planType || 'manual')
-  const regionIds = plan ? getPlanRegionIds(plan) : []
-  const facilities = plan ? getPlanFacilities(plan) : []
+  const regionIds = plan ? getPlanRegionIds(plan) : Array.from(new Set(inspectionStore.inspectionPoints
+    .filter((point: any) => (task.inspectionPointIds || []).includes(point.id) && point.areaId)
+    .map((point: any) => point.areaId)))
+  const facilities = plan ? getPlanFacilities(plan) : getFacilitiesByPointIds(task.inspectionPointIds || [])
+  const installationIds = Array.from(new Set(facilities.map((device: any) => device.installationId).filter(Boolean)))
+  const installationNames = installationIds.map((id) => installationOptions.value.find((item: any) => item.id === id)?.name || facilities.find((device: any) => device.installationId === id)?.installationName || id)
   const sceneOptions = ['daily_inspection', 'hazard_screening', 'environment_check', 'operation_guard', 'work_ticket_guard', 'emergency_arrival']
   const sourceOptions = ['execution_plan', 'dispatch_insert', 'auto_recheck', 'work_ticket', 'third_party', 'emergency', 'manual']
   const riskOptions = ['normal', 'warning', 'alarm', 'critical_alarm', 'hazard', 'major_hazard']
-  const componentCount = facilities.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0)
+  const linkedComponents = inspectionStore.facilityComponents.filter((component: any) => facilities.some((device: any) => device.id === component.facilityId))
+  const componentCount = linkedComponents.length ? linkedComponents.length : facilities.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0)
   return {
     ...task,
     businessScene: task.businessScene || plan?.businessScene || sceneOptions[index % sceneOptions.length],
@@ -385,6 +425,9 @@ function enrichTask(task: any, index: number) {
     riskLevel: task.riskLevel || plan?.riskLevel || riskOptions[index % riskOptions.length],
     regionIds,
     regionNames: regionIds.map((id: string) => getRegionName(id)),
+    installationIds,
+    installationNames,
+    installationCount: installationIds.length,
     facilityCount: facilities.length,
     componentCount,
     ruleCount: getRuleCount(facilities),
@@ -415,6 +458,23 @@ function getTaskTimeRangeText(task: any) {
   return `${start.toLocaleString()} ~ ${end.toLocaleString()}`
 }
 
+function parseSearchDate(value: string, boundary: 'start' | 'end') {
+  const normalized = value.trim()
+  if (!normalized) return undefined
+  const date = new Date(`${normalized}T${boundary === 'start' ? '00:00:00' : '23:59:59'}`)
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+function matchesTaskDateRange(task: any) {
+  const searchStart = parseSearchDate(searchForm.startDate, 'start')
+  const searchEnd = parseSearchDate(searchForm.endDate, 'end')
+  const taskStart = getTaskStartTime(task)
+  const taskEnd = getTaskEndTime(task)
+  const matchStart = !searchStart || taskEnd.getTime() >= searchStart.getTime()
+  const matchEnd = !searchEnd || taskStart.getTime() <= searchEnd.getTime()
+  return matchStart && matchEnd
+}
+
 function fetchTasks() {
   loading.value = true
   try {
@@ -438,33 +498,33 @@ const filteredTasks = computed(() => {
   const code = searchForm.code.trim().toLowerCase()
   const thirdPartyTaskNo = searchForm.thirdPartyTaskNo.trim().toLowerCase()
   return tasks.value.filter((task) => {
-    const timeRangeText = getTaskTimeRangeText(task)
     const matchName = !name || String(task.name).toLowerCase().includes(name)
     const matchCode = !code || String(task.code).toLowerCase().includes(code)
     const matchRobot = !searchForm.robotId || task.robotId === searchForm.robotId
+    const matchInstallation = !searchForm.installationId || (task.installationIds || []).includes(searchForm.installationId)
     const matchStatus = !searchForm.status || task.status === searchForm.status
     const matchScene = (!searchForm.businessScene || task.businessScene === searchForm.businessScene) && (activeScene.value === 'all' || task.businessScene === activeScene.value)
     const matchSource = !searchForm.taskSource || task.taskSource === searchForm.taskSource
     const matchPriority = !searchForm.priorityLevel || task.priorityLevel === searchForm.priorityLevel
     const matchFeedback = !searchForm.feedbackStatus || task.feedbackStatus === searchForm.feedbackStatus
     const matchThirdPartyTaskNo = !thirdPartyTaskNo || String(task.thirdPartyTaskNo || '').toLowerCase().includes(thirdPartyTaskNo)
-    const matchStart = !searchForm.startDate || timeRangeText.includes(searchForm.startDate)
-    const matchEnd = !searchForm.endDate || timeRangeText.includes(searchForm.endDate)
-    return matchName && matchCode && matchRobot && matchStatus && matchScene && matchSource && matchPriority && matchFeedback && matchThirdPartyTaskNo && matchStart && matchEnd
+    const matchDateRange = matchesTaskDateRange(task)
+    return matchName && matchCode && matchRobot && matchInstallation && matchStatus && matchScene && matchSource && matchPriority && matchFeedback && matchThirdPartyTaskNo && matchDateRange
   })
 })
 
 const taskSummary = computed(() => ({
-  running: filteredTasks.value.filter((task: any) => task.status === 'running').length,
-  completed: filteredTasks.value.filter((task: any) => task.status === 'completed').length,
-  abnormal: filteredTasks.value.filter((task: any) => task.status === 'failed' || (task.exceptionCount || 0) > 0).length,
-  pendingFeedback: filteredTasks.value.filter((task: any) => task.feedbackStatus === 'pending').length
+  installationCount: new Set(filteredTasks.value.flatMap((task: any) => task.installationIds || [])).size,
+  facilityCount: filteredTasks.value.reduce((sum: number, task: any) => sum + (task.facilityCount || 0), 0),
+  componentCount: filteredTasks.value.reduce((sum: number, task: any) => sum + (task.componentCount || 0), 0),
+  ruleCount: filteredTasks.value.reduce((sum: number, task: any) => sum + (task.ruleCount || 0), 0)
 }))
 
 function handleReset() {
   searchForm.name = ''
   searchForm.code = ''
   searchForm.robotId = undefined
+  searchForm.installationId = undefined
   searchForm.status = undefined
   searchForm.businessScene = undefined
   searchForm.taskSource = undefined
@@ -473,6 +533,10 @@ function handleReset() {
   searchForm.thirdPartyTaskNo = ''
   searchForm.startDate = ''
   searchForm.endDate = ''
+}
+
+function handleSearch() {
+  // 当前页面通过 computed 实时过滤，保留显式搜索按钮以符合管理页交互规范。
 }
 
 function viewDetail(id: string) {

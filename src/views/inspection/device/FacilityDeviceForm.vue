@@ -9,7 +9,7 @@
             <a-form-item label="设施类别" required>
               <a-select v-model:value="form.facilityKind">
                 <a-select-option value="normal">普通设施</a-select-option>
-                <a-select-option value="pipeline">管路类设施</a-select-option>
+                <a-select-option value="pipeline">管道类设施</a-select-option>
               </a-select>
           </a-form-item>
           </a-col>
@@ -46,6 +46,21 @@
           </a-col>
           <a-col :span="8"><a-form-item label="备注"><a-input v-model:value="form.remark" /></a-form-item></a-col>
         </a-row>
+
+        <a-form-item label="设施照片">
+          <div class="facility-photo-editor">
+            <div class="facility-photo-preview">
+              <img v-if="form.referenceImageUrl" :src="form.referenceImageUrl" alt="设施照片" />
+              <span v-else>暂无设施照片</span>
+            </div>
+            <a-space>
+              <a-upload :show-upload-list="false" accept="image/*" :before-upload="handleFacilityPhotoUpload">
+                <a-button>上传设施照片</a-button>
+              </a-upload>
+              <a-button v-if="form.referenceImageUrl" @click="form.referenceImageUrl = ''">移除</a-button>
+            </a-space>
+          </div>
+        </a-form-item>
 
         <a-card size="small" title="关联部件" class="model-card">
           <a-alert type="info" show-icon style="margin-bottom: 12px" message="设施页不直接维护规则，只显示当前设施下已有部件。若需新增部件，请前往部件管理。" />
@@ -94,8 +109,14 @@
                 {{ record.parkingPointName || '-' }}
               </template>
               <template v-else-if="column.key === 'componentIds'">
-                <a-tag v-if="getComponentName(record.componentIds)" color="blue">{{ getComponentName(record.componentIds) }}</a-tag>
-                <span v-else>-</span>
+                <a-select
+                  v-model:value="record.componentIds[0]"
+                  style="width: 100%"
+                  placeholder="请选择关联部件"
+                  :options="bindingComponentOptions"
+                  :disabled="!facilityComponents.length"
+                  @change="(value: string) => handleBindingComponentChange(record, value)"
+                />
               </template>
               <template v-else-if="column.key === 'ruleIds'">
                 <a-space wrap>
@@ -215,6 +236,15 @@ interface PickerParkingRow {
   rawY: number
 }
 
+interface FacilityComponentOption {
+  id: string
+  name: string
+  componentNo?: string
+  componentPositionNo?: string
+  installationName?: string
+  ruleIds: string[]
+}
+
 const route = useRoute()
 const router = useRouter()
 const inspectionStore = useInspectionStore()
@@ -235,7 +265,8 @@ const form = reactive<any>({
   installationName: '',
   facilityKind: 'normal',
   status: 'active',
-  remark: ''
+  remark: '',
+  referenceImageUrl: ''
 })
 
 const bindingRows = ref<BindingRow[]>([])
@@ -261,7 +292,18 @@ const areaOptions = computed(() => {
 })
 
 const installationOptions = computed(() => inspectionStore.installations.filter((item) => !form.areaId || item.areaId === form.areaId))
-const facilityComponents = computed(() => inspectionStore.getFacilityComponentsByFacilityId(currentId.value))
+const facilityComponents = computed<FacilityComponentOption[]>(() => {
+  const linked = inspectionStore.getFacilityComponentsByFacilityId(currentId.value)
+  if (linked.length) return linked
+  return (currentDevice.value?.assetComponents || []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    componentNo: item.id,
+    componentPositionNo: item.subTypeName || '-',
+    installationName: currentDevice.value?.installationName || form.installationName || '-',
+    ruleIds: [...(item.ruleIds || [])]
+  }))
+})
 const detectionRuleNameMap = computed(() => {
   const map = new Map<string, string>()
   getDetectionItemConfigs().forEach((item) => {
@@ -354,6 +396,13 @@ const bindingColumns = [
   { title: '巡检规则', key: 'ruleIds' }
 ]
 
+const bindingComponentOptions = computed(() =>
+  facilityComponents.value.map((item) => ({
+    label: item.name,
+    value: item.id
+  }))
+)
+
 function syncArea(id: string) {
   const area = areaOptions.value.find((item) => item.id === id)
   form.areaName = area?.name || ''
@@ -379,7 +428,7 @@ function buildBindingFromRow(row: PickerParkingRow, index: number): BindingRow {
     parkingPointName: row.parkingName,
     executionOrder: bindingRows.value.length + index + 1,
     componentIds: facilityComponents.value[0] ? [facilityComponents.value[0].id] : [],
-    ruleIds: allPublishedRuleIds.value.slice()
+    ruleIds: facilityComponents.value[0]?.ruleIds?.length ? [...facilityComponents.value[0].ruleIds] : []
   }
 }
 
@@ -527,10 +576,11 @@ function clamp(value: number) {
   return Math.max(0, Math.min(100, Number(value.toFixed(2))))
 }
 
-function getComponentName(componentIds: string[]) {
-  const id = componentIds[0]
-  if (!id) return ''
-  return facilityComponents.value.find((item) => item.id === id)?.name || id
+function handleBindingComponentChange(record: BindingRow, componentId?: string) {
+  const nextId = componentId || ''
+  record.componentIds = nextId ? [nextId] : []
+  const component = facilityComponents.value.find((item) => item.id === nextId)
+  record.ruleIds = component?.ruleIds?.length ? [...component.ruleIds] : []
 }
 
 function getRuleNames(ruleIds: string[] = []) {
@@ -602,6 +652,7 @@ function handleSave() {
     facilityKind: form.facilityKind,
     status: form.status,
     source: 'manual',
+    referenceImageUrl: form.referenceImageUrl,
     assetComponents: currentDevice.value?.assetComponents || [],
     connectionObjects: currentDevice.value?.connectionObjects || [],
     objectDetectionConfigs: currentDevice.value?.objectDetectionConfigs || [],
@@ -634,11 +685,21 @@ onMounted(() => {
       installationName: currentDevice.value.installationName || '',
       facilityKind: currentDevice.value.facilityKind || 'normal',
       status: currentDevice.value.status || 'active',
-      remark: currentDevice.value.storageLocation || ''
+      remark: currentDevice.value.storageLocation || '',
+      referenceImageUrl: currentDevice.value.referenceImageUrl || ''
     })
     hydrateBindings(currentDevice.value.parkingPointBindings || [])
   }
 })
+
+function handleFacilityPhotoUpload(file: File) {
+  const reader = new FileReader()
+  reader.onload = () => {
+    form.referenceImageUrl = String(reader.result || '')
+  }
+  reader.readAsDataURL(file)
+  return false
+}
 </script>
 
 <style scoped>
@@ -649,6 +710,28 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+.facility-photo-editor {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+.facility-photo-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 240px;
+  height: 150px;
+  overflow: hidden;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fafafa;
+  color: #8c8c8c;
+}
+.facility-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .drag-handle {
   display: inline-flex;

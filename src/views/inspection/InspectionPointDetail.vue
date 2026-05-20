@@ -16,6 +16,28 @@
     </a-page-header>
 
     <a-row :gutter="[16, 16]" style="margin-top: 12px">
+      <a-col :xs="24" :xl="10">
+        <a-card title="地图位置">
+          <div class="map-stage">
+            <img :src="currentMap?.imageUrl || fallbackMapBackgroundUrl" alt="地图预览" class="map-image" />
+            <div
+              v-for="mapPoint in mapPoints"
+              :key="mapPoint.id"
+              class="marker"
+              :class="{ active: mapPoint.id === currentPoint?.id }"
+              :style="{ left: `${mapPoint.mapX}%`, top: `${mapPoint.mapY}%` }"
+            >
+              <span class="marker-dot">{{ getPointMarkerText(mapPoint.pointBizType) }}</span>
+            </div>
+          </div>
+          <div class="map-summary">
+            <a-tag :color="pointBizColor">{{ pointBizText }}</a-tag>
+            <a-tag v-if="isInspectionPoint">{{ form.inspectionMode === 'area' ? '区域巡检点' : '固定巡检点' }}</a-tag>
+            <a-tag>{{ form.areaName || currentPoint?.areaName || '未分区' }}</a-tag>
+          </div>
+        </a-card>
+      </a-col>
+
       <a-col :xs="24" :xl="14">
         <a-card :title="isEditMode ? '基础信息' : '当前巡检点摘要'" class="panel-card">
           <a-form v-if="isEditMode" layout="vertical">
@@ -68,33 +90,11 @@
               <a-descriptions-item label="巡检点">{{ currentPoint?.name || '-' }}</a-descriptions-item>
               <a-descriptions-item label="所属地图">{{ currentMap?.name || '-' }}</a-descriptions-item>
               <a-descriptions-item label="所属区域">{{ form.areaName || currentPoint?.areaName || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="配置对象">{{ mergedConfigRows.length }}</a-descriptions-item>
-              <a-descriptions-item label="关联设施">{{ uniqueFacilityCount }}</a-descriptions-item>
-              <a-descriptions-item label="检测项">{{ totalRuleCount }}</a-descriptions-item>
+              <a-descriptions-item label="关联设施数">{{ uniqueFacilityCount }}</a-descriptions-item>
+              <a-descriptions-item label="关联部件数">{{ totalRuleCount }}</a-descriptions-item>
+              <a-descriptions-item label="巡检规则数">{{ mergedConfigRows.length }}</a-descriptions-item>
             </a-descriptions>
           </template>
-        </a-card>
-      </a-col>
-
-      <a-col :xs="24" :xl="10">
-        <a-card title="地图位置">
-          <div class="map-stage">
-            <img :src="currentMap?.imageUrl || fallbackMapBackgroundUrl" alt="地图预览" class="map-image" />
-            <div
-              v-for="mapPoint in mapPoints"
-              :key="mapPoint.id"
-              class="marker"
-              :class="{ active: mapPoint.id === currentPoint?.id }"
-              :style="{ left: `${mapPoint.mapX}%`, top: `${mapPoint.mapY}%` }"
-            >
-              <span class="marker-dot">{{ getPointMarkerText(mapPoint.pointBizType) }}</span>
-            </div>
-          </div>
-          <div class="map-summary">
-            <a-tag :color="pointBizColor">{{ pointBizText }}</a-tag>
-            <a-tag v-if="isInspectionPoint">{{ form.inspectionMode === 'area' ? '区域巡检点' : '固定巡检点' }}</a-tag>
-            <a-tag>{{ form.areaName || currentPoint?.areaName || '未分区' }}</a-tag>
-          </div>
         </a-card>
       </a-col>
     </a-row>

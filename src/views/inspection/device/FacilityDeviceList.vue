@@ -1,6 +1,6 @@
 <template>
   <div class="facility-device-list">
-    <a-page-header title="设施管理" sub-title="支持设备维度查询、部件连接与检测规则统计、参考图预览" />
+    <a-page-header title="设施管理" sub-title="支持设施维度查询、关联部件与检测规则统计、参考图预览" />
 
     <a-card style="margin-top: 16px">
       <div class="search-panel">
@@ -14,6 +14,11 @@
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="设施编号" class="search-item">
                 <a-input v-model:value="searchForm.deviceNo" allow-clear placeholder="请输入设施编号" />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="设施位号" class="search-item">
+                <a-input v-model:value="searchForm.facilityPositionNo" allow-clear placeholder="请输入设施位号" />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
@@ -31,30 +36,14 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设施分类" class="search-item">
-                <a-input v-model:value="searchForm.deviceClassification" allow-clear placeholder="请输入设施分类" />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="设施类别" class="search-item">
-                <a-input v-model:value="searchForm.deviceCategory" allow-clear placeholder="请输入设施类别" />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="责任人" class="search-item">
-                <a-input v-model:value="searchForm.owner" allow-clear placeholder="请输入责任人" />
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="设备状态" class="search-item">
-                <a-select v-model:value="searchForm.status" allow-clear placeholder="请选择设备状态">
-                  <a-select-option value="active">在用</a-select-option>
-                  <a-select-option value="inactive">停用</a-select-option>
-                  <a-select-option value="maintenance">维护中</a-select-option>
-                  <a-select-option value="scrapped">报废</a-select-option>
+                <a-select v-model:value="searchForm.deviceCategory" allow-clear placeholder="请选择设施类别">
+                  <a-select-option value="普通设施">普通设施</a-select-option>
+                  <a-select-option value="管道类设施">管道类设施</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
+            
           </a-row>
           <div class="search-actions">
             <a-space>
@@ -71,12 +60,12 @@
           <template v-if="column.key === 'deviceNo'">{{ record.deviceNo || record.code || '-' }}</template>
           <template v-else-if="column.key === 'area'">{{ record.areaName || getPoint(record.inspectionPointId)?.areaName || '-' }}</template>
           <template v-else-if="column.key === 'source'">{{ record.source === 'synced' ? '三方同步' : '手动维护' }}</template>
+          <template v-else-if="column.key === 'deviceCategory'">{{ getFacilityKindText(record) }}</template>
           <template v-else-if="column.key === 'point'">{{ getLinkedPointNames(record) }}</template>
           <template v-else-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
           </template>
           <template v-else-if="column.key === 'componentCount'">{{ getComponentCount(record) }}</template>
-          <template v-else-if="column.key === 'connectionCount'">{{ getConnectionCount(record) }}</template>
           <template v-else-if="column.key === 'ruleCount'">{{ getDetectionRuleCount(record) }}</template>
           <template v-else-if="column.key === 'reference'">
             <img :src="record.referenceImageUrl || defaultDeviceImage" alt="参考图" class="thumb" />
@@ -111,29 +100,22 @@ const searchForm = reactive({
   pointId: '',
   deviceClassification: '',
   deviceCategory: '',
+  facilityPositionNo: '',
   owner: '',
   status: ''
 })
 
 const columns = [
   { title: '设施编号', dataIndex: 'deviceNo', key: 'deviceNo', width: 150 },
+  { title: '设施位号', dataIndex: 'facilityPositionNo', key: 'facilityPositionNo', width: 150 },
   { title: '设施名称', dataIndex: 'name', key: 'name', width: 150 },
   { title: '设施类别', dataIndex: 'deviceCategory', key: 'deviceCategory', width: 130 },
-  { title: '设施分类', dataIndex: 'deviceClassification', key: 'deviceClassification', width: 130 },
-  { title: '来源', key: 'source', width: 110 },
-  { title: '责任人', dataIndex: 'owner', key: 'owner', width: 110 },
   { title: '所属区域', key: 'area', width: 130 },
-  { title: '关联巡检点', key: 'point', width: 200 },
-  { title: '存放位置', dataIndex: 'storageLocation', key: 'storageLocation', width: 150 },
-  { title: '设备状态', key: 'status', width: 100 },
-  { title: '最近检测时间', dataIndex: 'lastInspectionTime', key: 'lastInspectionTime', width: 130 },
-  { title: '下次检测时间', dataIndex: 'nextInspectionTime', key: 'nextInspectionTime', width: 130 },
-  { title: '最近检测结论', dataIndex: 'lastInspectionConclusion', key: 'lastInspectionConclusion', width: 130 },
-  { title: '部件数量', key: 'componentCount', width: 100 },
-  { title: '连接数量', key: 'connectionCount', width: 100 },
-  { title: '检测规则数量', key: 'ruleCount', width: 120 },
+  { title: '关联点位', key: 'point', width: 200 },
+  { title: '关联部件数', key: 'componentCount', width: 100 },
+  { title: '关联检测规则数', key: 'ruleCount', width: 120 },
   { title: '参考图', key: 'reference', width: 110, fixed: 'right' as const },
-  { title: '操作', key: 'actions', width: 220, fixed: 'right' as const }
+  { title: '操作', key: 'actions', width: 120, fixed: 'right' as const }
 ]
 
 const points = computed(() => inspectionStore.inspectionPoints)
@@ -159,12 +141,13 @@ const filteredDevices = computed(() => {
     const matchName = !name || device.name.toLowerCase().includes(name)
     const matchDeviceNo = !deviceNo || String(device.deviceNo || device.code || '').toLowerCase().includes(deviceNo)
     const matchArea = !searchForm.areaId || device.areaId === searchForm.areaId || point?.areaId === searchForm.areaId
+    const matchPosition = !searchForm.facilityPositionNo.trim() || String(device.facilityPositionNo || '').toLowerCase().includes(searchForm.facilityPositionNo.trim().toLowerCase())
     const matchPoint = !searchForm.pointId || device.inspectionPointId === searchForm.pointId || bindingPointIds.includes(searchForm.pointId)
     const matchClassification = !classification || String(device.deviceClassification || '').toLowerCase().includes(classification)
-    const matchCategory = !category || String(device.deviceCategory || '').toLowerCase().includes(category)
+    const matchCategory = !category || getFacilityKindText(device).toLowerCase().includes(category)
     const matchOwner = !owner || String(device.owner || '').toLowerCase().includes(owner)
     const matchStatus = !searchForm.status || device.status === searchForm.status
-    return matchName && matchDeviceNo && matchArea && matchPoint && matchClassification && matchCategory && matchOwner && matchStatus
+    return matchName && matchDeviceNo && matchPosition && matchArea && matchPoint && matchClassification && matchCategory && matchOwner && matchStatus
   })
 })
 
@@ -178,21 +161,23 @@ function getLinkedPointNames(device: any) {
   return getPoint(device.inspectionPointId)?.name || '-'
 }
 
-function getComponentCount(device: any) {
-  return device.assetComponents?.length || 0
+function getFacilityKindText(device: any) {
+  if (device.facilityKind === 'pipeline') return '管道类设施'
+  if (device.facilityKind === 'normal') return '普通设施'
+  return String(device.deviceCategory || '').trim() || '普通设施'
 }
 
-function getConnectionCount(device: any) {
-  return device.connectionObjects?.length || 0
+function getComponentCount(device: any) {
+  const linkedComponents = inspectionStore.facilityComponents.filter((component) => component.facilityId === device.id)
+  return linkedComponents.length || device.assetComponents?.length || 0
 }
 
 function getDetectionRuleCount(device: any) {
   const ruleIds = new Set<string>()
-  ;(device.assetComponents || []).forEach((component: any) => {
+  const linkedComponents = inspectionStore.facilityComponents.filter((component) => component.facilityId === device.id)
+  const components = linkedComponents.length ? linkedComponents : (device.assetComponents || [])
+  components.forEach((component: any) => {
     ;(component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId))
-  })
-  ;(device.connectionObjects || []).forEach((connection: any) => {
-    ;(connection.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId))
   })
   return ruleIds.size
 }
@@ -216,6 +201,7 @@ function resetSearch() {
   searchForm.pointId = ''
   searchForm.deviceClassification = ''
   searchForm.deviceCategory = ''
+  searchForm.facilityPositionNo = ''
   searchForm.owner = ''
   searchForm.status = ''
 }
@@ -242,8 +228,8 @@ function handleDelete(record: any) {
   const relatedTasks = inspectionStore.tasks.filter(task => (task.inspectionPointIds || []).includes(pointId))
 
   Modal.confirm({
-    title: `确认删除设备 ${record.name}？`,
-    content: `当前关联计划 ${relatedPlans.length} 个、关联任务 ${relatedTasks.length} 个。删除后，计划和任务可能出现执行问题，且该设备下检测项数据无法恢复。`,
+    title: `确认删除设施 ${record.name}？`,
+    content: `当前关联计划 ${relatedPlans.length} 个、关联任务 ${relatedTasks.length} 个。删除后，计划和任务可能出现执行问题，且该设施下检测项数据无法恢复。`,
     okText: '确认删除',
     okButtonProps: { danger: true },
     cancelText: '取消',
@@ -251,7 +237,7 @@ function handleDelete(record: any) {
       const relatedItemIds = inspectionStore.inspectionDeviceCheckItems.filter(item => item.deviceId === record.id).map(item => item.id)
       relatedItemIds.forEach(id => inspectionStore.deleteInspectionDeviceCheckItem(id))
       inspectionStore.deleteInspectionDevice(record.id)
-      message.success('设备已删除')
+      message.success('设施已删除')
     }
   })
 }

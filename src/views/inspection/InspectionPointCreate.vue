@@ -30,9 +30,10 @@
             <a-descriptions-item label="巡检点">{{ point?.name || '-' }}</a-descriptions-item>
             <a-descriptions-item label="所属地图">{{ currentMap?.name || '-' }}</a-descriptions-item>
             <a-descriptions-item label="所属区域">{{ point?.areaName || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="配置对象">{{ configRows.length }}</a-descriptions-item>
-            <a-descriptions-item label="关联设施">{{ uniqueFacilityCount }}</a-descriptions-item>
-            <a-descriptions-item label="检测项">{{ totalRuleCount }}</a-descriptions-item>
+            <a-descriptions-item label="关联设施数">{{ uniqueFacilityCount }}</a-descriptions-item>
+            <a-descriptions-item label="关联部件数">{{ totalRuleCount }}</a-descriptions-item>
+            <a-descriptions-item label="巡检规则数">{{ configRows.length }}</a-descriptions-item>
+
           </a-descriptions>
         </a-card>
       </a-col>

@@ -65,7 +65,7 @@ export function migrateToV2(): void {
   normalizeInstallations()
 
   const currentVersion = storage.get<number>(STORAGE_KEYS.SCHEMA_VERSION) || 1
-  
+
   if (currentVersion < SCHEMA_VERSION) {
     console.log(`Migrating data to schema version ${SCHEMA_VERSION}...`)
 
@@ -128,11 +128,11 @@ function normalizeImageReferences(): void {
 
 function migrateMonitorPointsToInspectionDevices(): void {
   const monitorPoints = storage.get<MonitorPoint[]>(STORAGE_KEYS.MONITOR_POINTS) || []
-  
+
   if (monitorPoints.length === 0) {
     return
   }
-  
+
   const inspectionDevices: InspectionDevice[] = monitorPoints.map((mp, index) => ({
     id: mp.id,
     inspectionPointId: mp.inspectionPointId,
@@ -150,17 +150,17 @@ function migrateMonitorPointsToInspectionDevices(): void {
     createdAt: mp.createdAt,
     updatedAt: mp.updatedAt
   }))
-  
+
   storage.set(STORAGE_KEYS.INSPECTION_DEVICES, inspectionDevices)
 }
 
 function migrateMetricsToCheckItems(): void {
   const metrics = storage.get<Metric[]>(STORAGE_KEYS.METRICS) || []
-  
+
   if (metrics.length === 0) {
     return
   }
-  
+
   const checkItems: InspectionDeviceCheckItem[] = metrics.map(metric => ({
     id: metric.id,
     deviceId: metric.monitorPointId,
@@ -171,17 +171,17 @@ function migrateMetricsToCheckItems(): void {
     createdAt: metric.createdAt,
     updatedAt: metric.updatedAt
   }))
-  
+
   storage.set(STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS, checkItems)
 }
 
 function migrateInspectionPoints(): void {
   const inspectionPoints = storage.get<InspectionPoint[]>(STORAGE_KEYS.INSPECTION_POINTS) || []
-  
+
   if (inspectionPoints.length === 0) {
     return
   }
-  
+
   const migratedPoints: InspectionPoint[] = inspectionPoints.map((point, index) => ({
     ...point,
     mapId: point.mapId || 'map-001',
@@ -192,7 +192,7 @@ function migrateInspectionPoints(): void {
     stayDurationSec: 30,
     positionSource: PositionSource.MAP_PICK
   }))
-  
+
   storage.set(STORAGE_KEYS.INSPECTION_POINTS, migratedPoints)
 }
 
@@ -660,14 +660,14 @@ function normalizeObjectDetectionConfigs(
         const component = componentById.get(subjectId)
         if (!component) return
         const poseId = getBestPoseId(parking, 'component')
-        ;(component.ruleIds || []).forEach(ruleId => addConfig('component', component.id, component.name, ruleId, poseId))
+          ; (component.ruleIds || []).forEach(ruleId => addConfig('component', component.id, component.name, ruleId, poseId))
         return
       }
       if (type === 'connection') {
         const connection = connectionById.get(subjectId)
         if (!connection) return
         const poseId = getBestPoseId(parking, 'connection')
-        ;(connection.ruleIds || []).forEach(ruleId => addConfig('connection', connection.id, connection.name, ruleId, poseId))
+          ; (connection.ruleIds || []).forEach(ruleId => addConfig('connection', connection.id, connection.name, ruleId, poseId))
       }
     })
   })
@@ -748,7 +748,7 @@ function buildTaskSnapshotFromMockData(
   const collectionActions: NonNullable<InspectionTaskSnapshot['collectionActions']> = []
   let sequence = 1
   taskPoints.forEach((point) => {
-    ;(point.parkingPoints || []).forEach((parking) => {
+    ; (point.parkingPoints || []).forEach((parking) => {
       parkingRoute.push({
         id: `${task.id}-${parking.id}`,
         inspectionPointId: point.id,
@@ -760,22 +760,22 @@ function buildTaskSnapshotFromMockData(
         arrivalStatus: parking.constraint.reachable ? 'arrived' : 'unreachable',
         failureReason: parking.constraint.reachable ? undefined : '停车点不可达'
       })
-      ;(parking.collectionPoses || []).forEach((pose) => {
-        const config = (point.detectionConfigs || []).find(item => !item.collectionPoseId || item.collectionPoseId === pose.id)
-        collectionActions.push({
-          id: `${task.id}-${pose.id}-${config?.ruleId || 'default'}`,
-          inspectionPointId: point.id,
-          pointName: point.name,
-          parkingPointId: parking.id,
-          parkingPointName: parking.name,
-          collectionPoseId: pose.id,
-          collectionAction: `${pose.targetName} / ${pose.method}`,
-          targetObject: config?.subjectName || pose.targetName,
-          ruleId: config?.ruleId,
-          ruleName: config?.ruleId || '默认大模型规则',
-          requiredCoverage: config?.requiredCoverage ?? true
+        ; (parking.collectionPoses || []).forEach((pose) => {
+          const config = (point.detectionConfigs || []).find(item => !item.collectionPoseId || item.collectionPoseId === pose.id)
+          collectionActions.push({
+            id: `${task.id}-${pose.id}-${config?.ruleId || 'default'}`,
+            inspectionPointId: point.id,
+            pointName: point.name,
+            parkingPointId: parking.id,
+            parkingPointName: parking.name,
+            collectionPoseId: pose.id,
+            collectionAction: `${pose.targetName} / ${pose.method}`,
+            targetObject: config?.subjectName || pose.targetName,
+            ruleId: config?.ruleId,
+            ruleName: config?.ruleId || '默认大模型规则',
+            requiredCoverage: config?.requiredCoverage ?? true
+          })
         })
-      })
     })
   })
   const pointIds = new Set(taskPoints.map(point => point.id))
@@ -920,9 +920,11 @@ function buildCollectionPoses(point: InspectionPoint, side: 'front' | 'side'): C
 }
 
 function enrichInspectionDevice(device: InspectionDevice): InspectionDevice {
+  const mockFacility = getMockFacilityProfile(device)
+  const profiledDevice = { ...device, ...mockFacility }
   const point = (storage.get<InspectionPoint[]>(STORAGE_KEYS.INSPECTION_POINTS) || []).find(item => item.id === device.inspectionPointId)
-  const assetComponents = device.assetComponents?.length ? normalizeAssetComponents(device.assetComponents, device) : buildAssetComponents(device.id, device)
-  const connectionObjects = device.connectionObjects?.length ? normalizeConnectionObjects(device.connectionObjects, device.id) : buildConnectionObjects(device.id, device)
+  const assetComponents = device.assetComponents?.length ? normalizeAssetComponents(device.assetComponents, profiledDevice) : buildAssetComponents(device.id, profiledDevice)
+  const connectionObjects = device.connectionObjects?.length ? normalizeConnectionObjects(device.connectionObjects, device.id) : buildConnectionObjects(device.id, profiledDevice)
   const parkingPointBindings = device.parkingPointBindings?.length
     ? normalizeParkingPointBindings(device.parkingPointBindings, assetComponents, connectionObjects, point)
     : buildParkingPointBindings(device, assetComponents, connectionObjects)
@@ -939,15 +941,17 @@ function enrichInspectionDevice(device: InspectionDevice): InspectionDevice {
   const code = device.code || device.deviceNo || buildDeviceCode(device.id)
   return {
     ...device,
-    code,
-    deviceNo,
-    deviceClassification: device.deviceClassification || inferDeviceClassification(device),
+    ...mockFacility,
+    code: mockFacility.code || code,
+    deviceNo: mockFacility.deviceNo || deviceNo,
+    deviceClassification: mockFacility.deviceClassification || device.deviceClassification || inferDeviceClassification(device),
     areaId: device.areaId || point?.areaId || '',
     areaName: device.areaName || point?.areaName || '',
-    deviceCategory: device.deviceCategory || '现场设备',
+    facilityKind: mockFacility.facilityKind || normalizeFacilityKind(device.facilityKind, device),
+    deviceCategory: getFacilityKindText(mockFacility.facilityKind || normalizeFacilityKind(device.facilityKind, device)),
     owner: device.owner || '待分配',
     manufacturer: device.manufacturer || inferManufacturer(device),
-    storageLocation: device.storageLocation || `${point?.areaName || '现场区域'}设备位`,
+    storageLocation: mockFacility.storageLocation || device.storageLocation || `${point?.areaName || '现场区域'}设备位`,
     systemName: device.systemName || inferSystemName(device, point),
     factoryNo: device.factoryNo || `${device.id.toUpperCase()}-FAC`,
     certificateIssueDate,
@@ -970,6 +974,120 @@ function enrichInspectionDevice(device: InspectionDevice): InspectionDevice {
   }
 }
 
+function getMockFacilityProfile(device: InspectionDevice): Partial<InspectionDevice> {
+  const profiles: Record<string, Partial<InspectionDevice>> = {
+    'mp-001': {
+      name: '1号反应釜',
+      code: 'FAC-RX-001',
+      deviceNo: 'FAC-RX-001',
+      deviceClassification: '反应设备',
+      facilityPositionNo: 'RX-101',
+      facilityKind: 'normal',
+      deviceCategory: '普通设施',
+      type: '反应釜',
+      storageLocation: 'A区反应釜区',
+      installationId: 'inst-001',
+      installationName: '反应装置'
+    },
+    'mp-002': {
+      name: '反应进料管线',
+      code: 'PIPE-RX-IN-001',
+      deviceNo: 'PIPE-RX-IN-001',
+      deviceClassification: '工艺管道',
+      facilityPositionNo: 'RX-P-101',
+      facilityKind: 'pipeline',
+      deviceCategory: '管道类设施',
+      type: '工艺管线',
+      storageLocation: 'A区反应进料管廊',
+      installationId: 'inst-001',
+      installationName: '反应装置'
+    },
+    'mp-003': {
+      name: '反应出料管线',
+      code: 'PIPE-RX-OUT-001',
+      deviceNo: 'PIPE-RX-OUT-001',
+      deviceClassification: '工艺管道',
+      facilityPositionNo: 'RX-P-102',
+      facilityKind: 'pipeline',
+      deviceCategory: '管道类设施',
+      type: '工艺管线',
+      storageLocation: 'A区反应出料管廊',
+      installationId: 'inst-001',
+      installationName: '反应装置'
+    },
+    'mp-004': {
+      name: '储罐出料管线',
+      code: 'PIPE-TK-OUT-001',
+      deviceNo: 'PIPE-TK-OUT-001',
+      deviceClassification: '储运管道',
+      facilityPositionNo: 'TK-P-201',
+      facilityKind: 'pipeline',
+      deviceCategory: '管道类设施',
+      type: '储运管线',
+      storageLocation: 'B区储罐管廊',
+      installationId: 'inst-002',
+      installationName: '储罐装置'
+    },
+    'device-001': {
+      name: '1号反应釜',
+      code: 'FAC-RX-001',
+      deviceNo: 'FAC-RX-001',
+      deviceClassification: '反应设备',
+      facilityPositionNo: 'RX-101',
+      facilityKind: 'normal',
+      deviceCategory: '普通设施',
+      type: '反应釜',
+      storageLocation: 'A区反应釜区',
+      installationId: 'inst-001',
+      installationName: '反应装置'
+    },
+    'device-002': {
+      name: '反应进料管线',
+      code: 'PIPE-RX-IN-001',
+      deviceNo: 'PIPE-RX-IN-001',
+      deviceClassification: '工艺管道',
+      facilityPositionNo: 'RX-P-101',
+      facilityKind: 'pipeline',
+      deviceCategory: '管道类设施',
+      type: '工艺管线',
+      storageLocation: 'A区反应进料管廊',
+      installationId: 'inst-001',
+      installationName: '反应装置'
+    },
+    'device-003': {
+      name: '储罐出料管线',
+      code: 'PIPE-TK-OUT-001',
+      deviceNo: 'PIPE-TK-OUT-001',
+      deviceClassification: '储运管道',
+      facilityPositionNo: 'TK-P-201',
+      facilityKind: 'pipeline',
+      deviceCategory: '管道类设施',
+      type: '储运管线',
+      storageLocation: 'B区储罐管廊',
+      installationId: 'inst-002',
+      installationName: '储罐装置'
+    }
+  }
+  return profiles[device.id] || {}
+}
+
+function normalizeFacilityKind(kind: InspectionDevice['facilityKind'], device: InspectionDevice): 'normal' | 'pipeline' {
+  if (kind === 'pipeline') return 'pipeline'
+  if (kind === 'normal') return 'normal'
+  return inferFacilityKind(device)
+}
+
+function inferFacilityKind(device: InspectionDevice): 'normal' | 'pipeline' {
+  const keywords = [device.name, device.systemName, device.installationName, device.type, device.deviceClassification]
+    .filter(Boolean)
+    .join(' ')
+  return /管|廊|输送|管线|管道/i.test(keywords) ? 'pipeline' : 'normal'
+}
+
+function getFacilityKindText(kind: 'normal' | 'pipeline'): string {
+  return kind === 'pipeline' ? '管道类设施' : '普通设施'
+}
+
 function buildAssetComponents(deviceId: string, device?: InspectionDevice): InspectedAssetComponent[] {
   const inferredType = inferPrimaryComponentType(device)
   const inferredName = inferPrimaryComponentName(device, inferredType)
@@ -984,9 +1102,16 @@ function normalizeAssetComponents(components: InspectedAssetComponent[], device?
   return components.map((component) => ({
     ...component,
     assetId: component.assetId || device?.id || '',
-    subTypeName: component.subTypeName || getDefaultComponentSubTypeName(component.type, component.name),
-    ruleIds: component.ruleIds?.length ? component.ruleIds : getDefaultRuleIdsForComponent(component.type, component.name)
+    name: normalizeMockComponentName(component, device),
+    subTypeName: component.subTypeName || getDefaultComponentSubTypeName(component.type, normalizeMockComponentName(component, device)),
+    ruleIds: component.ruleIds?.length ? component.ruleIds : getDefaultRuleIdsForComponent(component.type, normalizeMockComponentName(component, device))
   }))
+}
+
+function normalizeMockComponentName(component: InspectedAssetComponent, device?: InspectionDevice) {
+  if (!device || !/^(mp|device)-/.test(device.id)) return component.name
+  if (component.id.endsWith('-primary')) return inferPrimaryComponentName(device, component.type)
+  return component.name
 }
 
 function getDefaultComponentSubTypeName(type: InspectedAssetComponent['type'], name: string) {
@@ -1140,13 +1265,13 @@ function buildObjectDetectionConfigs(
         const component = assetComponents.find(item => item.id === subjectId)
         if (!component) return
         const poseId = getBestPoseId(parking, 'component')
-        ;(component.ruleIds || []).forEach(ruleId => createConfig('component', component.id, component.name, ruleId, poseId))
+          ; (component.ruleIds || []).forEach(ruleId => createConfig('component', component.id, component.name, ruleId, poseId))
         return
       }
       const connection = connectionObjects.find(item => item.id === subjectId)
       if (!connection) return
       const poseId = getBestPoseId(parking, 'connection')
-      ;(connection.ruleIds || []).forEach(ruleId => createConfig('connection', connection.id, connection.name, ruleId, poseId))
+        ; (connection.ruleIds || []).forEach(ruleId => createConfig('connection', connection.id, connection.name, ruleId, poseId))
     })
   })
 

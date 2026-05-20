@@ -34,10 +34,11 @@
           <a-form-item label="任务场景" required>
             <a-select v-model:value="form.businessScene" placeholder="请选择任务场景" :disabled="isEmergencyMode">
               <a-select-option v-if="isEmergencyMode" value="daily_inspection">固定巡查</a-select-option>
-              <a-select-option value="daily_inspection">日常巡检</a-select-option>
+              <a-select-option value="daily_inspection">应急到场</a-select-option>
+              <a-select-option value="emergency_arrival ">日常巡检</a-select-option>
               <a-select-option value="hazard_screening">隐患排查</a-select-option>
               <a-select-option value="environment_check">环境检查</a-select-option>
-              <a-select-option value="operation_guard">作业监护</a-select-option>
+              <a-select-option value="operation_guard">作业票监护</a-select-option>
             </a-select>
           </a-form-item>
         </a-col>

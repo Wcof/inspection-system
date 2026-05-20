@@ -125,14 +125,15 @@
         </a-row>
 
         <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="开始日期">
-              <a-input v-model:value="form.inspectionTimeStart" placeholder="例如 08:00" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="结束日期">
-              <a-input v-model:value="form.inspectionTimeEnd" placeholder="例如 18:00" />
+          <a-col :span="24">
+            <a-form-item label="起止日期">
+              <a-range-picker
+                v-model:value="inspectionDateRange"
+                style="width: 100%"
+                format="YYYY-MM-DD"
+                value-format="YYYY-MM-DD"
+                :allow-clear="false"
+              />
             </a-form-item>
           </a-col>
         </a-row>
@@ -145,6 +146,25 @@
             <a-descriptions-item label="巡检部件数">{{ coverageSummary.componentCount }}</a-descriptions-item>
             <a-descriptions-item label="巡检规则数">{{ coverageSummary.ruleCount }}</a-descriptions-item>
           </a-descriptions>
+          <a-table
+            style="margin-top: 12px"
+            :columns="coverageDetailColumns"
+            :data-source="coverageDetailRows"
+            row-key="id"
+            size="small"
+            :pagination="{ pageSize: 6 }"
+            :scroll="{ x: 1180 }"
+            :locale="{ emptyText: '请选择巡检区域、装置和设施后查看覆盖明细' }"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'ruleNames'">
+                <a-space wrap>
+                  <a-tag v-for="rule in record.ruleNames" :key="rule">{{ rule }}</a-tag>
+                  <span v-if="!record.ruleNames.length">-</span>
+                </a-space>
+              </template>
+            </template>
+          </a-table>
         </a-card>
 
         <a-form-item label="执行说明">
@@ -166,7 +186,9 @@
 import { computed, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import dayjs from 'dayjs'
 import { useInspectionStore } from '@/stores/inspection'
+import { getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
 
 const router = useRouter()
 const route = useRoute()
@@ -185,8 +207,8 @@ const form = reactive<any>({
   installationIds: [],
   facilityIds: [],
   inspectionPointIds: [],
-  inspectionTimeStart: '08:00',
-  inspectionTimeEnd: '18:00',
+  inspectionTimeStart: dayjs().format('YYYY-MM-DD'),
+  inspectionTimeEnd: dayjs().add(7, 'day').format('YYYY-MM-DD'),
   description: ''
 })
 
@@ -214,23 +236,71 @@ const facilityOptions = computed(() => inspectionStore.inspectionDevices.filter(
   return inRegion && inInstallation
 }))
 const selectedFacilities = computed(() => facilityOptions.value.filter((device: any) => form.facilityIds.includes(device.id)))
+const ruleNameMap = computed(() => new Map(getDetectionItemConfigs().map((item) => [item.id, item.name])))
+const inspectionDateRange = computed({
+  get: (): [string, string] => [form.inspectionTimeStart, form.inspectionTimeEnd],
+  set: (value: [string, string]) => {
+    form.inspectionTimeStart = value?.[0] || dayjs().format('YYYY-MM-DD')
+    form.inspectionTimeEnd = value?.[1] || dayjs().add(7, 'day').format('YYYY-MM-DD')
+  }
+})
+const coverageDetailRows = computed(() => selectedFacilities.value.flatMap((device: any) => {
+  const storeComponents = inspectionStore.facilityComponents.filter((component: any) => component.facilityId === device.id)
+  const legacyComponents = (device.assetComponents || []).map((component: any) => ({
+    ...component,
+    facilityName: device.name,
+    facilityId: device.id,
+    areaName: device.areaName,
+    installationName: device.installationName
+  }))
+  const components = storeComponents.length ? storeComponents : legacyComponents
+  return components.map((component: any) => {
+    const ruleIds = [...new Set(component.ruleIds || [])]
+    return {
+      id: `${device.id}-${component.id}`,
+      regionName: device.areaName || component.areaName || '-',
+      installationName: device.installationName || component.installationName || '-',
+      facilityName: device.name,
+      facilityCount: 1,
+      componentName: component.name,
+      componentCode: component.componentNo || component.code || '-',
+      componentCount: 1,
+      ruleCount: ruleIds.length,
+      ruleNames: ruleIds.map((ruleId) => ruleNameMap.value.get(ruleId as string) || ruleId)
+    }
+  })
+}))
 const coverageSummary = computed(() => {
   const ruleIds = new Set<string>()
-  const componentCount = selectedFacilities.value.reduce((sum: number, device: any) => {
+  selectedFacilities.value.forEach((device: any) => {
     ;(device.objectDetectionConfigs || []).forEach((config: any) => {
       if (config.enabled && config.ruleId) ruleIds.add(config.ruleId)
     })
-    ;(device.assetComponents || []).forEach((component: any) => (component.ruleIds || []).forEach((ruleId: string) => ruleIds.add(ruleId)))
-    return sum + (device.assetComponents?.length || 0)
-  }, 0)
+  })
+  coverageDetailRows.value.forEach((row: any) => row.ruleNames.forEach((ruleName: string) => {
+    const matched = Array.from(ruleNameMap.value.entries()).find(([, name]) => name === ruleName)
+    ruleIds.add(matched?.[0] || ruleName)
+  }))
   return {
     regionCount: form.regionIds.length,
     installationCount: form.installationIds.length,
     facilityCount: selectedFacilities.value.length,
-    componentCount,
+    componentCount: coverageDetailRows.value.length,
     ruleCount: ruleIds.size
   }
 })
+
+const coverageDetailColumns = [
+  { title: '巡检区域', dataIndex: 'regionName', key: 'regionName', width: 150 },
+  { title: '巡检装置', dataIndex: 'installationName', key: 'installationName', width: 150 },
+  { title: '巡检设施', dataIndex: 'facilityName', key: 'facilityName', width: 180 },
+  { title: '巡检设施数', dataIndex: 'facilityCount', key: 'facilityCount', width: 110 },
+  { title: '巡检部件', dataIndex: 'componentName', key: 'componentName', width: 180 },
+  { title: '部件编码', dataIndex: 'componentCode', key: 'componentCode', width: 140 },
+  { title: '巡检部件数', dataIndex: 'componentCount', key: 'componentCount', width: 110 },
+  { title: '巡检规则数', dataIndex: 'ruleCount', key: 'ruleCount', width: 110 },
+  { title: '巡检规则', key: 'ruleNames', width: 260 }
+]
 
 function loadDetail() {
   inspectionStore.initialize()
@@ -259,9 +329,16 @@ function loadDetail() {
     ? [...detail.facilityIds]
     : inspectionStore.inspectionDevices.filter((device: any) => form.regionIds.includes(device.areaId)).map((device: any) => device.id)
   form.inspectionPointIds = selectedPoints.value.map((point: any) => point.id)
-  form.inspectionTimeStart = detail.inspectionTimeStart || detail.startTime || '08:00'
-  form.inspectionTimeEnd = detail.inspectionTimeEnd || detail.endTime || '18:00'
+  form.inspectionTimeStart = normalizePlanDate(detail.inspectionTimeStart || detail.startTime, dayjs().format('YYYY-MM-DD'))
+  form.inspectionTimeEnd = normalizePlanDate(detail.inspectionTimeEnd || detail.endTime, dayjs().add(7, 'day').format('YYYY-MM-DD'))
   form.description = detail.description || ''
+}
+
+function normalizePlanDate(value: string | undefined, fallback: string) {
+  if (!value) return fallback
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10)
+  return fallback
 }
 
 function handleSave() {

@@ -118,11 +118,64 @@
         <a-form-item label="第三方单号"><a-input v-model:value="thirdPartyTicketNo" /></a-form-item>
       </a-form>
     </a-modal>
+
+    <div v-if="entryNoticeVisible && currentNoticeAlert" class="entry-alert-panel">
+      <div class="entry-alert-panel__bar"></div>
+      <div class="entry-alert-panel__header">
+        <div>
+          <div class="entry-alert-panel__eyebrow">待确认告警提醒</div>
+          <div class="entry-alert-panel__title">{{ currentNoticeAlert.name }}</div>
+        </div>
+        <button class="entry-alert-panel__close" type="button" aria-label="关闭告警提醒" @click="closeEntryNotice">×</button>
+      </div>
+      <div class="entry-alert-panel__tags">
+        <a-tag :color="currentNoticeAlert.alarmSource === 'inspection' ? 'blue' : 'purple'">{{ getAlarmSourceText(currentNoticeAlert.alarmSource) }}</a-tag>
+        <a-tag :color="getTypeColor(currentNoticeAlert.type)">{{ getTypeText(currentNoticeAlert.type) }}</a-tag>
+        <a-tag color="red">{{ getStatusText(currentNoticeAlert.status) }}</a-tag>
+      </div>
+      <div class="entry-alert-panel__meta">
+        {{ currentNoticeAlert.areaName }} / {{ currentNoticeAlert.installationName }}
+        <template v-if="currentNoticeAlert.facilityName"> / {{ currentNoticeAlert.facilityName }}</template>
+      </div>
+      <div class="entry-alert-panel__fact">{{ currentNoticeAlert.alertFact }}</div>
+      <div class="entry-alert-panel__images">
+        <div class="entry-alert-panel__image-card">
+          <img :src="currentNoticeAlert.opticalImageUrl || currentNoticeAlert.imageUrl" alt="光学图" />
+          <span>光学图</span>
+        </div>
+        <div class="entry-alert-panel__image-card">
+          <img :src="currentNoticeAlert.thermalImageUrl || currentNoticeAlert.imageUrl" alt="热成图" />
+          <span>热成图</span>
+        </div>
+      </div>
+      <div class="entry-alert-panel__footer">
+        <span>{{ currentNoticeAlert.sampledAt }}</span>
+        <a-space>
+          <a-button size="small" @click="openOperationModal(currentNoticeAlert)">处理</a-button>
+          <a-button size="small" type="primary" @click="goDetail(currentNoticeAlert)">查看详情</a-button>
+        </a-space>
+      </div>
+      <div v-if="pendingNoticeAlerts.length > 1" class="entry-alert-panel__pager">
+        <a-button size="small" :disabled="currentNoticeIndex === 0" @click="switchNotice(-1)">上一条</a-button>
+        <div class="entry-alert-panel__dots" aria-label="告警切换">
+          <button
+            v-for="(item, index) in pendingNoticeAlerts"
+            :key="item.id"
+            type="button"
+            :class="{ active: index === currentNoticeIndex }"
+            :aria-label="`切换到第 ${index + 1} 条告警`"
+            @click="currentNoticeIndex = index"
+          ></button>
+        </div>
+        <a-button size="small" :disabled="currentNoticeIndex === pendingNoticeAlerts.length - 1" @click="switchNotice(1)">下一条</a-button>
+        <span class="entry-alert-panel__count">{{ currentNoticeIndex + 1 }} / {{ pendingNoticeAlerts.length }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 
@@ -154,10 +207,14 @@ interface AlertItem {
   status: AlertStatus
   pushStatus: PushStatus
   imageUrl?: string
+  opticalImageUrl?: string
+  thermalImageUrl?: string
   thirdPartyTicketNo?: string
 }
 
 const router = useRouter()
+const opticalImageUrl = new URL('../../设备.png', import.meta.url).href
+const thermalImageUrl = new URL('../../车间.png', import.meta.url).href
 const activeAlarmSource = ref<AlarmSource>('all')
 const alarmSourceOptions: Array<{ label: string; value: AlarmSource }> = [
   { label: '全部', value: 'all' },
@@ -173,10 +230,12 @@ const selectedOperation = ref<OperationType>('internal_close')
 const handleFact = ref('')
 const handleReason = ref('')
 const thirdPartyTicketNo = ref('')
+const entryNoticeVisible = ref(false)
+const currentNoticeIndex = ref(0)
 
 const alerts = ref<AlertItem[]>([
-  { id: 'rt-001', alarmSource: 'realtime', name: '甲烷浓度瞬时超限', alertFact: '边巡边检气体模块检测到 34%LEL', handlingReason: '待确认是否转第三方', businessScene: 'environment_check', type: 'gas', sourceTrigger: '边巡边检气体模块', areaName: 'B区', installationName: '管廊装置', sampledAt: '2026-04-17 09:35:00', status: 'pending_confirm', pushStatus: 'none', imageUrl: 'https://picsum.photos/seed/rt-alert/120/70' },
-  { id: 'a1', alarmSource: 'inspection', name: '1号循环泵温升异常', alertFact: '热成像识别局部温升 86℃', handlingReason: '待选择闭环方式', businessScene: 'daily_inspection', type: 'facility_component', sourceTask: 'TASK-2026-001', taskName: '1号循环泵日常巡检', areaName: 'A区', installationName: '循环泵装置', facilityName: '1号循环泵', componentName: '出口法兰', ruleName: '温升判定规则 V1', inspectionPointName: '泵房巡检点', parkingPointName: '泵房北侧停车点', sampledAt: '2026-04-17 10:17:42', status: 'pending_confirm', pushStatus: 'none', imageUrl: 'https://picsum.photos/seed/inspection-alert/120/70' }
+  { id: 'rt-001', alarmSource: 'realtime', name: '甲烷浓度瞬时超限', alertFact: '边巡边检气体模块检测到 34%LEL', handlingReason: '待确认是否转第三方', businessScene: 'environment_check', type: 'gas', sourceTrigger: '边巡边检气体模块', areaName: 'B区', installationName: '管廊装置', sampledAt: '2026-04-17 09:35:00', status: 'pending_confirm', pushStatus: 'none', imageUrl: opticalImageUrl, opticalImageUrl, thermalImageUrl },
+  { id: 'a1', alarmSource: 'inspection', name: '1号循环泵温升异常', alertFact: '热成像识别局部温升 86℃', handlingReason: '待选择闭环方式', businessScene: 'daily_inspection', type: 'facility_component', sourceTask: 'TASK-2026-001', taskName: '1号循环泵日常巡检', areaName: 'A区', installationName: '循环泵装置', facilityName: '1号循环泵', componentName: '出口法兰', ruleName: '温升判定规则 V1', inspectionPointName: '泵房巡检点', parkingPointName: '泵房北侧停车点', sampledAt: '2026-04-17 10:17:42', status: 'pending_confirm', pushStatus: 'none', imageUrl: opticalImageUrl, opticalImageUrl, thermalImageUrl }
 ])
 
 const realtimeColumns = [
@@ -234,6 +293,8 @@ const activeColumns = computed(() => {
   return activeAlarmSource.value === 'inspection' ? inspectionColumns : realtimeColumns
 })
 const filteredAlerts = computed(() => alerts.value.filter((item) => (activeAlarmSource.value === 'all' || item.alarmSource === activeAlarmSource.value) && (!applied.name || item.name.includes(applied.name)) && (!applied.type || item.type === applied.type) && (!applied.status || item.status === applied.status) && (!applied.businessScene || item.businessScene === applied.businessScene) && (!applied.pushStatus || item.pushStatus === applied.pushStatus)))
+const pendingNoticeAlerts = computed(() => alerts.value.filter((item) => item.status === 'pending_confirm'))
+const currentNoticeAlert = computed(() => pendingNoticeAlerts.value[currentNoticeIndex.value])
 
 function handleSearch() { applied.name = searchForm.name.trim(); applied.type = searchForm.type; applied.status = searchForm.status; applied.businessScene = searchForm.businessScene; applied.pushStatus = searchForm.pushStatus }
 function handleReset() { searchForm.name = ''; searchForm.type = undefined; searchForm.status = undefined; searchForm.businessScene = undefined; searchForm.pushStatus = undefined; handleSearch() }
@@ -252,10 +313,36 @@ function submitHandle() {
   if (selectedOperation.value !== 'internal_close') selectedAlert.value.pushStatus = 'pending'
   if (selectedOperation.value !== 'internal_close') selectedAlert.value.thirdPartyTicketNo = thirdPartyTicketNo.value || selectedAlert.value.thirdPartyTicketNo
   handleVisible.value = false
+  normalizeEntryNotice()
   message.success('处置已提交')
 }
 function batchInternalClose() { message.success('批量线下人工处置已提交') }
 function batchThirdPartyRectify() { message.success('批量转第三方整改已提交') }
+
+function showEntryNotifications() {
+  entryNoticeVisible.value = pendingNoticeAlerts.value.length > 0
+  normalizeEntryNotice()
+}
+
+function normalizeEntryNotice() {
+  if (!pendingNoticeAlerts.value.length) {
+    entryNoticeVisible.value = false
+    currentNoticeIndex.value = 0
+    return
+  }
+  if (currentNoticeIndex.value > pendingNoticeAlerts.value.length - 1) {
+    currentNoticeIndex.value = pendingNoticeAlerts.value.length - 1
+  }
+}
+
+function closeEntryNotice() {
+  entryNoticeVisible.value = false
+}
+
+function switchNotice(offset: number) {
+  const nextIndex = currentNoticeIndex.value + offset
+  currentNoticeIndex.value = Math.min(Math.max(nextIndex, 0), pendingNoticeAlerts.value.length - 1)
+}
 
 function getTypeText(type: AlertType) { return ({ facility_component: '设施/部件异常', gas: '气体异常', safety: '安全行为异常', monitor_failure: '监测失效', uninspectable: '不可检异常' } as Record<AlertType, string>)[type] }
 function getTypeColor(type: AlertType) { return ({ facility_component: 'processing', gas: 'orange', safety: 'purple', monitor_failure: 'red', uninspectable: 'gold' } as Record<AlertType, string>)[type] }
@@ -266,6 +353,12 @@ function getStatusColor(status: AlertStatus) { return ({ pending_confirm: 'red',
 function getPushText(status: PushStatus) { return ({ none: '未推送', pending: '待推送', success: '已推送', failed: '推送失败' } as Record<PushStatus, string>)[status] }
 function getPushColor(status: PushStatus) { return ({ none: 'default', pending: 'blue', success: 'green', failed: 'red' } as Record<PushStatus, string>)[status] }
 function getAlarmSourceText(source: AlarmSource) { return source === 'inspection' ? '巡检告警' : '实时告警' }
+
+onMounted(() => {
+  showEntryNotifications()
+})
+
+watch(pendingNoticeAlerts, normalizeEntryNotice)
 </script>
 
 <style scoped>
@@ -303,5 +396,152 @@ function getAlarmSourceText(source: AlarmSource) { return source === 'inspection
   background: #0f766e;
   color: #fff;
   box-shadow: 0 8px 16px -12px rgba(15, 118, 110, 0.9);
+}
+
+.entry-alert-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  width: min(438px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid rgba(220, 38, 38, 0.18);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.18);
+}
+.entry-alert-panel__bar {
+  height: 4px;
+  background: linear-gradient(90deg, #dc2626, #f97316);
+}
+.entry-alert-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 16px 10px;
+}
+.entry-alert-panel__eyebrow {
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 600;
+}
+.entry-alert-panel__title {
+  margin-top: 3px;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.entry-alert-panel__close {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.entry-alert-panel__close:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.entry-alert-panel__tags,
+.entry-alert-panel__meta,
+.entry-alert-panel__fact,
+.entry-alert-panel__images,
+.entry-alert-panel__footer,
+.entry-alert-panel__pager {
+  margin-inline: 16px;
+}
+.entry-alert-panel__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.entry-alert-panel__meta {
+  color: #6b7280;
+  font-size: 12px;
+}
+.entry-alert-panel__fact {
+  margin-top: 8px;
+  color: #1f2937;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.entry-alert-panel__images {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.entry-alert-panel__image-card {
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+.entry-alert-panel__image-card img {
+  display: block;
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+}
+.entry-alert-panel__image-card span {
+  display: block;
+  padding: 6px 8px;
+  color: #6b7280;
+  font-size: 12px;
+}
+.entry-alert-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  color: #6b7280;
+  font-size: 12px;
+}
+.entry-alert-panel__pager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px 0 14px;
+  border-top: 1px solid #f1f5f9;
+}
+.entry-alert-panel__dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline: auto;
+}
+.entry-alert-panel__dots button {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+}
+.entry-alert-panel__dots button.active {
+  width: 18px;
+  background: #dc2626;
+}
+.entry-alert-panel__count {
+  min-width: 42px;
+  color: #64748b;
+  font-size: 12px;
+  text-align: right;
+}
+@media (max-width: 640px) {
+  .entry-alert-panel {
+    right: 16px;
+    bottom: 16px;
+  }
 }
 </style>

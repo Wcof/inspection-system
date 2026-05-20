@@ -127,6 +127,40 @@
           <a-empty v-else description="请选择地图瓦片后查看对应片区或机器人采样记录走势" />
         </a-card>
       </div>
+
+      <a-card size="small" class="alert-list-card" :title="activeMode === 'safety' ? '安全行为告警明细' : '气体告警明细'">
+        <template #extra>
+          <a-tag :color="hasSelectedTile ? 'blue' : 'default'">
+            {{ hasSelectedTile ? `当前区域：${selectedTile?.name}` : '全区域' }}
+          </a-tag>
+        </template>
+        <a-table
+          :columns="alertColumns"
+          :data-source="currentAlertRows"
+          row-key="id"
+          size="small"
+          :pagination="{ pageSize: 6 }"
+          :scroll="{ x: activeMode === 'safety' ? 1280 : 1360 }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'level'">
+              <a-tag :color="getLevelColor(record.level)">{{ record.level }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'value'">
+              <span class="alert-value">{{ record.valueText }}</span>
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <a-tag :color="getAlertStatusColor(record.status)">{{ record.status }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'evidence'">
+              <a-space>
+                <img :src="record.opticalImageUrl" alt="光学图" class="alert-thumb" />
+                <img v-if="record.thermalImageUrl" :src="record.thermalImageUrl" alt="热成像图" class="alert-thumb" />
+              </a-space>
+            </template>
+          </template>
+        </a-table>
+      </a-card>
     </a-card>
   </div>
 </template>
@@ -173,7 +207,27 @@ type InspectionSample = {
   percent?: number
 }
 
+type AlertRow = {
+  id: string
+  areaName: string
+  alertName: string
+  alertType: string
+  robot: string
+  payload: string
+  route: string
+  valueText: string
+  level: HeatLevel
+  sampledAt: string
+  status: string
+  reason: string
+  evidenceText: string
+  opticalImageUrl: string
+  thermalImageUrl?: string
+}
+
 const mapUrl = new URL('../../地图.png', import.meta.url).href
+const opticalImageUrl = new URL('../../设备.png', import.meta.url).href
+const thermalImageUrl = new URL('../../车间.png', import.meta.url).href
 const activeMode = ref<Mode>('safety')
 
 const selectedTileIndex = ref<number | null>(null)
@@ -318,6 +372,34 @@ const currentHistory = computed(() => {
     return selectedTile.value ? gasLeadersForSamples(selectedSamples.value) : gasGlobalLeaders.value
   }
   return []
+})
+
+const alertColumns = computed(() => {
+  const commonColumns = [
+    { title: '区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+    { title: '告警名称', dataIndex: 'alertName', key: 'alertName', width: 180 },
+    { title: '告警类型', dataIndex: 'alertType', key: 'alertType', width: 120 },
+    { title: '风险等级', key: 'level', width: 100 },
+    { title: '机器人', dataIndex: 'robot', key: 'robot', width: 130 },
+    { title: '载荷', dataIndex: 'payload', key: 'payload', width: 140 },
+    { title: '巡检路线', dataIndex: 'route', key: 'route', width: 160 }
+  ]
+  const valueColumn = activeMode.value === 'safety'
+    ? { title: '触发次数', key: 'value', width: 100 }
+    : { title: '采样值', key: 'value', width: 110 }
+  return [
+    ...commonColumns,
+    valueColumn,
+    { title: '采样时间', dataIndex: 'sampledAt', key: 'sampledAt', width: 170 },
+    { title: '状态', key: 'status', width: 110 },
+    { title: '告警事实', dataIndex: 'reason', key: 'reason', width: 260 },
+    { title: '证据', key: 'evidence', width: 150 }
+  ]
+})
+
+const currentAlertRows = computed(() => {
+  const tiles = selectedTile.value ? [selectedTile.value] : currentTiles.value
+  return tiles.flatMap((tile, tileIndex) => tile.samples.map((sample, sampleIndex) => buildAlertRow(tile, sample, tileIndex, sampleIndex)))
 })
 
 const safetyGlobalLeaders = computed(() => safetyLeadersForSamples(safetyTiles.value.flatMap((tile) => tile.samples)))
@@ -480,6 +562,40 @@ function safetyLeadersForSamples(samples: InspectionSample[]) {
         .sort((a, b) => b.value - a.value)[0]
     })
     .filter((sample): sample is InspectionSample => Boolean(sample))
+}
+
+function buildAlertRow(tile: HeatTile, sample: InspectionSample, tileIndex: number, sampleIndex: number): AlertRow {
+  const alertType = activeMode.value === 'safety' ? sample.eventType || tile.eventType || '安全行为异常' : sample.gasType || tile.gasType || '气体异常'
+  const valueText = activeMode.value === 'safety'
+    ? `${sample.value}次`
+    : `${sample.value}${sample.unit || tile.unit || ''}${sample.percent ? ` / ${sample.percent}%` : ''}`
+  return {
+    id: `${activeMode.value}-${tile.name}-${sample.name}-${tileIndex}-${sampleIndex}`,
+    areaName: tile.name,
+    alertName: `${tile.name}${activeMode.value === 'safety' ? '安全行为告警' : '气体浓度告警'}-${String(sampleIndex + 1).padStart(2, '0')}`,
+    alertType,
+    robot: sample.robot,
+    payload: sample.payload,
+    route: sample.route,
+    valueText,
+    level: sample.level,
+    sampledAt: now.subtract(tileIndex * 17 + sampleIndex * 6, 'minute').format('YYYY-MM-DD HH:mm:ss'),
+    status: sample.level === '高' ? '待确认' : sample.level === '中' ? '处理中' : '已记录',
+    reason: activeMode.value === 'safety'
+      ? sample.triggerReason || tile.triggerReason || `${alertType}触发边巡边检告警`
+      : `${alertType}采样值 ${sample.value}${sample.unit || tile.unit || ''}，达到${sample.level}风险阈值`,
+    evidenceText: activeMode.value === 'safety' ? '光学图 / 热成图' : '气体曲线 / 现场图',
+    opticalImageUrl,
+    thermalImageUrl
+  }
+}
+
+function getLevelColor(level: HeatLevel) {
+  return level === '高' ? 'red' : level === '中' ? 'orange' : 'green'
+}
+
+function getAlertStatusColor(status: string) {
+  return ({ 待确认: 'red', 处理中: 'orange', 已记录: 'blue', 已闭环: 'green' } as Record<string, string>)[status] || 'default'
 }
 
 function clampHeat(value: number) {
@@ -847,6 +963,24 @@ watch(activeMode, () => {
   fill: #111827;
   font-size: 10px;
   font-weight: 600;
+}
+
+.alert-list-card {
+  margin-top: 12px;
+}
+
+.alert-value {
+  color: #111827;
+  font-weight: 600;
+}
+
+.alert-thumb {
+  width: 56px;
+  height: 38px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #f8fafc;
 }
 
 @media (max-width: 1200px) {
