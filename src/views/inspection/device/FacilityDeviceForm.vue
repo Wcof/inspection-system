@@ -76,14 +76,14 @@
             type="warning"
             show-icon
             style="margin-bottom: 12px"
-            message="新增设施请先保存，再配置执行顺序。执行顺序按当前设施下部件与巡检点/停车点建立绑定。"
+            message="新增设施请先保存，再配置执行顺序。执行顺序按当前设施下部件与停车点建立绑定。"
           />
           <a-alert
             v-else
             type="info"
             show-icon
             style="margin-bottom: 12px"
-            message="每条绑定仅选择一个停车点；使用框选巡检点（停车点）选择多个停车点时，会按执行顺序新增多条绑定。"
+            message="新增执行顺序时统一使用同一个停车点，关联部件可在列表中逐条选择。"
           />
           <a-table
             :columns="bindingColumns"
@@ -101,9 +101,6 @@
               </template>
               <template v-else-if="column.key === 'executionOrder'">
                 <span class="order-pill">{{ record.executionOrder }}</span>
-              </template>
-              <template v-else-if="column.key === 'inspectionPointId'">
-                {{ record.inspectionPointName || '-' }}
               </template>
               <template v-else-if="column.key === 'parkingPointId'">
                 {{ record.parkingPointName || '-' }}
@@ -215,8 +212,6 @@ import { getDetectionItemConfigs, isDetectionRuleActive } from '@/views/implemen
 
 interface BindingRow {
   id: string
-  inspectionPointId: string
-  inspectionPointName: string
   parkingPointId: string
   parkingPointName: string
   executionOrder: number
@@ -390,7 +385,6 @@ const componentColumns = [
 const bindingColumns = [
   { title: '', key: 'dragHandle', width: 44 },
   { title: '执行顺序', key: 'executionOrder', width: 110 },
-  { title: '巡检点', key: 'inspectionPointId', width: 220 },
   { title: '停车点', key: 'parkingPointId', width: 220 },
   { title: '关联部件', key: 'componentIds' },
   { title: '巡检规则', key: 'ruleIds' }
@@ -419,13 +413,12 @@ function syncInstallation(id: string) {
   }
 }
 
-function buildBindingFromRow(row: PickerParkingRow, index: number): BindingRow {
+function buildBindingFromRow(row: PickerParkingRow, index: number, sharedParking?: PickerParkingRow): BindingRow {
+  const parking = sharedParking || row
   return {
     id: `binding-${Date.now()}-${row.parkingId}-${index}`,
-    inspectionPointId: row.pointId,
-    inspectionPointName: row.pointName,
-    parkingPointId: row.parkingId,
-    parkingPointName: row.parkingName,
+    parkingPointId: parking.parkingId,
+    parkingPointName: parking.parkingName,
     executionOrder: bindingRows.value.length + index + 1,
     componentIds: facilityComponents.value[0] ? [facilityComponents.value[0].id] : [],
     ruleIds: facilityComponents.value[0]?.ruleIds?.length ? [...facilityComponents.value[0].ruleIds] : []
@@ -468,7 +461,8 @@ function confirmParkingPicker() {
     message.warning('请先框选停车点')
     return
   }
-  const rows = selectedPickerParkingRows.value.map((row, index) => buildBindingFromRow(row, index))
+  const sharedParking = selectedPickerParkingRows.value[0]
+  const rows = selectedPickerParkingRows.value.map((row, index) => buildBindingFromRow(row, index, sharedParking))
   bindingRows.value.push(...rows)
   message.success(`已新增 ${rows.length} 条执行顺序`)
   closeParkingPicker()
@@ -589,38 +583,53 @@ function getRuleNames(ruleIds: string[] = []) {
 }
 
 function hydrateBindings(bindings: FacilityParkingPointBinding[] = []) {
-  bindingRows.value = bindings
+  const sortedBindings = bindings
     .slice()
     .sort((a, b) => (a.executionOrder || a.sequence || 0) - (b.executionOrder || b.sequence || 0))
-    .map((item, index) => ({
+  const sharedParking = sortedBindings[0]
+  bindingRows.value = sortedBindings.map((item, index) => ({
       id: item.id,
-      inspectionPointId: item.inspectionPointId,
-      inspectionPointName: item.inspectionPointName,
-      parkingPointId: item.parkingPointId,
-      parkingPointName: item.parkingPointName,
+      parkingPointId: sharedParking?.parkingPointId || item.parkingPointId,
+      parkingPointName: sharedParking?.parkingPointName || item.parkingPointName,
       executionOrder: item.executionOrder || item.sequence || index + 1,
       componentIds: [...(item.componentIds || [])],
       ruleIds: [...(item.ruleIds || allPublishedRuleIds.value)]
     }))
 }
 
+function getParkingSourcePoint(parkingPointId: string) {
+  const matchedPoint = inspectionStore.inspectionPoints.find((point) =>
+    (point.parkingPoints || []).some((parking) => parking.id === parkingPointId)
+  )
+  const fallbackPoint = matchedPoint
+    || inspectionStore.inspectionPoints.find((point) => point.id === currentDevice.value?.inspectionPointId)
+    || inspectionStore.inspectionPoints[0]
+  return {
+    id: fallbackPoint?.id || '',
+    name: fallbackPoint?.name || ''
+  }
+}
+
 function buildParkingBindings(): FacilityParkingPointBinding[] {
   return bindingRows.value
-    .filter((item) => item.inspectionPointId && item.parkingPointId)
-    .map((item) => ({
-      id: item.id,
-      inspectionPointId: item.inspectionPointId,
-      inspectionPointName: item.inspectionPointName,
-      parkingPointId: item.parkingPointId,
-      parkingPointName: item.parkingPointName,
-      executionOrder: item.executionOrder,
-      sequence: item.executionOrder,
-      componentIds: item.componentIds,
-      ruleIds: item.ruleIds,
-      parkingPointIds: [item.parkingPointId],
-      parkingPointNames: [item.parkingPointName],
-      targetObjectRefs: item.componentIds.map((componentId) => `component:${componentId}`)
-    }))
+    .filter((item) => item.parkingPointId)
+    .map((item) => {
+      const sourcePoint = getParkingSourcePoint(item.parkingPointId)
+      return {
+        id: item.id,
+        inspectionPointId: sourcePoint.id,
+        inspectionPointName: sourcePoint.name,
+        parkingPointId: item.parkingPointId,
+        parkingPointName: item.parkingPointName,
+        executionOrder: item.executionOrder,
+        sequence: item.executionOrder,
+        componentIds: item.componentIds,
+        ruleIds: item.ruleIds,
+        parkingPointIds: [item.parkingPointId],
+        parkingPointNames: [item.parkingPointName],
+        targetObjectRefs: item.componentIds.map((componentId) => `component:${componentId}`)
+      }
+    })
 }
 
 function goBack() {
