@@ -71,33 +71,15 @@
       <a-table class="config-table" :columns="configColumns" :data-source="filteredConfigRows" row-key="id" :pagination="false" :scroll="{ x: 1400 }" size="small">
         <template #bodyCell="{ column, record, index }">
           <template v-if="column.key === 'installationId'">
-            <a-select v-model:value="record.installationId" style="width: 100%" placeholder="选择装置" @change="onInstallationChange(record)">
-              <a-select-option v-for="item in installationOptions" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
-            </a-select>
+            <span>{{ getInstallationName(record.installationId) || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'facilityId'">
-            <a-select v-model:value="record.facilityId" style="width: 100%" placeholder="选择设施" @change="onFacilityChange(record)">
-              <a-select-option
-                v-for="item in getFacilityOptions(record.installationId)"
-                :key="item.id"
-                :value="item.id"
-              >
-                {{ item.name }}
-              </a-select-option>
-            </a-select>
+            <span>{{ getFacilityName(record.facilityId) || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'componentId'">
-            <a-select v-model:value="record.componentId" style="width: 100%" placeholder="选择部件" @change="onComponentChange(record)">
-              <a-select-option
-                v-for="item in getComponentOptions(record.facilityId)"
-                :key="item.id"
-                :value="item.id"
-              >
-                {{ item.name }}
-              </a-select-option>
-            </a-select>
+            <span>{{ getComponentName(record.componentId) || '-' }}</span>
           </template>
 
           <template v-else-if="column.key === 'ptzX'">
@@ -113,26 +95,13 @@
           </template>
 
           <template v-else-if="column.key === 'ruleIds'">
-            <a-select
-              v-model:value="record.ruleIds"
-              mode="multiple"
-              style="width: 100%"
-              allow-clear
-              show-search
-              option-filter-prop="label"
-              placeholder="选择检测规则"
-            >
-              <a-select-option v-for="rule in ruleOptions" :key="rule.id" :value="rule.id" :label="rule.name">{{ rule.name }}</a-select-option>
-            </a-select>
-          </template>
-
-          <template v-else-if="column.key === 'actions'">
-            <a-button type="link" size="small" danger @click="configRows.splice(index, 1)">删除</a-button>
+            <a-space wrap>
+              <a-tag v-for="ruleName in getRuleNames(record.ruleIds)" :key="ruleName">{{ ruleName }}</a-tag>
+              <span v-if="!record.ruleIds.length">-</span>
+            </a-space>
           </template>
         </template>
       </a-table>
-
-      <a-button style="margin-top: 12px" @click="addConfigRow">新增配置</a-button>
     </a-card>
   </div>
 </template>
@@ -176,7 +145,6 @@ const configRows = ref<ConfigRow[]>([])
 
 const point = computed(() => inspectionStore.inspectionPoints.find((item) => item.id === String(route.params.id)))
 const currentMap = computed(() => inspectionStore.inspectionMaps.find((item) => item.id === point.value?.mapId))
-const installationOptions = computed(() => inspectionStore.installations.filter((item) => !point.value?.areaId || item.areaId === point.value.areaId))
 const ruleOptions = computed(() => getDetectionItemConfigs().filter(isDetectionRuleActive))
 
 const markerPosition = computed(() => ({
@@ -194,8 +162,7 @@ const configColumns = [
   { title: '云台X轴', key: 'ptzX', width: 120 },
   { title: '云台Y轴', key: 'ptzY', width: 120 },
   { title: '焦距', key: 'focalLength', width: 140 },
-  { title: '检测规则', key: 'ruleIds' },
-  { title: '操作', key: 'actions', width: 90 }
+  { title: '检测规则', key: 'ruleIds' }
 ]
 
 const filteredConfigRows = computed(() => {
@@ -210,16 +177,8 @@ const filteredConfigRows = computed(() => {
   })
 })
 
-function getFacilityOptions(installationId?: string) {
-  return inspectionStore.inspectionDevices.filter((item) => {
-    const byArea = !point.value?.areaId || item.areaId === point.value.areaId
-    const byInstallation = !installationId || item.installationId === installationId
-    return byArea && byInstallation
-  })
-}
-
-function getComponentOptions(facilityId?: string) {
-  return inspectionStore.facilityComponents.filter((item) => item.facilityId === facilityId)
+function getInstallationName(installationId?: string) {
+  return inspectionStore.installations.find((item) => item.id === installationId)?.name || ''
 }
 
 function getFacilityName(facilityId?: string) {
@@ -230,30 +189,8 @@ function getComponentName(componentId?: string) {
   return inspectionStore.facilityComponents.find((item) => item.id === componentId)?.name || ''
 }
 
-function onInstallationChange(row: ConfigRow) {
-  row.facilityId = undefined
-  row.componentId = undefined
-  row.ruleIds = []
-}
-
-function onFacilityChange(row: ConfigRow) {
-  row.componentId = undefined
-  row.ruleIds = []
-}
-
-function onComponentChange(row: ConfigRow) {
-  const component = inspectionStore.facilityComponents.find((item) => item.id === row.componentId)
-  row.ruleIds = [...(component?.ruleIds || [])]
-}
-
-function addConfigRow() {
-  configRows.value.push({
-    id: `cfg-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-    ptzX: 0,
-    ptzY: 0,
-    focalLength: '默认焦距',
-    ruleIds: []
-  })
+function getRuleNames(ruleIds: string[] = []) {
+  return ruleIds.map((ruleId) => ruleOptions.value.find((rule) => rule.id === ruleId)?.name || ruleId)
 }
 
 function handleSearch() {
@@ -307,7 +244,6 @@ function loadDetail() {
     })
 
   configRows.value = rows
-  if (!configRows.value.length) addConfigRow()
   handleResetSearch()
 }
 

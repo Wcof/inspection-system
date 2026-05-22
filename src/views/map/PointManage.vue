@@ -142,53 +142,6 @@
           </div>
 
           <a-table :columns="inspectionColumns" :data-source="inspectionTabRows" row-key="id">
-            <template #expandedRowRender="{ record }">
-              <div class="spatial-detail">
-                <div class="spatial-summary">
-                  <a-tag color="blue">装置区：{{ getWorkArea(record) }}</a-tag>
-                  <a-tag color="green">覆盖对象 {{ getCoverageObjectCount(record) }}</a-tag>
-                  <a-tag color="purple">采集位 {{ getCollectionPoseCount(record) }}</a-tag>
-                  <a-tag color="orange">检测配置 {{ getDetectionConfigCount(record.id) }}</a-tag>
-                </div>
-                <a-alert
-                  v-if="!record.raw.parkingPoints?.length"
-                  type="warning"
-                  show-icon
-                  message="当前巡检点尚未补充采集位与检测配置"
-                  description="可以先完成地图点位基础信息，再进入巡检配置页补充覆盖对象、采集位和检测配置。"
-                />
-                <a-row v-else :gutter="[12, 12]">
-                  <a-col v-for="parking in record.raw.parkingPoints" :key="parking.id" :xs="24" :lg="12">
-                    <div class="parking-card">
-                      <div class="parking-title">
-                        <span>{{ parking.name }}</span>
-                        <a-tag :color="parking.constraint.reachable ? 'green' : 'red'">
-                          {{ parking.constraint.reachable ? '可达' : '不可达' }}
-                        </a-tag>
-                      </div>
-                      <a-descriptions size="small" :column="2" bordered>
-                        <a-descriptions-item label="坐标">{{ parking.position.x }}, {{ parking.position.y }}</a-descriptions-item>
-                        <a-descriptions-item label="朝向">{{ parking.position.yaw }}°</a-descriptions-item>
-                        <a-descriptions-item label="倒车">{{ yesNo(parking.constraint.reverseRequired) }}</a-descriptions-item>
-                        <a-descriptions-item label="原地掉头">{{ yesNo(parking.constraint.turnAroundRequired) }}</a-descriptions-item>
-                        <a-descriptions-item label="窄路">{{ yesNo(parking.constraint.narrowRoad) }}</a-descriptions-item>
-                        <a-descriptions-item label="坡道">{{ yesNo(parking.constraint.slope) }}</a-descriptions-item>
-                        <a-descriptions-item label="便桥">{{ yesNo(parking.constraint.bridgeRequired) }}</a-descriptions-item>
-                        <a-descriptions-item label="绕行">{{ yesNo(parking.constraint.detourRequired) }}</a-descriptions-item>
-                      </a-descriptions>
-                      <div class="pose-list">
-                        <div v-for="pose in parking.collectionPoses" :key="pose.id" class="pose-item">
-                          <b>{{ pose.targetName }}</b>
-                          <span>{{ getDirectionText(pose.direction) }} / {{ getMethodText(pose.method) }} / {{ pose.distanceMeter }}m</span>
-                          <span>云台 {{ pose.ptzYaw }}° / {{ pose.ptzPitch }}°，焦距 {{ pose.focalLength }}</span>
-                          <span>可采条件：{{ pose.collectableCondition }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </a-col>
-                </a-row>
-              </div>
-            </template>
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'previewImage'">
                 <img
@@ -207,19 +160,17 @@
               <template v-else-if="column.key === 'workArea'">
                 {{ getWorkArea(record) }}
               </template>
-              <template v-else-if="column.key === 'coverageObjectCount'">
-                {{ getCoverageObjectCount(record) }}
+              <template v-else-if="column.key === 'coveredInstallationCount'">
+                {{ getCoveredInstallationCount(record) }}
               </template>
-              <template v-else-if="column.key === 'collectionPoseCount'">
-                {{ getCollectionPoseCount(record) }}
+              <template v-else-if="column.key === 'coveredFacilityCount'">
+                {{ getCoveredFacilityCount(record) }}
               </template>
-              <template v-else-if="column.key === 'detectionConfigCount'">
-                {{ getDetectionConfigCount(record.id) }}
+              <template v-else-if="column.key === 'coveredComponentCount'">
+                {{ getCoveredComponentCount(record) }}
               </template>
-              <template v-else-if="column.key === 'missingConfig'">
-                <a-tag :color="record.hasMissingConfig ? 'red' : 'green'">
-                  {{ record.hasMissingConfig ? '存在漏配' : '配置完整' }}
-                </a-tag>
+              <template v-else-if="column.key === 'coveredRuleCount'">
+                {{ getCoveredRuleCount(record) }}
               </template>
               <template v-else-if="column.key === 'updatedAt'">
                 {{ formatDate(record.raw.updatedAt) || '-' }}
@@ -622,7 +573,7 @@ import { useInspectionStore } from '@/stores/inspection'
 import { useRobotStore } from '@/stores/robot'
 import { CalibrationStatus, InspectionPointType, PositionSource } from '@/types/inspection'
 import { ExceptionStrategy } from '@/types'
-import type { CollectionMethod, CollectionPose, InspectionPoint, MapRegion } from '@/types/inspection'
+import type { InspectionPoint, MapRegion } from '@/types/inspection'
 
 type BizPointType = 'inspection' | 'charging' | 'maintenance' | 'transit'
 type ListTabKey = 'all' | 'inspection' | 'charging' | 'maintenance'
@@ -641,7 +592,6 @@ interface PointRow {
   bizType: BizPointType
   raw: InspectionPoint
   previewImageUrl?: string
-  hasMissingConfig: boolean
 }
 
 const workshopImage = new URL('../../车间.png', import.meta.url).href
@@ -762,10 +712,10 @@ const inspectionColumns = [
   { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '装置区 / 分区', key: 'workArea', width: 150 },
   { title: '现场预览图', key: 'previewImage', width: 100 },
-  { title: '覆盖对象', key: 'coverageObjectCount', width: 100 },
-  { title: '采集位', key: 'collectionPoseCount', width: 90 },
-  { title: '检测配置', key: 'detectionConfigCount', width: 100 },
-  { title: '覆盖检查', key: 'missingConfig', width: 100 },
+  { title: '覆盖装置', key: 'coveredInstallationCount', width: 100 },
+  { title: '覆盖设施', key: 'coveredFacilityCount', width: 100 },
+  { title: '覆盖部件', key: 'coveredComponentCount', width: 100 },
+  { title: '覆盖检测规则', key: 'coveredRuleCount', width: 120 },
   { title: '校准状态', key: 'calibrationStatus', width: 100 },
   { title: '更新时间', key: 'updatedAt', width: 170 },
   { title: '操作', key: 'actions', width: 320 }
@@ -967,8 +917,7 @@ function buildPointRow(point: InspectionPoint): PointRow {
     areaName: resolveAreaName(point),
     bizType,
     raw: point,
-    previewImageUrl: point.previewImageUrl || workshopImage,
-    hasMissingConfig: hasMissingInspectionConfig(point)
+    previewImageUrl: point.previewImageUrl || workshopImage
   }
 }
 
@@ -990,48 +939,59 @@ function getWorkArea(record: PointRow) {
   return record.raw.workAreaName || record.areaName || '未配置装置区'
 }
 
-function getCollectionPoseCount(record: PointRow) {
-  return (record.raw.parkingPoints || []).reduce((sum, parking) => sum + parking.collectionPoses.length, 0)
+function getCoveredFacilityIds(record: PointRow) {
+  const ids = new Set<string>()
+  ;(record.raw.coverageObjects || []).forEach((item) => {
+    if (item.deviceId) ids.add(item.deviceId)
+  })
+  if (!ids.size) {
+    inspectionStore.getInspectionDevicesByInspectionPointId(record.id).forEach((device) => ids.add(device.id))
+  }
+  return ids
 }
 
-function getCoverageObjectCount(record: PointRow) {
-  if (record.raw.coverageObjects?.length) return record.raw.coverageObjects.length
-  const devices = inspectionStore.getInspectionDevicesByInspectionPointId(record.id)
-  const componentCount = devices.reduce((sum, device) => sum + (device.assetComponents?.length || 0), 0)
-  const connectionCount = devices.reduce((sum, device) => sum + (device.connectionObjects?.length || 0), 0)
-  return componentCount + connectionCount + devices.length
+function getCoveredComponentIds(record: PointRow) {
+  const ids = new Set<string>()
+  ;(record.raw.coverageObjects || []).forEach((item) => {
+    if (item.componentId) ids.add(item.componentId)
+  })
+  if (!ids.size) {
+    getCoveredFacilityIds(record).forEach((facilityId) => {
+      inspectionStore.getFacilityComponentsByFacilityId(facilityId).forEach((component) => ids.add(component.id))
+    })
+  }
+  return ids
 }
 
-function getDetectionConfigCount(pointId: string) {
-  const point = inspectionStore.inspectionPoints.find(item => item.id === pointId)
-  if (point?.detectionConfigs?.length) return point.detectionConfigs.filter(item => item.enabled).length
-  return inspectionStore.getInspectionDevicesByInspectionPointId(pointId)
-    .reduce((sum, device) => sum + (device.objectDetectionConfigs?.length || 0), 0)
+function getCoveredInstallationCount(record: PointRow) {
+  const ids = new Set<string>()
+  getCoveredFacilityIds(record).forEach((facilityId) => {
+    const facility = inspectionStore.inspectionDevices.find((item) => item.id === facilityId)
+    if (facility?.installationId) ids.add(facility.installationId)
+  })
+  return ids.size
 }
 
-function hasMissingInspectionConfig(point: InspectionPoint) {
-  const row = buildPointRowForCheck(point)
-  if (!row.parkingPointCount || !row.collectionPoseCount || !row.detectionConfigCount) return true
-  return false
+function getCoveredFacilityCount(record: PointRow) {
+  return getCoveredFacilityIds(record).size
 }
 
-function buildPointRowForCheck(point: InspectionPoint) {
-  const parkingPointCount = point.parkingPoints?.length || 0
-  const collectionPoseCount = (point.parkingPoints || []).reduce((sum, parking) => sum + parking.collectionPoses.length, 0)
-  const detectionConfigCount = getDetectionConfigCount(point.id)
-  return { parkingPointCount, collectionPoseCount, detectionConfigCount }
+function getCoveredComponentCount(record: PointRow) {
+  return getCoveredComponentIds(record).size
 }
 
-function yesNo(value: boolean) {
-  return value ? '是' : '否'
-}
-
-function getDirectionText(direction: CollectionPose['direction']) {
-  return ({ front: '正拍', side: '侧拍', oblique: '斜拍', near: '近拍', overview: '全景' } as Record<CollectionPose['direction'], string>)[direction]
-}
-
-function getMethodText(method: CollectionMethod) {
-  return ({ optical: '光学', thermal: '热成像', gas: '气体', safety: '安全行为', multi_spectrum: '多光谱' } as Record<CollectionMethod, string>)[method]
+function getCoveredRuleCount(record: PointRow) {
+  const ids = new Set<string>()
+  ;(record.raw.detectionConfigs || []).forEach((item) => {
+    if (item.enabled && item.ruleId) ids.add(item.ruleId)
+  })
+  if (!ids.size) {
+    getCoveredComponentIds(record).forEach((componentId) => {
+      const component = inspectionStore.facilityComponents.find((item) => item.id === componentId)
+      ;(component?.ruleIds || []).forEach((ruleId) => ids.add(ruleId))
+    })
+  }
+  return ids.size
 }
 
 function formatCoordinate(mapPosition?: InspectionPoint['mapPosition']) {
