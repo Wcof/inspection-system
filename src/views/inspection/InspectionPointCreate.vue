@@ -69,7 +69,7 @@
       </a-form>
 
       <a-table class="config-table" :columns="configColumns" :data-source="filteredConfigRows" row-key="id" :pagination="false" :scroll="{ x: 1400 }" size="small">
-        <template #bodyCell="{ column, record, index }">
+        <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'installationId'">
             <span>{{ getInstallationName(record.installationId) || '-' }}</span>
           </template>
