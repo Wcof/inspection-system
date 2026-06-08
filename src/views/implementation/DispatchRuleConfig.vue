@@ -4,7 +4,7 @@
       <template #extra>
         <a-space>
           <a-button @click="showHelpModal = true">说明</a-button>
-          <a-button type="primary" @click="openCreate">新增区域规则</a-button>
+          <a-button type="primary" :disabled="!canCreateRule" @click="openCreate">新增区域规则</a-button>
         </a-space>
       </template>
     </a-page-header>
@@ -46,7 +46,7 @@
     >
       <a-form layout="vertical" :model="form">
         <a-row :gutter="16">
-          <a-col :xs="24" :md="12"><a-form-item label="区域名称" required><a-select v-model:value="form.areaId" :disabled="editorMode === 'view'" @change="syncAreaName"><a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option></a-select></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="区域名称" required><a-select v-model:value="form.areaId" :disabled="editorMode === 'view' || !editorAreaOptions.length" placeholder="请先在地图中维护区域" @change="syncAreaName"><a-select-option v-for="area in editorAreaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option></a-select></a-form-item></a-col>
           <a-col :xs="24" :md="12"><a-form-item label="规则名称" required><a-input v-model:value="form.ruleName" :disabled="editorMode === 'view'" /></a-form-item></a-col>
           <a-col :xs="24" :md="12"><a-form-item label="规则类型"><a-select v-model:value="form.ruleType" :disabled="editorMode === 'view'"><a-select-option value="advance">提前生成</a-select-option><a-select-option value="on_time">到点生成</a-select-option><a-select-option value="batch">批量滚动生成</a-select-option></a-select></a-form-item></a-col>
           <a-col :xs="24" :md="12"><a-form-item label="生效状态"><a-switch v-model:checked="form.enabled" :disabled="editorMode === 'view'" checked-children="启用" un-checked-children="停用" /></a-form-item></a-col>
@@ -67,8 +67,9 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
+import { useInspectionStore } from '@/stores/inspection'
 
 type RuleType = 'advance' | 'on_time' | 'batch'
 type EditorMode = 'create' | 'edit' | 'view'
@@ -89,24 +90,36 @@ interface AreaRule {
   resourceConflictStrategy: string
 }
 
+interface AreaOption {
+  id: string
+  name: string
+}
+
+const STORAGE_KEY = 'dispatch-rule-config'
+const inspectionStore = useInspectionStore()
 const showHelpModal = ref(false)
 const editorVisible = ref(false)
 const editorMode = ref<EditorMode>('create')
 const editingId = ref('')
+const hasLoadedRules = ref(false)
 
-const areaOptions = [
-  { id: 'area_a', name: '一期装置区 / A区' },
-  { id: 'area_b', name: '二期装置区 / B区' },
-  { id: 'area_c', name: '公用工程区 / C区' }
-]
+const areaOptions = computed<AreaOption[]>(() => inspectionStore.inspectionMaps.flatMap(map =>
+  (map.regions || []).map(region => ({
+    id: region.id,
+    name: `${map.name} / ${region.name}`
+  }))
+))
 
-const rules = ref<AreaRule[]>([
-  createRule('rule-a', 'area_a', '一期装置区 / A区', 'A区提前生成规则', 'advance', true),
-  createRule('rule-b', 'area_b', '二期装置区 / B区', 'B区批量滚动规则', 'batch', true),
-  createRule('rule-c', 'area_c', '公用工程区 / C区', 'C区到点生成规则', 'on_time', false)
-])
+const usedAreaIds = computed(() => new Set(rules.value.map(rule => rule.areaId)))
+const availableAreaOptions = computed(() => areaOptions.value.filter(area => !usedAreaIds.value.has(area.id)))
+const editorAreaOptions = computed(() => {
+  if (!editingId.value) return availableAreaOptions.value
+  return areaOptions.value.filter(area => area.id === form.areaId || !usedAreaIds.value.has(area.id))
+})
+const canCreateRule = computed(() => availableAreaOptions.value.length > 0)
 
-const form = reactive<AreaRule>(createRule('', 'area_a', '一期装置区 / A区', '', 'advance', true))
+const rules = ref<AreaRule[]>([])
+const form = reactive<AreaRule>(createRule('', '', '', '', 'advance', true))
 
 const columns = [
   { title: '区域名称', dataIndex: 'areaName', key: 'areaName', width: 200 },
@@ -148,14 +161,82 @@ function createRule(id: string, areaId: string, areaName: string, ruleName: stri
   }
 }
 
+function getAreaName(areaId: string): string {
+  return areaOptions.value.find(area => area.id === areaId)?.name || ''
+}
+
+function getRuleTypeByIndex(index: number): RuleType {
+  return (['advance', 'batch', 'on_time'] as RuleType[])[index % 3]
+}
+
+function buildDefaultRules(): AreaRule[] {
+  return areaOptions.value.map((area, index) => {
+    const ruleType = getRuleTypeByIndex(index)
+    return createRule(
+      `dispatch-rule-${index + 1}`,
+      area.id,
+      area.name,
+      `${area.name}${getRuleTypeText(ruleType)}规则`,
+      ruleType,
+      true
+    )
+  })
+}
+
+function normalizeRules(nextRules: AreaRule[]): AreaRule[] {
+  const seenAreaIds = new Set<string>()
+  return nextRules.reduce<AreaRule[]>((list, rule) => {
+    const areaName = getAreaName(rule.areaId)
+    if (!areaName || seenAreaIds.has(rule.areaId)) return list
+    seenAreaIds.add(rule.areaId)
+    list.push({ ...rule, areaName })
+    return list
+  }, [])
+}
+
+function persistRules() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(rules.value))
+}
+
+function loadRules() {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as AreaRule[]
+      const normalized = normalizeRules(parsed)
+      rules.value = normalized.length ? normalized : buildDefaultRules()
+      hasLoadedRules.value = true
+      persistRules()
+      return
+    } catch {
+      rules.value = []
+    }
+  }
+  rules.value = buildDefaultRules()
+  hasLoadedRules.value = true
+  persistRules()
+}
+
+function reconcileRulesWithAreas() {
+  if (!hasLoadedRules.value) return
+  const normalized = normalizeRules(rules.value)
+  rules.value = normalized.length ? normalized : buildDefaultRules()
+  persistRules()
+}
+
 function assignForm(rule: AreaRule) {
   Object.assign(form, JSON.parse(JSON.stringify(rule)))
 }
 
 function openCreate() {
+  const area = availableAreaOptions.value[0]
+  if (!area) {
+    message.warning('所有地图区域已配置调度规则，无法新增')
+    return
+  }
   editorMode.value = 'create'
   editingId.value = ''
-  assignForm(createRule('', areaOptions[0].id, areaOptions[0].name, '', 'advance', true))
+  assignForm(createRule('', area.id, area.name, '', 'advance', true))
   editorVisible.value = true
 }
 function openEdit(record: AreaRule) {
@@ -171,26 +252,38 @@ function openView(record: AreaRule) {
   editorVisible.value = true
 }
 function syncAreaName(value: string) {
-  form.areaName = areaOptions.find(item => item.id === value)?.name || ''
+  form.areaName = getAreaName(value)
 }
 function saveRule() {
   if (!form.areaId || !form.ruleName.trim()) {
     message.error('请填写区域和规则名称')
     return
   }
+  if (!getAreaName(form.areaId)) {
+    message.error('所选区域不存在，请先在地图中维护区域')
+    return
+  }
+  const duplicate = rules.value.find(item => item.id !== editingId.value && item.areaId === form.areaId)
+  if (duplicate) {
+    message.error('该区域已存在调度规则，请选择其他区域')
+    return
+  }
   const now = new Date().toISOString()
-  const payload = { ...JSON.parse(JSON.stringify(form)), id: editingId.value || `rule-${Date.now()}`, updatedAt: now }
+  const payload = { ...JSON.parse(JSON.stringify(form)), id: editingId.value || `rule-${Date.now()}`, areaName: getAreaName(form.areaId), updatedAt: now }
   if (editingId.value) rules.value = rules.value.map(item => item.id === editingId.value ? payload : item)
   else rules.value.unshift(payload)
+  persistRules()
   editorVisible.value = false
   message.success('区域规则已保存')
 }
 function removeRule(id: string) {
   rules.value = rules.value.filter(item => item.id !== id)
+  persistRules()
   message.success('区域规则已删除')
 }
 function touchRule(record: AreaRule) {
   record.updatedAt = new Date().toISOString()
+  persistRules()
 }
 function getRuleTypeText(type: RuleType) {
   return ({ advance: '提前生成', on_time: '到点生成', batch: '批量滚动生成' } as Record<RuleType, string>)[type]
@@ -199,6 +292,13 @@ function formatDate(value: string) {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN', { hour12: false })
 }
+
+onMounted(() => {
+  inspectionStore.initialize()
+  loadRules()
+})
+
+watch(areaOptions, reconcileRulesWithAreas)
 </script>
 
 <style scoped lang="css">

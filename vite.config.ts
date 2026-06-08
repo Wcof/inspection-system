@@ -27,5 +27,21 @@ export default defineConfig({
   },
   server: {
     host: true
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return
+          if (id.includes("/vue") || id.includes("/pinia") || id.includes("/vue-router")) {
+            return "vue-vendor"
+          }
+          if (id.includes("/ant-design-vue") || id.includes("/@ant-design")) {
+            return "antd-vendor"
+          }
+          return "vendor"
+        }
+      }
+    }
   }
 })

@@ -1,80 +1,146 @@
 <template>
   <div class="check-result">
-    <a-card title="检查结果">
+    <a-card :title="task ? `检查结果 - ${task.name}` : '检查结果'">
       <a-button type="primary" @click="goBack">返回任务详情</a-button>
-      <div class="result-content">
-        <p>检查结果页面 - 骨架页</p>
-        <p>任务ID: {{ taskId }}</p>
+
+      <a-empty v-if="!task" description="未找到任务" style="margin-top: 24px" />
+
+      <template v-else>
         <div class="result-summary">
-          <h3>检查摘要</h3>
-          <p>巡检点总数：[巡检点总数]</p>
-          <p>通过点数：[通过点数]</p>
-          <p>异常点数：[异常点数]</p>
-          <p>检查完成率：[检查完成率]</p>
+          <a-row :gutter="16">
+            <a-col v-for="item in summaryCards" :key="item.label" :xs="24" :sm="12" :lg="6">
+              <a-card size="small">
+                <div class="summary-label">{{ item.label }}</div>
+                <div class="summary-value">{{ item.value }}</div>
+              </a-card>
+            </a-col>
+          </a-row>
         </div>
+
         <div class="result-list">
           <h3>检查结果列表</h3>
-          <a-table :columns="columns" :data-source="data" row-key="id">
-            <template #status="{ record }">
-              <a-tag :color="record.status === '通过' ? 'green' : 'red'">{{ record.status }}</a-tag>
-            </template>
-            <template #empty>
-              <p>暂无检查结果</p>
+          <a-table :columns="columns" :data-source="rows" row-key="id" :pagination="{ pageSize: 8 }">
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'status'">
+                <a-tag :color="getStatusColor(record.status)">{{ getStatusText(record.status) }}</a-tag>
+              </template>
+              <template v-else-if="column.key === 'evidence'">
+                <a-space v-if="record.evidence">
+                  <a-button size="small" :href="record.evidence.opticalImageUrl" target="_blank">可见光</a-button>
+                  <a-button size="small" :href="record.evidence.thermalImageUrl" target="_blank">热成像</a-button>
+                </a-space>
+                <span v-else>-</span>
+              </template>
             </template>
           </a-table>
         </div>
-      </div>
+      </template>
     </a-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useInspectionStore } from '@/stores/inspection'
+import type { InspectionTaskResult } from '@/types/inspection'
 
 const route = useRoute()
 const router = useRouter()
-const taskId = ref(route.params.id as string)
+const inspectionStore = useInspectionStore()
+const taskId = computed(() => route.params.id as string)
+const task = computed(() => inspectionStore.getTaskById(taskId.value))
 
-const goBack = () => {
+const results = computed(() => inspectionStore.getInspectionTaskResultsByTaskId(taskId.value))
+const snapshot = computed(() => inspectionStore.getInspectionTaskSnapshotByTaskId(taskId.value))
+
+const abnormalStatuses = new Set(['warning', 'alarm', 'critical', 'critical_alarm', 'hazard', 'major_hazard'])
+const failedStatuses = new Set(['skipped', 'uninspectable', 'unreadable', 'blocked', 'bad_angle', 'target_missing', 'monitor_failure', 'not_arrived', 'unknown'])
+
+const rows = computed(() => results.value.map((result) => {
+  const action = snapshot.value?.collectionActions?.find(item => item.id === result.collectionActionId)
+  return {
+    id: result.id,
+    pointName: action?.pointName || inspectionStore.getInspectionPointById(result.inspectionPointId)?.name || result.inspectionPointId,
+    parkingPointName: action?.parkingPointName || result.parkingPointId || '-',
+    targetObject: result.subjectName || action?.targetObject || '-',
+    value: result.value ?? '-',
+    recordedAt: formatDate(result.recordedAt),
+    status: result.status,
+    reviewConclusion: result.evidence?.manualReviewConclusion || '-',
+    evidence: result.evidence
+  }
+}))
+
+const summaryCards = computed(() => {
+  const totalActions = snapshot.value?.collectionActions?.length || results.value.length
+  const finished = results.value.length
+  const abnormal = results.value.filter(item => abnormalStatuses.has(item.status)).length
+  const failed = results.value.filter(item => failedStatuses.has(item.status)).length
+  const rate = totalActions ? `${Math.round((finished / totalActions) * 100)}%` : '0%'
+  return [
+    { label: '采集动作', value: totalActions },
+    { label: '已生成结果', value: finished },
+    { label: '异常/告警', value: abnormal },
+    { label: '完成率', value: failed ? `${rate}（${failed} 项需复核）` : rate }
+  ]
+})
+
+const columns = [
+  { title: '巡检点', dataIndex: 'pointName', key: 'pointName', width: 180 },
+  { title: '停车点', dataIndex: 'parkingPointName', key: 'parkingPointName', width: 180 },
+  { title: '检测对象', dataIndex: 'targetObject', key: 'targetObject', width: 180 },
+  { title: '识别值', dataIndex: 'value', key: 'value', width: 120 },
+  { title: '检查时间', dataIndex: 'recordedAt', key: 'recordedAt', width: 180 },
+  { title: '状态', key: 'status', width: 120 },
+  { title: '复核结论', dataIndex: 'reviewConclusion', key: 'reviewConclusion', width: 160 },
+  { title: '证据', key: 'evidence', width: 150 }
+]
+
+function goBack() {
   router.push(`/management/task/detail/${taskId.value}`)
 }
 
-const columns = [
-  { title: '巡检点ID', dataIndex: 'id' },
-  { title: '巡检点名称', dataIndex: 'name' },
-  { title: '检查时间', dataIndex: 'checkTime' },
-  { title: '检查状态', key: 'status', slots: { customRender: 'status' } },
-  { title: '异常信息', dataIndex: 'exception' },
-  { title: '处理状态', dataIndex: 'handleStatus' }
-]
+function formatDate(value?: string | Date) {
+  if (!value) return '-'
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleString()
+}
 
-const data = [
-  {
-    id: '1',
-    name: '巡检点1',
-    checkTime: '2026-04-12 09:10:00',
-    status: '通过',
-    exception: '',
-    handleStatus: '无需处理'
-  },
-  {
-    id: '2',
-    name: '巡检点2',
-    checkTime: '2026-04-12 09:20:00',
-    status: '异常',
-    exception: '设备温度过高',
-    handleStatus: '待处理'
-  },
-  {
-    id: '3',
-    name: '巡检点3',
-    checkTime: '2026-04-12 09:30:00',
-    status: '通过',
-    exception: '',
-    handleStatus: '无需处理'
+function getStatusText(status: InspectionTaskResult['status']) {
+  const textMap: Record<string, string> = {
+    normal: '正常',
+    warning: '预警',
+    alarm: '告警',
+    critical: '严重',
+    critical_alarm: '严重告警',
+    hazard: '隐患',
+    major_hazard: '重大隐患',
+    skipped: '跳过',
+    uninspectable: '不可检',
+    unreadable: '不可读',
+    blocked: '遮挡',
+    bad_angle: '角度异常',
+    target_missing: '目标缺失',
+    monitor_failure: '监测失败',
+    not_arrived: '未到达',
+    unknown: '未知'
   }
-]
+  return textMap[status] || status
+}
+
+function getStatusColor(status: InspectionTaskResult['status']) {
+  if (status === 'normal') return 'green'
+  if (abnormalStatuses.has(status)) return 'orange'
+  if (failedStatuses.has(status)) return 'red'
+  return 'default'
+}
+
+onMounted(() => {
+  inspectionStore.initialize()
+  inspectionStore.ensureTaskExecutionData(taskId.value)
+})
 </script>
 
 <style scoped>
@@ -82,30 +148,26 @@ const data = [
   padding: 20px 0;
 }
 
-.result-content {
-  margin-top: 20px;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
 .result-summary,
 .result-list {
   margin-top: 20px;
-  padding: 15px;
-  background: #fff;
-  border-radius: 4px;
+}
+
+.summary-label {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+}
+
+.summary-value {
+  margin-top: 8px;
+  color: rgba(0, 0, 0, 0.88);
+  font-size: 22px;
+  font-weight: 600;
 }
 
 h3 {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   font-size: 16px;
   font-weight: 500;
-  color: #333;
-}
-
-p {
-  margin: 5px 0;
-  color: #666;
 }
 </style>

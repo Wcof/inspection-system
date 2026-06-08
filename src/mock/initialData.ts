@@ -104,7 +104,7 @@ export const initialInspectionPoints: InspectionPoint[] = [
     previewImageUrl: workshopImageUrl,
     location: { longitude: 121.4737, latitude: 31.2304, altitude: 0 },
     mapPosition: { x: 100, y: 200, yaw: 0 },
-    waypointId: 'wp-001',
+    waypointId: 'wp-002',
     sequence: 1,
     calibrationStatus: CalibrationStatus.CALIBRATED,
     stayDurationSec: 30,
@@ -134,7 +134,7 @@ export const initialInspectionPoints: InspectionPoint[] = [
     previewImageUrl: workshopImageUrl,
     location: { longitude: 121.4740, latitude: 31.2307, altitude: 0 },
     mapPosition: { x: 300, y: 400, yaw: 90 },
-    waypointId: 'wp-002',
+    waypointId: 'wp-003',
     sequence: 2,
     calibrationStatus: CalibrationStatus.CALIBRATED,
     stayDurationSec: 25,
@@ -349,6 +349,60 @@ export const initialInspectionDevices: InspectionDevice[] = [
     checkItems: [],
     createdAt: new Date(),
     updatedAt: new Date()
+  },
+  {
+    id: 'device-004',
+    inspectionPointId: 'point-001',
+    name: '进水阀门',
+    code: 'VALVE-RX-IN-001',
+    deviceNo: 'VALVE-RX-IN-001',
+    deviceClassification: '阀门执行机构',
+    facilityPositionNo: 'RX-V-101',
+    owner: '赵工',
+    areaId: 'region-a',
+    areaName: '反应区',
+    installationId: 'inst-001',
+    installationName: '反应装置',
+    facilityKind: 'normal',
+    deviceCategory: '普通设施',
+    type: '阀组',
+    sequence: 3,
+    ptzPreset: { x: 15, y: 8, z: 0.5 },
+    referenceImageUrl: deviceImageUrl,
+    status: DeviceStatus.ACTIVE,
+    inspectionFrequency: { value: 6, unit: 'hour' },
+    executionCycle: { startDate: '2026-01-01', endDate: '2026-12-31' },
+    executionWindow: { startTime: '08:00', endTime: '20:00' },
+    checkItems: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'device-005',
+    inspectionPointId: 'point-002',
+    name: '可燃气体检测仪',
+    code: 'GAS-TK-001',
+    deviceNo: 'GAS-TK-001',
+    deviceClassification: '气体检测设备',
+    facilityPositionNo: 'TK-G-201',
+    owner: '周工',
+    areaId: 'region-b',
+    areaName: '储罐区',
+    installationId: 'inst-002',
+    installationName: '储罐装置',
+    facilityKind: 'normal',
+    deviceCategory: '普通设施',
+    type: '气体检测仪',
+    sequence: 2,
+    ptzPreset: { x: 22, y: 12, z: 1.0 },
+    referenceImageUrl: deviceImageUrl,
+    status: DeviceStatus.ACTIVE,
+    inspectionFrequency: { value: 2, unit: 'hour' },
+    executionCycle: { startDate: '2026-01-01', endDate: '2026-12-31' },
+    executionWindow: { startTime: '00:00', endTime: '23:59' },
+    checkItems: [],
+    createdAt: new Date(),
+    updatedAt: new Date()
   }
 ]
 
@@ -443,6 +497,40 @@ export const initialFacilityComponents: FacilityComponent[] = [
     status: DeviceStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date()
+  },
+  {
+    id: 'fc-004',
+    name: '进水阀门执行器',
+    componentType: 'valve',
+    componentNo: 'COMP-VLV-002',
+    componentPositionNo: 'RX-V-101-ACT',
+    areaId: 'region-a',
+    areaName: '反应区',
+    installationId: 'inst-001',
+    installationName: '反应装置',
+    facilityId: 'device-004',
+    facilityName: '进水阀门',
+    ruleIds: ['dic-002'],
+    status: DeviceStatus.ACTIVE,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'fc-005',
+    name: '可燃气体传感器',
+    componentType: 'sensor',
+    componentNo: 'COMP-GAS-001',
+    componentPositionNo: 'TK-G-201-SEN',
+    areaId: 'region-b',
+    areaName: '储罐区',
+    installationId: 'inst-002',
+    installationName: '储罐装置',
+    facilityId: 'device-005',
+    facilityName: '可燃气体检测仪',
+    ruleIds: ['dic-001'],
+    status: DeviceStatus.ACTIVE,
+    createdAt: new Date(),
+    updatedAt: new Date()
   }
 ]
 
@@ -504,17 +592,93 @@ export const initialInspectionDeviceCheckItems: InspectionDeviceCheckItem[] = [
     },
     createdAt: new Date(),
     updatedAt: new Date()
+  },
+  {
+    id: 'check-004',
+    deviceId: 'device-004',
+    name: '开度',
+    code: 'CHECK-VALVE-001',
+    checkType: 'vision',
+    priority: 'secondary',
+    inspectionFrequency: { value: 6, unit: 'hour' },
+    executionWindow: { startTime: '08:00', endTime: '20:00' },
+    unit: '%',
+    threshold: { min: 0, max: 100 },
+    visionMapping: {
+      sourceType: 'manual',
+      customImageUrl: deviceImageUrl,
+      recognitionMode: 'ai'
+    },
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'check-005',
+    deviceId: 'device-004',
+    name: '状态',
+    code: 'CHECK-VALVE-002',
+    checkType: 'vision',
+    priority: 'secondary',
+    inspectionFrequency: { value: 6, unit: 'hour' },
+    executionWindow: { startTime: '08:00', endTime: '20:00' },
+    unit: '',
+    threshold: { min: 0, max: 1 },
+    visionMapping: {
+      sourceType: 'manual',
+      customImageUrl: deviceImageUrl,
+      recognitionMode: 'ai'
+    },
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'check-006',
+    deviceId: 'device-005',
+    name: '甲烷浓度',
+    code: 'CHECK-GAS-001',
+    checkType: 'vision',
+    priority: 'primary',
+    inspectionFrequency: { value: 2, unit: 'hour' },
+    executionWindow: { startTime: '00:00', endTime: '23:59' },
+    unit: '%LEL',
+    threshold: { min: 0, max: 100, warning: 25, critical: 50 },
+    visionMapping: {
+      sourceType: 'system',
+      customImageUrl: '',
+      recognitionMode: 'ocr'
+    },
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    id: 'check-007',
+    deviceId: 'device-005',
+    name: '硫化氢浓度',
+    code: 'CHECK-GAS-002',
+    checkType: 'vision',
+    priority: 'primary',
+    inspectionFrequency: { value: 2, unit: 'hour' },
+    executionWindow: { startTime: '00:00', endTime: '23:59' },
+    unit: 'ppm',
+    threshold: { min: 0, max: 100, warning: 10, critical: 20 },
+    visionMapping: {
+      sourceType: 'system',
+      customImageUrl: '',
+      recognitionMode: 'ocr'
+    },
+    createdAt: new Date(),
+    updatedAt: new Date()
   }
 ]
 
 // 监测点（仪表设备）Mock 数据
 export const initialMonitorPoints: MonitorPoint[] = [
   {
-    id: 'mp-001',
-    name: '1号反应釜温度计',
+    id: 'device-001',
+    name: '1号反应釜',
     code: 'MP-TEMP-001',
     inspectionPointId: 'point-001',
-    deviceType: '温度计',
+    deviceType: '反应釜',
     metrics: [],
     position: { x: 10, y: 5, z: 1.5 },
     stayDuration: 30,
@@ -522,11 +686,11 @@ export const initialMonitorPoints: MonitorPoint[] = [
     updatedAt: new Date()
   },
   {
-    id: 'mp-002',
-    name: '1号反应釜压力表',
+    id: 'device-002',
+    name: '反应进料管线',
     code: 'MP-PRESS-001',
     inspectionPointId: 'point-001',
-    deviceType: '压力表',
+    deviceType: '工艺管线',
     metrics: [],
     position: { x: 12, y: 5, z: 1.5 },
     stayDuration: 20,
@@ -534,7 +698,7 @@ export const initialMonitorPoints: MonitorPoint[] = [
     updatedAt: new Date()
   },
   {
-    id: 'mp-003',
+    id: 'device-004',
     name: '进水阀门',
     code: 'MP-VALVE-001',
     inspectionPointId: 'point-001',
@@ -546,11 +710,11 @@ export const initialMonitorPoints: MonitorPoint[] = [
     updatedAt: new Date()
   },
   {
-    id: 'mp-004',
-    name: '储罐液位计',
+    id: 'device-003',
+    name: '储罐出料管线',
     code: 'MP-LEVEL-001',
     inspectionPointId: 'point-002',
-    deviceType: '液位计',
+    deviceType: '储运管线',
     metrics: [],
     position: { x: 20, y: 10, z: 2.0 },
     stayDuration: 25,
@@ -558,7 +722,7 @@ export const initialMonitorPoints: MonitorPoint[] = [
     updatedAt: new Date()
   },
   {
-    id: 'mp-005',
+    id: 'device-005',
     name: '可燃气体检测仪',
     code: 'MP-GAS-001',
     inspectionPointId: 'point-002',
@@ -580,7 +744,7 @@ export const initialMetrics: Metric[] = [
     code: 'M-TEMP-001',
     unit: '℃',
     threshold: { min: 0, max: 200, warning: 150, critical: 180 },
-    monitorPointId: 'mp-001',
+    monitorPointId: 'device-001',
     createdAt: new Date(),
     updatedAt: new Date()
   },
@@ -591,7 +755,7 @@ export const initialMetrics: Metric[] = [
     code: 'M-PRESS-001',
     unit: 'MPa',
     threshold: { min: 0, max: 10, warning: 8, critical: 9 },
-    monitorPointId: 'mp-002',
+    monitorPointId: 'device-002',
     createdAt: new Date(),
     updatedAt: new Date()
   },
@@ -602,7 +766,7 @@ export const initialMetrics: Metric[] = [
     code: 'M-VALVE-001',
     unit: '%',
     threshold: { min: 0, max: 100 },
-    monitorPointId: 'mp-003',
+    monitorPointId: 'device-004',
     createdAt: new Date(),
     updatedAt: new Date()
   },
@@ -612,7 +776,7 @@ export const initialMetrics: Metric[] = [
     code: 'M-VALVE-002',
     unit: '',
     threshold: { min: 0, max: 1 },
-    monitorPointId: 'mp-003',
+    monitorPointId: 'device-004',
     createdAt: new Date(),
     updatedAt: new Date()
   },
@@ -623,7 +787,7 @@ export const initialMetrics: Metric[] = [
     code: 'M-LEVEL-001',
     unit: 'm',
     threshold: { min: 0, max: 10, warning: 8, critical: 9 },
-    monitorPointId: 'mp-004',
+    monitorPointId: 'device-003',
     createdAt: new Date(),
     updatedAt: new Date()
   },
@@ -634,7 +798,7 @@ export const initialMetrics: Metric[] = [
     code: 'M-GAS-001',
     unit: '%LEL',
     threshold: { min: 0, max: 100, warning: 25, critical: 50 },
-    monitorPointId: 'mp-005',
+    monitorPointId: 'device-005',
     createdAt: new Date(),
     updatedAt: new Date()
   },
@@ -644,7 +808,7 @@ export const initialMetrics: Metric[] = [
     code: 'M-GAS-002',
     unit: 'ppm',
     threshold: { min: 0, max: 100, warning: 10, critical: 20 },
-    monitorPointId: 'mp-005',
+    monitorPointId: 'device-005',
     createdAt: new Date(),
     updatedAt: new Date()
   }
@@ -785,3 +949,36 @@ export const initialStandardComponents: StandardComponent[] = [
   { id: 'std-comp-sensor', name: '传感器', type: 'sensor', description: '监测采集传感器部件', createdAt: new Date(), updatedAt: new Date() },
   { id: 'std-comp-screw', name: '螺杆', type: 'screw', description: '紧固传动类部件', createdAt: new Date(), updatedAt: new Date() }
 ]
+
+const metricsByMonitorPointId = new Map<string, Metric[]>()
+initialMetrics.forEach((metric) => {
+  const list = metricsByMonitorPointId.get(metric.monitorPointId) || []
+  list.push(metric)
+  metricsByMonitorPointId.set(metric.monitorPointId, list)
+})
+
+initialMonitorPoints.forEach((monitorPoint) => {
+  monitorPoint.metrics = metricsByMonitorPointId.get(monitorPoint.id) || []
+})
+
+const monitorPointsByInspectionPointId = new Map<string, MonitorPoint[]>()
+initialMonitorPoints.forEach((monitorPoint) => {
+  const list = monitorPointsByInspectionPointId.get(monitorPoint.inspectionPointId) || []
+  list.push(monitorPoint)
+  monitorPointsByInspectionPointId.set(monitorPoint.inspectionPointId, list)
+})
+
+initialInspectionPoints.forEach((inspectionPoint) => {
+  inspectionPoint.monitorPoints = monitorPointsByInspectionPointId.get(inspectionPoint.id) || []
+})
+
+const checkItemsByDeviceId = new Map<string, InspectionDeviceCheckItem[]>()
+initialInspectionDeviceCheckItems.forEach((checkItem) => {
+  const list = checkItemsByDeviceId.get(checkItem.deviceId) || []
+  list.push(checkItem)
+  checkItemsByDeviceId.set(checkItem.deviceId, list)
+})
+
+initialInspectionDevices.forEach((device) => {
+  device.checkItems = checkItemsByDeviceId.get(device.id) || []
+})

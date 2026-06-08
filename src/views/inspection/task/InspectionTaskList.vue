@@ -100,15 +100,6 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="回传状态" class="search-item">
-                <a-select v-model:value="searchForm.feedbackStatus" placeholder="请选择回传状态" allow-clear>
-                  <a-select-option value="pending">待回传</a-select-option>
-                  <a-select-option value="success">已回传</a-select-option>
-                  <a-select-option value="failed">回传失败</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="作业票/第三方单号" class="search-item">
                 <a-input v-model:value="searchForm.thirdPartyTaskNo" placeholder="请输入单号" allow-clear />
               </a-form-item>
@@ -164,9 +155,6 @@
           </template>
           <template v-else-if="column.key === 'interruptsCurrentTask'">
             {{ record.interruptsCurrentTask ? '是' : '否' }}
-          </template>
-          <template v-else-if="column.key === 'feedbackStatus'">
-            {{ record.feedbackStatus === 'pending' ? '待回传' : record.feedbackStatus === 'success' ? '已回传' : record.feedbackStatus === 'failed' ? '回传失败' : '-' }}
           </template>
           <template v-else-if="column.key === 'regionNames'">
             <a-space wrap>
@@ -243,7 +231,6 @@ const columns = [
   { title: '优先级', key: 'priorityLevel', width: 90 },
   { title: '作业票/第三方单号', dataIndex: 'thirdPartyTaskNo', key: 'thirdPartyTaskNo', width: 150 },
   { title: '中断当前任务', key: 'interruptsCurrentTask', width: 110 },
-  { title: '回传状态', key: 'feedbackStatus', width: 100 },
   { title: '巡检区域', key: 'regionNames', width: 220 },
   { title: '巡检装置', key: 'installationNames', width: 220 },
   { title: '装置数', dataIndex: 'installationCount', key: 'installationCount', width: 100 },

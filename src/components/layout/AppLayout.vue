@@ -121,6 +121,9 @@
             <a-menu-item key="implementation-detection-item-config">
               <router-link to="/implementation/detection-item-config/list">检测规则配置</router-link>
             </a-menu-item>
+            <a-menu-item key="implementation-metric">
+              <router-link to="/implementation/metric/list">检测项管理</router-link>
+            </a-menu-item>
           </a-sub-menu>
           <a-sub-menu key="implementation-dispatch-config">
             <template #title>
@@ -233,7 +236,7 @@ const openKeys = computed(() => {
   if (currentSystem.value === 'management') {
     return ['management-plan', 'management-dispatch', 'management-task', 'management-exception', 'management-report']
   }
-  return ['implementation-map', 'implementation-point-collection', 'implementation-asset-detection', 'implementation-robot-resource', 'implementation-dispatch-config']
+  return ['implementation-map', 'implementation-point-collection', 'implementation-asset-detection', 'implementation-dispatch-config']
 })
 
 // 当前选中的菜单项
@@ -257,16 +260,16 @@ const currentKey = computed(() => {
   if (path.startsWith('/implementation/map/list')) return 'implementation-map-list'
   if (path.startsWith('/implementation/map/editor')) return 'implementation-map-list'
   if (path.startsWith('/implementation/map/point-manage')) {
-    return route.query.tab === 'inspection' ? 'implementation-point' : 'implementation-map-point-manage'
+    return 'implementation-map-point-manage'
   }
   if (path.startsWith('/implementation/map/area-manage')) return 'implementation-map-area-manage'
   if (path.startsWith('/implementation/robot/list')) return 'implementation-robot-list'
   if (path.startsWith('/implementation/robot/simulation')) return 'implementation-robot-simulation'
-  if (path.startsWith('/implementation/point/list')) return 'implementation-point'
-  if (path.startsWith('/implementation/point/create')) return 'implementation-point'
-  if (path.startsWith('/implementation/point/detail')) return 'implementation-point'
-  if (path.startsWith('/implementation/point/edit')) return 'implementation-point'
-  if (path.startsWith('/implementation/point/form')) return 'implementation-point'
+  if (path.startsWith('/implementation/point/list')) return 'implementation-map-point-manage'
+  if (path.startsWith('/implementation/point/create')) return 'implementation-map-point-manage'
+  if (path.startsWith('/implementation/point/detail')) return 'implementation-map-point-manage'
+  if (path.startsWith('/implementation/point/edit')) return 'implementation-map-point-manage'
+  if (path.startsWith('/implementation/point/form')) return 'implementation-map-point-manage'
   if (path.startsWith('/implementation/device/list')) return 'implementation-device'
   if (path.startsWith('/implementation/device/component-usage')) return 'implementation-device-component-usage'
   if (path.startsWith('/implementation/device/installation-list')) return 'implementation-installation-list'

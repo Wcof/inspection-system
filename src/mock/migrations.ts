@@ -67,7 +67,7 @@ export function migrateToV2(): void {
   const currentVersion = storage.get<number>(STORAGE_KEYS.SCHEMA_VERSION) || 1
 
   if (currentVersion < SCHEMA_VERSION) {
-    console.log(`Migrating data to schema version ${SCHEMA_VERSION}...`)
+    console.info(`Migrating data to schema version ${SCHEMA_VERSION}...`)
 
     if (currentVersion < 2) {
       migrateMonitorPointsToInspectionDevices()
@@ -78,7 +78,7 @@ export function migrateToV2(): void {
     enrichFiveLayerModel()
 
     storage.set(STORAGE_KEYS.SCHEMA_VERSION, SCHEMA_VERSION)
-    console.log('Migration completed successfully!')
+    console.info('Migration completed successfully!')
   }
 
   enrichFiveLayerModel()
@@ -210,9 +210,23 @@ function enrichFiveLayerModel(): void {
   const enrichedDevices = storage.get<InspectionDevice[]>(STORAGE_KEYS.INSPECTION_DEVICES) || []
   const checkItems = storage.get<InspectionDeviceCheckItem[]>(STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS) || []
   if (checkItems.length) {
+    const enrichedCheckItems = checkItems.map(item => enrichCheckItem(item, enrichedDevices.find(device => device.id === item.deviceId)))
     storage.set(
       STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS,
-      checkItems.map(item => enrichCheckItem(item, enrichedDevices.find(device => device.id === item.deviceId)))
+      enrichedCheckItems
+    )
+    const checkItemsByDeviceId = new Map<string, InspectionDeviceCheckItem[]>()
+    enrichedCheckItems.forEach((item) => {
+      const rows = checkItemsByDeviceId.get(item.deviceId) || []
+      rows.push(item)
+      checkItemsByDeviceId.set(item.deviceId, rows)
+    })
+    storage.set(
+      STORAGE_KEYS.INSPECTION_DEVICES,
+      enrichedDevices.map((device) => ({
+        ...device,
+        checkItems: checkItemsByDeviceId.get(device.id) || []
+      }))
     )
   }
 }
@@ -1372,6 +1386,10 @@ function getDefaultRuleIdsForComponent(type: InspectedAssetComponent['type'], na
 function getDefaultRuleIdsForConnection(name: string, detectionFocus?: string) {
   const text = `${name}${detectionFocus || ''}`
   if (text.includes('法兰')) return ['dic-002']
+  if (text.includes('阀')) return ['dic-002']
+  if (text.includes('温')) return ['dic-001']
+  if (text.includes('液位')) return ['dic-001']
+  if (text.includes('气')) return ['dic-001']
   return []
 }
 

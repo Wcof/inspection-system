@@ -1,7 +1,7 @@
 <template>
   <div class="resource-base-config">
     <a-page-header title="资源基础配置" sub-title="机器人优先巡检区域配置" />
-    
+
     <a-card class="resource-card" style="margin-top: 16px">
       <div class="search-panel">
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
@@ -60,16 +60,8 @@
         <a-table :data-source="filteredConfigRules" row-key="id" :pagination="false">
           <a-table-column title="区域" data-index="area">
             <template #default="{ record }">
-              <a-select 
-                v-if="record.editing" 
-                v-model:value="record.area" 
-                style="width: 100%"
-              >
-                <a-select-option 
-                  v-for="area in getAvailableAreas(record.id)" 
-                  :key="area.value" 
-                  :value="area.value"
-                >
+              <a-select v-if="record.editing" v-model:value="record.area" style="width: 100%">
+                <a-select-option v-for="area in getAvailableAreas(record.id)" :key="area.value" :value="area.value">
                   {{ area.label }}
                 </a-select-option>
               </a-select>
@@ -78,10 +70,10 @@
           </a-table-column>
           <a-table-column title="优先指派机器人" data-index="robots">
             <template #default="{ record }">
-              <a-select 
+              <a-select
                 v-if="record.editing"
-                v-model:value="record.robots" 
-                mode="multiple" 
+                v-model:value="record.robots"
+                mode="multiple"
                 style="width: 100%"
                 placeholder="请选择优先指派机器人"
               >
@@ -93,47 +85,26 @@
                 <a-tag v-for="robotId in record.robots" :key="robotId" style="margin-bottom: 4px">
                   {{ getRobotLabel(robotId) }}
                 </a-tag>
+                <span v-if="!record.robots.length">-</span>
               </template>
             </template>
           </a-table-column>
           <a-table-column title="备注" data-index="remark">
             <template #default="{ record }">
-              <a-input 
-                v-if="record.editing" 
-                v-model:value="record.remark" 
-                placeholder="请输入备注"
-              />
+              <a-input v-if="record.editing" v-model:value="record.remark" placeholder="请输入备注" />
               <span v-else>{{ record.remark || '-' }}</span>
             </template>
           </a-table-column>
           <a-table-column title="操作" fixed="right" width="180">
             <template #default="{ record }">
               <a-space>
-                <a-button 
-                  v-if="!record.editing" 
-                  type="link" 
-                  size="small" 
-                  @click="handleEditRule(record)"
-                >
-                  编辑
-                </a-button>
+                <a-button v-if="!record.editing" type="link" size="small" @click="handleEditRule(record)">编辑</a-button>
                 <template v-else>
-                  <a-button type="link" size="small" @click="handleSaveRule(record)">
-                    保存
-                  </a-button>
-                  <a-button type="link" size="small" @click="handleCancelEdit(record)">
-                    取消
-                  </a-button>
+                  <a-button type="link" size="small" @click="handleSaveRule(record)">保存</a-button>
+                  <a-button type="link" size="small" @click="handleCancelEdit(record)">取消</a-button>
                 </template>
-                <a-popconfirm
-                  title="确定要删除这条规则吗？"
-                  ok-text="确定"
-                  cancel-text="取消"
-                  @confirm="handleDeleteRule(record.id)"
-                >
-                  <a-button type="link" size="small" danger>
-                    删除
-                  </a-button>
+                <a-popconfirm title="确定要删除这条规则吗？" ok-text="确定" cancel-text="取消" @confirm="handleDeleteRule(record.id)">
+                  <a-button type="link" size="small" danger>删除</a-button>
                 </a-popconfirm>
               </a-space>
             </template>
@@ -152,9 +123,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
+import { useInspectionStore } from '@/stores/inspection'
+import { useRobotStore } from '@/stores/robot'
 
 interface ConfigRule {
   id: string
@@ -164,66 +137,94 @@ interface ConfigRule {
   editing?: boolean
 }
 
-const areaOptions = [
-  { value: 'area_a', label: 'A区' },
-  { value: 'area_b', label: 'B区' },
-  { value: 'area_c', label: 'C区' },
-  { value: 'area_d', label: 'D区' }
-]
-
-const robotOptions = [
-  { value: 'robot-1', label: '巡检机器人 A' },
-  { value: 'robot-2', label: '巡检机器人 B' },
-  { value: 'robot-3', label: '巡检机器人 C' }
-]
-
-let nextId = 4
-
-const configRules = ref<ConfigRule[]>([
-  { id: '1', area: 'area_a', robots: ['robot-1'], remark: 'A区任务优先指派巡检机器人 A' },
-  { id: '2', area: 'area_b', robots: ['robot-1', 'robot-2'], remark: 'B区任务优先从 A、B 两台机器人中调度' },
-  { id: '3', area: 'area_c', robots: ['robot-2'], remark: 'C区任务优先指派巡检机器人 B' }
-])
+const STORAGE_KEY = 'resource-base-config'
+const inspectionStore = useInspectionStore()
+const robotStore = useRobotStore()
+const configRules = ref<ConfigRule[]>([])
+let nextId = 1
 
 const searchForm = reactive({
-  area: '',
-  robot: ''
+  area: undefined as string | undefined,
+  robot: undefined as string | undefined
 })
 
-const filteredConfigRules = computed(() => {
-  return configRules.value.filter((rule) => {
-    const matchesArea = !searchForm.area || rule.area === searchForm.area
-    const matchesRobot = !searchForm.robot || rule.robots.includes(searchForm.robot)
-    return matchesArea && matchesRobot
-  })
-})
+const areaOptions = computed(() => inspectionStore.inspectionMaps.flatMap(map =>
+  (map.regions || []).map(region => ({
+    value: region.id,
+    label: `${map.name} / ${region.name}`
+  }))
+))
+
+const robotOptions = computed(() => robotStore.robots.map(robot => ({
+  value: robot.id,
+  label: `${robot.name}（${robot.model}）`
+})))
+
+const filteredConfigRules = computed(() => configRules.value.filter((rule) => {
+  const matchesArea = !searchForm.area || rule.area === searchForm.area
+  const matchesRobot = !searchForm.robot || rule.robots.includes(searchForm.robot)
+  return matchesArea && matchesRobot
+}))
 
 function getAreaLabel(value: string): string {
-  const area = areaOptions.find(a => a.value === value)
-  return area ? area.label : value
+  return areaOptions.value.find(area => area.value === value)?.label || value
 }
 
 function getRobotLabel(value: string): string {
-  const robot = robotOptions.find(r => r.value === value)
-  return robot ? robot.label : value
+  return robotOptions.value.find(robot => robot.value === value)?.label || value
 }
 
-function getAvailableAreas(currentId: string): typeof areaOptions {
+function getAvailableAreas(currentId: string) {
   const usedAreas = configRules.value
     .filter(rule => rule.id !== currentId && !rule.editing)
     .map(rule => rule.area)
-  return areaOptions.filter(area => !usedAreas.includes(area.value))
+  return areaOptions.value.filter(area => !usedAreas.includes(area.value))
+}
+
+function buildDefaultRules(): ConfigRule[] {
+  const robots = robotStore.robots
+  return areaOptions.value.map((area, index) => {
+    const firstRobot = robots[index % Math.max(robots.length, 1)]
+    const secondRobot = robots[(index + 1) % Math.max(robots.length, 1)]
+    const robotIds = Array.from(new Set([firstRobot?.id, secondRobot?.id].filter(Boolean))) as string[]
+    return {
+      id: `resource-rule-${index + 1}`,
+      area: area.value,
+      robots: robotIds,
+      remark: `${area.label} 优先指派 ${robotIds.map(getRobotLabel).join('、') || '空闲机器人'}`
+    }
+  })
+}
+
+function loadRules() {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as ConfigRule[]
+      configRules.value = parsed.filter(rule => areaOptions.value.some(area => area.value === rule.area))
+      nextId = configRules.value.length + 1
+      return
+    } catch {
+      configRules.value = []
+    }
+  }
+  configRules.value = buildDefaultRules()
+  nextId = configRules.value.length + 1
+}
+
+function persistRules() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(configRules.value.map(({ editing: _editing, ...rule }) => rule)))
 }
 
 function handleAddRule() {
   const availableAreas = getAvailableAreas('')
-  if (availableAreas.length === 0) {
+  if (!availableAreas.length) {
     message.warning('所有区域已配置，无法新增')
     return
   }
-  
+
   configRules.value.push({
-    id: String(nextId++),
+    id: `resource-rule-${nextId++}`,
     area: availableAreas[0].value,
     robots: [],
     remark: '',
@@ -236,57 +237,59 @@ function handleEditRule(record: ConfigRule) {
 }
 
 function handleSaveRule(record: ConfigRule) {
-  const duplicate = configRules.value.find(
-    rule => rule.id !== record.id && rule.area === record.area && !rule.editing
-  )
-  
+  const duplicate = configRules.value.find(rule => rule.id !== record.id && rule.area === record.area)
   if (duplicate) {
     message.error('该区域已存在配置，请选择其他区域')
     return
   }
-  
   record.editing = false
+  persistRules()
   message.success('规则保存成功')
 }
 
 function handleCancelEdit(record: ConfigRule) {
-  const original = configRules.value.find(r => r.id === record.id)
-  if (original && !original.area) {
+  if (!record.robots.length && !record.remark) {
     handleDeleteRule(record.id)
-  } else {
-    record.editing = false
+    return
   }
+  record.editing = false
 }
 
 function handleDeleteRule(id: string) {
   const index = configRules.value.findIndex(rule => rule.id === id)
   if (index !== -1) {
     configRules.value.splice(index, 1)
+    persistRules()
     message.success('规则删除成功')
   }
 }
 
 function handleSave() {
+  persistRules()
   message.success('配置保存成功')
 }
 
 function handleReset() {
-  configRules.value = [
-    { id: '1', area: 'area_a', robots: ['robot-1'], remark: 'A区任务优先指派巡检机器人 A' },
-    { id: '2', area: 'area_b', robots: ['robot-1', 'robot-2'], remark: 'B区任务优先从 A、B 两台机器人中调度' },
-    { id: '3', area: 'area_c', robots: ['robot-2'], remark: 'C区任务优先指派巡检机器人 B' }
-  ]
-  nextId = 4
-  message.info('已重置为默认配置')
+  configRules.value = buildDefaultRules()
+  nextId = configRules.value.length + 1
+  persistRules()
+  message.info('已按当前地图区域和机器人重置默认配置')
 }
 
 function resetSearch() {
-  searchForm.area = ''
-  searchForm.robot = ''
+  searchForm.area = undefined
+  searchForm.robot = undefined
 }
+
+onMounted(() => {
+  inspectionStore.initialize()
+  robotStore.initialize()
+  loadRules()
+})
 </script>
 
-<style scoped lang="css">.resource-base-config {
+<style scoped lang="css">
+.resource-base-config {
   width: 100%;
 }
 .resource-base-config .search-panel {
