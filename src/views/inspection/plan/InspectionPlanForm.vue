@@ -124,6 +124,7 @@
           </a-col>
         </a-row>
 
+
         <a-row :gutter="16">
           <a-col :span="24">
             <a-form-item label="起止日期">
@@ -138,12 +139,32 @@
           </a-col>
         </a-row>
 
+
+        <!-- 路线规划 -->
+        <a-card size="small" title="路线规划" style="margin-bottom: 16px">
+          <a-alert
+            type="info"
+            show-icon
+            style="margin-bottom: 12px"
+            message="在地图上依次点击候选点位绘制巡检路线。不同颜色的点位对应不同的巡检设施，纳入路线后显示为绿色。"
+          />
+
+          <PlanRouteCanvas
+            ref="planRouteCanvasRef"
+            :map-id="currentMapId"
+            :waypoints="candidateWaypoints"
+            :inspection-points="candidateInspectionPoints"
+            :facility-point-groups="facilityPointGroups"
+            @route-changed="handleRouteChanged"
+          />
+        </a-card>
+
         <a-card size="small" title="计划覆盖预览" style="margin-bottom: 16px">
           <a-descriptions :column="5" size="small" bordered>
             <a-descriptions-item label="巡检区域">{{ coverageSummary.regionCount }}</a-descriptions-item>
             <a-descriptions-item label="巡检装置">{{ coverageSummary.installationCount }}</a-descriptions-item>
             <a-descriptions-item label="巡检设施数">{{ coverageSummary.facilityCount }}</a-descriptions-item>
-            <a-descriptions-item label="巡检部件数">{{ coverageSummary.componentCount }}</a-descriptions-item>
+            <a-descriptions-item label="巡检巡检对象数">{{ coverageSummary.componentCount }}</a-descriptions-item>
             <a-descriptions-item label="巡检规则数">{{ coverageSummary.ruleCount }}</a-descriptions-item>
           </a-descriptions>
           <a-table
@@ -183,18 +204,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import { useInspectionStore } from '@/stores/inspection'
 import { getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
+import PlanRouteCanvas from './PlanRouteCanvas.vue'
 
 const router = useRouter()
 const route = useRoute()
 const inspectionStore = useInspectionStore()
 
 const isEdit = computed(() => Boolean(route.params.id))
+const planRouteCanvasRef = ref<InstanceType<typeof PlanRouteCanvas>>()
 const form = reactive<any>({
   id: '',
   name: '',
@@ -237,6 +260,40 @@ const facilityOptions = computed(() => inspectionStore.inspectionDevices.filter(
 }))
 const selectedFacilities = computed(() => facilityOptions.value.filter((device: any) => form.facilityIds.includes(device.id)))
 const ruleNameMap = computed(() => new Map(getDetectionItemConfigs().map((item) => [item.id, item.name])))
+
+// ─── 路线规划相关 ────────────────────────────────────
+const currentMapId = computed(() =>
+  inspectionStore.inspectionMaps[0]?.id || 'map-001'
+)
+
+const candidateWaypoints = computed(() =>
+  inspectionStore.waypoints.filter((wp: any) => wp.mapId === currentMapId.value)
+)
+
+const candidateInspectionPoints = computed(() =>
+  inspectionStore.inspectionPoints.filter((p: any) =>
+    p.mapId === currentMapId.value && form.regionIds.includes(p.areaId)
+  )
+)
+
+const FACILITY_COLORS = ['#1677ff', '#722ed1', '#eb2f96', '#13c2c2', '#2f54eb', '#fa541c', '#a0d911', '#fadb14']
+
+const facilityPointGroups = computed(() =>
+  selectedFacilities.value.map((device: any, index: number) => ({
+    facilityId: device.id,
+    facilityName: device.name,
+    facilityColor: FACILITY_COLORS[index % FACILITY_COLORS.length],
+    pointIds: inspectionStore.inspectionPoints
+      .filter((p: any) => p.facilityDeviceId === device.id && p.mapId === currentMapId.value)
+      .map((p: any) => p.id)
+  }))
+)
+
+function handleRouteChanged(pointIds: string[]) {
+  form.inspectionPointIds = pointIds.filter(id =>
+    inspectionStore.inspectionPoints.some((p: any) => p.id === id)
+  )
+}
 const inspectionDateRange = computed({
   get: (): [string, string] => [form.inspectionTimeStart, form.inspectionTimeEnd],
   set: (value: [string, string]) => {
@@ -295,9 +352,9 @@ const coverageDetailColumns = [
   { title: '巡检装置', dataIndex: 'installationName', key: 'installationName', width: 150 },
   { title: '巡检设施', dataIndex: 'facilityName', key: 'facilityName', width: 180 },
   { title: '巡检设施数', dataIndex: 'facilityCount', key: 'facilityCount', width: 110 },
-  { title: '巡检部件', dataIndex: 'componentName', key: 'componentName', width: 180 },
-  { title: '部件编码', dataIndex: 'componentCode', key: 'componentCode', width: 140 },
-  { title: '巡检部件数', dataIndex: 'componentCount', key: 'componentCount', width: 110 },
+  { title: '巡检巡检对象', dataIndex: 'componentName', key: 'componentName', width: 180 },
+  { title: '巡检对象编码', dataIndex: 'componentCode', key: 'componentCode', width: 140 },
+  { title: '巡检巡检对象数', dataIndex: 'componentCount', key: 'componentCount', width: 110 },
   { title: '巡检规则数', dataIndex: 'ruleCount', key: 'ruleCount', width: 110 },
   { title: '巡检规则', key: 'ruleNames', width: 260 }
 ]
@@ -346,17 +403,28 @@ function handleSave() {
     message.error('请补充规划名称、编码、巡检区域、巡检装置和巡检设施')
     return
   }
+
+  // 解析路线配置
+  const routeResolve = planRouteCanvasRef.value?.resolveRouteForSave()
+  if (routeResolve?.type === 'invalid') {
+    message.error(routeResolve.message)
+    return
+  }
+
   const inspectionPointIds = selectedPoints.value.map((point: any) => point.id)
+  // 使用路线绘制的点位顺序，如果没有则使用推导的巡检点
+  const pointIds = routeResolve?.type === 'valid'
+    ? routeResolve.pointIds
+    : inspectionPointIds
 
   const payload: any = {
     id: form.id || `plan-${Date.now()}`,
     name: form.name,
     code: form.code,
     robotId: 'robot-001',
-    mapId: inspectionStore.inspectionMaps[0]?.id || 'map-001',
-    routeId: '',
-    pointIds: inspectionPointIds,
-    pointOrders: inspectionPointIds.map((id: string, index: number) => ({ pointId: id, order: index + 1 })),
+    mapId: currentMapId.value,
+    pointIds,
+    pointOrders: pointIds.map((id: string, index: number) => ({ pointId: id, order: index + 1 })),
     status: form.status,
     type: 'point',
     inspectionPointIds,

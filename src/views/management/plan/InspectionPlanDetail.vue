@@ -1,6 +1,6 @@
 <template>
   <div class="inspection-plan-detail">
-    <a-page-header title="执行规划详情" sub-title="区域 -> 装置 -> 设施/管路 -> 部件 -> 检测规则" @back="goBack">
+    <a-page-header title="执行规划详情" sub-title="区域 -> 装置 -> 设施/管路 -> 巡检对象 -> 检测规则" @back="goBack">
       <template #extra>
         <a-space>
           <a-button @click="goBack">返回列表</a-button>
@@ -38,7 +38,7 @@
             <a-descriptions-item label="区域">{{ coverageSummary.regionCount }}</a-descriptions-item>
             <a-descriptions-item label="装置">{{ coverageSummary.installationCount }}</a-descriptions-item>
             <a-descriptions-item label="设施/管路">{{ coverageSummary.facilityCount }}</a-descriptions-item>
-            <a-descriptions-item label="部件">{{ coverageSummary.componentCount }}</a-descriptions-item>
+            <a-descriptions-item label="巡检对象">{{ coverageSummary.componentCount }}</a-descriptions-item>
             <a-descriptions-item label="规则">{{ coverageSummary.ruleCount }}</a-descriptions-item>
           </a-descriptions>
           <div class="group-list">
@@ -58,7 +58,7 @@
               <span v-if="!facilityNames.length">-</span>
             </div>
             <div class="group-item">
-              <h4>部件</h4>
+              <h4>巡检对象</h4>
               <a-tag v-for="item in componentNames" :key="item">{{ item }}</a-tag>
               <span v-if="!componentNames.length">-</span>
             </div>
@@ -100,7 +100,7 @@
             <a-descriptions-item label="遗漏区域">{{ missingRegions.length }}</a-descriptions-item>
             <a-descriptions-item label="遗漏装置">{{ missingInstallations.length }}</a-descriptions-item>
             <a-descriptions-item label="遗漏设施/管路">{{ missingFacilities.length }}</a-descriptions-item>
-            <a-descriptions-item label="遗漏部件">{{ missingComponents.length }}</a-descriptions-item>
+            <a-descriptions-item label="遗漏巡检对象">{{ missingComponents.length }}</a-descriptions-item>
             <a-descriptions-item label="遗漏规则">{{ missingRules.length }}</a-descriptions-item>
             <a-descriptions-item label="未绑定点位">{{ unboundFacilities.length }}</a-descriptions-item>
           </a-descriptions>
@@ -110,7 +110,7 @@
             <div class="gap-item"><strong>遗漏区域：</strong>{{ joinNames(missingRegions) }}</div>
             <div class="gap-item"><strong>遗漏装置：</strong>{{ joinNames(missingInstallations) }}</div>
             <div class="gap-item"><strong>遗漏设施/管路：</strong>{{ joinNames(missingFacilities) }}</div>
-            <div class="gap-item"><strong>遗漏部件：</strong>{{ joinNames(missingComponents) }}</div>
+            <div class="gap-item"><strong>遗漏巡检对象：</strong>{{ joinNames(missingComponents) }}</div>
             <div class="gap-item"><strong>遗漏规则：</strong>{{ joinNames(missingRules) }}</div>
             <div class="gap-item"><strong>未绑定点位：</strong>{{ joinNames(unboundFacilities) }}</div>
           </div>

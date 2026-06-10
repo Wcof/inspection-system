@@ -22,11 +22,13 @@
         <a-descriptions-item label="任务状态">
           <a-tag :color="getStatusColor(task?.status)">{{ getStatusText(task?.status) }}</a-tag>
         </a-descriptions-item>
-        <a-descriptions-item label="任务总执行时间">{{ task ? getTaskRunTimeText(task) : '-' }}</a-descriptions-item>
+        <a-descriptions-item label="预计执行时间">{{ task ? getPlannedTimeText(task) : '-' }}</a-descriptions-item>
+        <a-descriptions-item label="执行总时长">{{ task ? getDurationText(task) : '-' }}</a-descriptions-item>
+        <a-descriptions-item label="实际执行时间">{{ task ? getActualTimeText(task) : '-' }}</a-descriptions-item>
         <a-descriptions-item label="巡检区域">{{ taskRegionNames.join('、') || '-' }}</a-descriptions-item>
         <a-descriptions-item label="巡检设施数">{{ taskFacilities.length }}</a-descriptions-item>
         <a-descriptions-item label="地图">{{ taskMapName }}</a-descriptions-item>
-        <a-descriptions-item label="部件数">{{ taskComponentCount }}</a-descriptions-item>
+        <a-descriptions-item label="巡检对象数">{{ taskComponentCount }}</a-descriptions-item>
         <a-descriptions-item label="巡检规则数">{{ taskRuleCount }}</a-descriptions-item>
         <a-descriptions-item label="回传状态">{{ taskFeedbackStatus }}</a-descriptions-item>
       </a-descriptions>
@@ -237,7 +239,7 @@ const pointColumns = [
   { title: '检测顺序', dataIndex: 'sequence', key: 'sequence', width: 100 },
   { title: '巡检状态', key: 'inspectionStatus', width: 120 },
   { title: '设施数', key: 'deviceCount', width: 80 },
-  { title: '部件数', key: 'deviceCount', width: 80 },
+  { title: '巡检对象数', key: 'deviceCount', width: 80 },
   { title: '检测规则数', key: 'inspectionItemCount', width: 80 },
   { title: '漏检数', key: 'missedItemCount', width: 80 },
   { title: '时间范围', key: 'timeRange', width: 260 }
@@ -247,7 +249,7 @@ const deviceColumns = [
   { title: '区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '装置', dataIndex: 'installationName', key: 'installationName', width: 140 },
   { title: '设施/管路', dataIndex: 'name', key: 'name', width: 160 },
-  { title: '部件', dataIndex: 'componentNames', key: 'componentNames', width: 200 },
+  { title: '巡检对象', dataIndex: 'componentNames', key: 'componentNames', width: 200 },
   { title: '检测规则', key: 'checkItems' },
   { title: '采集动作', key: 'collectionAction', width: 160 },
   { title: '状态', key: 'status', width: 110 },
@@ -259,7 +261,7 @@ const evidenceColumns = [
   { title: '巡检点', dataIndex: 'pointName', key: 'pointName', width: 160 },
   { title: '停车点/经过点', dataIndex: 'parkingPoint', key: 'parkingPoint', width: 180 },
   { title: '采集动作', dataIndex: 'collectionAction', key: 'collectionAction', width: 180 },
-  { title: '部件编号/位号', dataIndex: 'componentRef', key: 'componentRef', width: 180 },
+  { title: '巡检对象编号/位号', dataIndex: 'componentRef', key: 'componentRef', width: 180 },
   { title: '命中规则', dataIndex: 'ruleName', key: 'ruleName', width: 150 },
   { title: '规则结果', dataIndex: ['evidence', 'recognizedValue'], key: 'ruleResult', width: 140 },
   { title: '是否生成告警', dataIndex: 'generatesAlert', key: 'generatesAlert', width: 120 },
@@ -572,8 +574,26 @@ function getTaskEnd(taskValue: any) {
   return new Date(getTaskStart(taskValue).getTime() + ((taskValue?.inspectionPointIds?.length || 1) * 8 * 60 * 1000))
 }
 
-function getTaskRunTimeText(taskValue: any) {
+function getPlannedTimeText(taskValue: any) {
+  return getTaskStart(taskValue).toLocaleString()
+}
+
+function getDurationText(taskValue: any) {
   const start = getTaskStart(taskValue)
+  const end = getTaskEnd(taskValue)
+  const diffMs = end.getTime() - start.getTime()
+  if (diffMs <= 0) return '-'
+  const totalMinutes = Math.floor(diffMs / 60000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours > 0) return `${hours}小时${minutes > 0 ? minutes + '分钟' : ''}`
+  return `${minutes}分钟`
+}
+
+function getActualTimeText(taskValue: any) {
+  const start = getTaskStart(taskValue)
+  if (taskValue?.status === 'pending') return '-'
+  if (taskValue?.status === 'running') return `${start.toLocaleString()} ~ 进行中...`
   const end = getTaskEnd(taskValue)
   return `${start.toLocaleString()} ~ ${end.toLocaleString()}`
 }

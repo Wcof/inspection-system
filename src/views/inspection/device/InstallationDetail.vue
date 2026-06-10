@@ -8,9 +8,9 @@
           <a-descriptions-item label="装置名称">{{ installation.name }}</a-descriptions-item>
           <a-descriptions-item label="装置编号">{{ installation.code }}</a-descriptions-item>
           <a-descriptions-item label="装置位号">{{ installation.installationPositionNo || '-' }}</a-descriptions-item>
-          <a-descriptions-item label="所属区域">{{ installation.areaName || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="巡检区域">{{ installation.areaName || '-' }}</a-descriptions-item>
           <a-descriptions-item label="关联设施数">{{ facilityRows.length }}</a-descriptions-item>
-          <a-descriptions-item label="关联部件数">{{ componentRows.length }}</a-descriptions-item>
+          <a-descriptions-item label="关联巡检对象数">{{ componentRows.length }}</a-descriptions-item>
           <a-descriptions-item label="巡检规则数">{{ linkedRuleCount }}</a-descriptions-item>
           <a-descriptions-item label="关联点位">{{ linkedPointCount }}</a-descriptions-item>
           <a-descriptions-item label="备注">{{ installation.remark || '-' }}</a-descriptions-item>
@@ -31,13 +31,13 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="6">
-              <a-form-item label="部件">
-                <a-input v-model:value="searchForm.componentName" placeholder="搜索部件名称" allow-clear />
+              <a-form-item label="巡检对象">
+                <a-input v-model:value="searchForm.componentName" placeholder="搜索巡检对象名称" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="6">
-              <a-form-item label="部件位号">
-                <a-input v-model:value="searchForm.componentCode" placeholder="搜索部件位号" allow-clear />
+              <a-form-item label="巡检对象位号">
+                <a-input v-model:value="searchForm.componentCode" placeholder="搜索巡检对象位号" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8">
@@ -139,8 +139,8 @@ const filteredRelationRows = computed(() => {
 const relationColumns = [
   { title: '设施', dataIndex: 'facilityName', key: 'facilityName', width: 220 },
   { title: '设施位号', dataIndex: 'facilityCode', key: 'facilityCode', width: 160 },
-  { title: '部件', dataIndex: 'componentName', key: 'componentName', width: 220 },
-  { title: '部件位号', dataIndex: 'componentCode', key: 'componentCode', width: 160 },
+  { title: '巡检对象', dataIndex: 'componentName', key: 'componentName', width: 220 },
+  { title: '巡检对象位号', dataIndex: 'componentCode', key: 'componentCode', width: 160 },
   { title: '检查规则', key: 'rules' }
 ]
 

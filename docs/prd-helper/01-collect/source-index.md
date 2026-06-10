@@ -1,0 +1,19 @@
+# Source Index
+
+| source_id | source_time | source_type | source_channel | path | content_hash | metadata_status | noise_hint | status |
+|---|---|---|---|---|---|---|---|---|
+| scan-codex-019d3e01-363b-7750-b669-0f865833723c | 2026-05-06T10:52:22+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d3e01-363b-7750-b669-0f865833723c.md | sha256:6bee098f8112ad96 | complete | none | collected |
+| scan-codex-019d436a-8acb-7533-8682-8217ba10d5d2 | 2026-05-06T10:52:22+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d436a-8acb-7533-8682-8217ba10d5d2.md | sha256:40626e6a7f9902f6 | complete | none | collected |
+| scan-codex-019d4cd9-8211-7e30-bdea-ec9ddac8bbc8 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d4cd9-8211-7e30-bdea-ec9ddac8bbc8.md | sha256:daadfa8295990514 | complete | none | collected |
+| scan-codex-019d4ce7-bc72-7370-8dbe-125d6944dd25 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d4ce7-bc72-7370-8dbe-125d6944dd25.md | sha256:a7f26c9ea44a0bae | complete | none | collected |
+| scan-codex-019d4cfe-ea9a-7b53-881e-6ab5970e65f2 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d4cfe-ea9a-7b53-881e-6ab5970e65f2.md | sha256:6629c08950450e81 | complete | none | collected |
+| scan-codex-019d60b4-6949-7960-b041-04e2acfaf2ef | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d60b4-6949-7960-b041-04e2acfaf2ef.md | sha256:e1fac9de348ed01c | complete | none | collected |
+| scan-codex-019d61d6-e1ae-7083-a549-c3e6cc3a39d2 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d61d6-e1ae-7083-a549-c3e6cc3a39d2.md | sha256:46c97941e9ad056d | complete | none | collected |
+| scan-codex-019d65be-cf98-7bc0-82fe-50f943761282 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d65be-cf98-7bc0-82fe-50f943761282.md | sha256:6d039fee442cea3b | complete | none | collected |
+| scan-codex-019d673f-abed-7593-b62d-810754c65aa5 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d673f-abed-7593-b62d-810754c65aa5.md | sha256:23340da2dcb7214f | complete | none | collected |
+| scan-codex-019d674e-a616-7623-a4be-0fe6ca1f26a4 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d674e-a616-7623-a4be-0fe6ca1f26a4.md | sha256:e3a4014bd730d67c | complete | none | collected |
+| scan-codex-019d8fc7-de56-7800-babe-04e94ee05d60 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d8fc7-de56-7800-babe-04e94ee05d60.md | sha256:291feca51d4f7814 | complete | none | collected |
+| scan-codex-019d94d5-43e1-7c30-89fd-277ec85b1a32 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d94d5-43e1-7c30-89fd-277ec85b1a32.md | sha256:4cdbb09db2b5c6ec | complete | none | collected |
+| scan-codex-019d9a74-cf4c-79b0-9c05-aefbfc220f78 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d9a74-cf4c-79b0-9c05-aefbfc220f78.md | sha256:16bc4a42be47aedb | complete | none | collected |
+| scan-codex-019d9ac7-4dda-7a81-8aab-866d629ebe31 | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019d9ac7-4dda-7a81-8aab-866d629ebe31.md | sha256:e8594db66d785fb4 | complete | none | collected |
+| scan-codex-019da8c7-176c-70b1-b6ea-5e0f1db6422e | 2026-05-06T13:36:19+08:00 | agent_conversation_turn | active | active/sessions/session-codex-019da8c7-176c-70b1-b6ea-5e0f1db6422e.md | sha256:053aa3ecfcbda79a | complete | none | collected |

@@ -26,8 +26,8 @@
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="所属区域" name="areaId" :rules="[{ required: true, message: '请选择所属区域' }]">
-              <a-select v-model:value="form.areaId" placeholder="请选择所属区域" style="width: 100%">
+            <a-form-item label="巡检区域" name="areaId" :rules="[{ required: true, message: '请选择巡检区域' }]">
+              <a-select v-model:value="form.areaId" placeholder="请选择巡检区域" style="width: 100%">
                 <a-select-option v-for="region in activeRegions" :key="region.id" :value="region.id">{{ region.name }}</a-select-option>
               </a-select>
             </a-form-item>

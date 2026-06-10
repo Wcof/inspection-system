@@ -24,8 +24,10 @@ import type {
   Installation
 } from '@/types/inspection'
 import { DeviceStatus, PositionSource } from '@/types/inspection'
+import type { NoGoZone } from '@/types/road-network'
+import { initialInspectionPoints } from './initialData'
 
-const SCHEMA_VERSION = 6
+const SCHEMA_VERSION = 9
 const CONSISTENCY_REPORT_KEY = 'inspection_mock_data_consistency_report'
 const VALID_DETECTION_RULE_IDS = ['dic-001', 'dic-002', 'dic-003']
 const mapImageUrl = new URL('../地图.png', import.meta.url).href
@@ -75,6 +77,18 @@ export function migrateToV2(): void {
       migrateInspectionPoints()
     }
 
+    if (currentVersion < 7) {
+      migrateNoGoZonesAddZoneType()
+    }
+
+    if (currentVersion < 8) {
+      migrateInspectionPointsAddBizTypes()
+    }
+
+    if (currentVersion < 9) {
+      migrateMapRegionsAddFields()
+    }
+
     enrichFiveLayerModel()
 
     storage.set(STORAGE_KEYS.SCHEMA_VERSION, SCHEMA_VERSION)
@@ -93,6 +107,44 @@ function normalizeInstallations(): void {
     installationPositionNo: item.installationPositionNo || item.code || item.id
   }))
   storage.set(STORAGE_KEYS.INSTALLATIONS, next)
+}
+
+function migrateNoGoZonesAddZoneType(): void {
+  const zones = storage.get<NoGoZone[]>(STORAGE_KEYS.NO_GO_ZONES) || []
+  if (!zones.length) return
+  const migrated = zones.map(zone => ({
+    ...zone,
+    zoneType: (zone as any).zoneType || 'forbidden' as const
+  }))
+  storage.set(STORAGE_KEYS.NO_GO_ZONES, migrated)
+}
+
+function migrateInspectionPointsAddBizTypes(): void {
+  const existing = storage.get<InspectionPoint[]>(STORAGE_KEYS.INSPECTION_POINTS) || []
+  const existingIds = new Set(existing.map(p => p.id))
+  const newPoints = initialInspectionPoints.filter(p => !existingIds.has(p.id))
+  if (newPoints.length) {
+    storage.set(STORAGE_KEYS.INSPECTION_POINTS, [...existing, ...newPoints])
+  }
+}
+
+function migrateMapRegionsAddFields(): void {
+  const maps = storage.get<InspectionMap[]>(STORAGE_KEYS.INSPECTION_MAPS) || []
+  if (!maps.length) return
+  const defaultValues = {
+    'region-a': { code: 'RG-A', zoneType: 'normal' as const, description: '反应釜车间及周边区域', responsiblePerson: '张工', contactPhone: '13800001001' },
+    'region-b': { code: 'RG-B', zoneType: 'normal' as const, description: '储罐及进出料管线区域', responsiblePerson: '李工', contactPhone: '13800001002' },
+    'region-c': { code: 'RG-C', zoneType: 'forbidden' as const, description: '管廊检修区域，非授权禁止进入', responsiblePerson: '王工', contactPhone: '13800001003' }
+  }
+  const nextMaps = maps.map(map => ({
+    ...map,
+    regions: (map.regions || []).map((region) => {
+      if (region.code) return region
+      const defaults = defaultValues[region.id as keyof typeof defaultValues] || { code: `RG-${region.id.slice(-1).toUpperCase()}`, zoneType: 'normal' as const }
+      return { ...region, ...defaults }
+    })
+  }))
+  storage.set(STORAGE_KEYS.INSPECTION_MAPS, nextMaps)
 }
 
 function normalizeImageReferences(): void {
@@ -287,7 +339,7 @@ export function runMockDataConsistencyCheck(): MockDataConsistencyReport {
     if (point.areaId && point.mapId) {
       const regionExists = (mapById.get(point.mapId)?.regions || []).some(region => region.id === point.areaId)
       if (!regionExists) {
-        addIssue('空间数据', '无效区域引用', point.id, point.name, 'error', `点位引用了地图中不存在的区域：${point.areaId}`, '需要在地图区域中补充该区域或调整点位所属区域。')
+        addIssue('空间数据', '无效区域引用', point.id, point.name, 'error', `点位引用了地图中不存在的区域：${point.areaId}`, '需要在地图区域中补充该区域或调整点位巡检区域。')
       }
     }
     if (point.pointBizType === 'inspection') {
@@ -316,24 +368,24 @@ export function runMockDataConsistencyCheck(): MockDataConsistencyReport {
     if (!next.areaId && point?.areaId) {
       next.areaId = point.areaId
       next.areaName = next.areaName || point.areaName
-      addRepair('设施数据', device.id, device.name, 'areaId/areaName', '设施缺少所属区域，已按其巡检点所属区域补齐。')
+      addRepair('设施数据', device.id, device.name, 'areaId/areaName', '设施缺少巡检区域，已按其巡检点巡检区域补齐。')
     }
     if (!next.areaId) {
-      addIssue('设施数据', '缺少所属区域', device.id, device.name, 'warning', '设施没有所属区域，执行规划无法按区域反推覆盖范围。', '请人工补充设施所属区域。')
+      addIssue('设施数据', '缺少巡检区域', device.id, device.name, 'warning', '设施没有巡检区域，执行规划无法按区域反推覆盖范围。', '请人工补充设施巡检区域。')
     }
 
     const assetComponents = next.assetComponents?.length ? normalizeAssetComponents(next.assetComponents, next) : buildAssetComponents(next.id, next)
     const connectionObjects = next.connectionObjects?.length ? normalizeConnectionObjects(next.connectionObjects, next.id) : buildConnectionObjects(next.id, next)
-    if (!next.assetComponents?.length) addRepair('设施数据', next.id, next.name, 'assetComponents', '设施缺少部件，已按标准部件库补齐阀门、仪表、法兰等最小示例。')
+    if (!next.assetComponents?.length) addRepair('设施数据', next.id, next.name, 'assetComponents', '设施缺少巡检对象，已按标准巡检对象库补齐阀门、仪表、法兰等最小示例。')
     if (!next.connectionObjects?.length) addRepair('设施数据', next.id, next.name, 'connectionObjects', '设施缺少连接对象，已补齐法兰-管线等最小示例。')
 
     assetComponents.forEach((component) => {
       if (!component.ruleIds?.length) {
-        addIssue('检测配置', '部件缺少检测规则', component.id, component.name, 'warning', '部件没有可用检测规则，检测配置无法生成采集动作。', '已按部件类型尝试补齐默认规则；若仍为空需人工选择规则。')
+        addIssue('检测配置', '巡检对象缺少检测规则', component.id, component.name, 'warning', '巡检对象没有可用检测规则，检测配置无法生成采集动作。', '已按巡检对象类型尝试补齐默认规则；若仍为空需人工选择规则。')
       }
       const invalidRules = (component.ruleIds || []).filter(ruleId => !VALID_DETECTION_RULE_IDS.includes(ruleId))
       if (invalidRules.length) {
-        addIssue('检测配置', '无效规则引用', component.id, component.name, 'error', `部件引用了不存在的检测规则：${invalidRules.join('、')}`, '需要替换为已发布的检测规则。')
+        addIssue('检测配置', '无效规则引用', component.id, component.name, 'error', `巡检对象引用了不存在的检测规则：${invalidRules.join('、')}`, '需要替换为已发布的检测规则。')
       }
     })
     connectionObjects.forEach((connection) => {
@@ -364,7 +416,7 @@ export function runMockDataConsistencyCheck(): MockDataConsistencyReport {
       }
       const refs = binding.targetObjectRefs || []
       if (!refs.length) {
-        addIssue('设施数据', '停车点未关联检测对象', binding.id, next.name, 'warning', '可采停车点没有关联部件或连接对象。', '需要选择该停车点能检测的部件/连接。')
+        addIssue('设施数据', '停车点未关联检测对象', binding.id, next.name, 'warning', '可采停车点没有关联巡检对象或连接对象。', '需要选择该停车点能检测的巡检对象/连接。')
       }
     })
 
@@ -489,7 +541,7 @@ function ensurePlanCoverageFields(
       !plan.ruleIds?.length && ruleIds.length ? 'ruleIds' : ''
     ].filter(Boolean)
     if (repairedFields.length) {
-      addRepair('计划任务', plan.id, plan.name, repairedFields.join('/'), '执行规划缺少区域、设施、部件/连接或规则引用，已按点位与设施关系补齐。')
+      addRepair('计划任务', plan.id, plan.name, repairedFields.join('/'), '执行规划缺少区域、设施、巡检对象/连接或规则引用，已按点位与设施关系补齐。')
     }
     return next
   })
@@ -652,7 +704,7 @@ function normalizeObjectDetectionConfigs(
           ? config.subjectId === device.id
           : true
     if (!subjectExists) {
-      addIssue('检测配置', '检测配置主体无效', config.id, config.subjectName, 'error', `检测配置引用了不存在的检测主体：${config.subjectType}/${config.subjectId}`, '需要删除该配置或重新选择设施下的部件/连接。')
+      addIssue('检测配置', '检测配置主体无效', config.id, config.subjectName, 'error', `检测配置引用了不存在的检测主体：${config.subjectType}/${config.subjectId}`, '需要删除该配置或重新选择设施下的巡检对象/连接。')
       return
     }
     if (!VALID_DETECTION_RULE_IDS.includes(config.ruleId)) {
@@ -690,7 +742,7 @@ function normalizeObjectDetectionConfigs(
     addRepair('检测配置', device.id, device.name, 'objectDetectionConfigs', '设施缺少对象检测配置，已按停车点、检测对象和规则生成最小检测配置。')
   }
   if (!result.length) {
-    addIssue('检测配置', '缺少检测配置', device.id, device.name, 'warning', '设施没有有效对象检测配置，执行任务无法生成检测动作。', '请为设施的部件或连接对象选择检测规则。')
+    addIssue('检测配置', '缺少检测配置', device.id, device.name, 'warning', '设施没有有效对象检测配置，执行任务无法生成检测动作。', '请为设施的巡检对象或连接对象选择检测规则。')
   }
   return result
 }
@@ -854,6 +906,7 @@ function enrichInspectionPoint(point: InspectionPoint): InspectionPoint {
 function inferPointBizType(point: InspectionPoint): InspectionPoint['pointBizType'] {
   const tag = String(point.description || '').match(/^\[(巡检点|停车点|充电点|充电站|维修站|通行点|临停点)\]/)?.[1]
   if (tag === '充电点' || tag === '充电站') return 'charging'
+  if (tag === '停车点') return 'parking'
   if (tag === '维修站') return 'maintenance'
   if (tag === '通行点' || tag === '临停点') return 'standby'
   return 'inspection'
@@ -1367,7 +1420,7 @@ function inferPrimaryComponentName(device: InspectionDevice | undefined, type: I
     joint: '接头',
     sensor: '传感器',
     screw: '螺杆',
-    other: '现场部件'
+    other: '现场巡检对象'
   }
   return map[type]
 }

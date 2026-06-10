@@ -1,9 +1,7 @@
 import { storage, STORAGE_KEYS } from '@/utils/storage'
-import { 
-  initialRobots, 
-  initialInspectionPoints, 
-  initialMonitorPoints, 
-  initialMetrics, 
+import {
+  initialRobots,
+  initialInspectionPoints,
   initialTasks,
   initialInspectionMaps,
   initialWaypoints,
@@ -14,7 +12,13 @@ import {
   initialFacilityComponents,
   initialInspectionDeviceCheckItems,
   initialInspectionPlans,
-  initialStandardComponents
+  initialStandardComponents,
+  initialRoadNodes,
+  initialRoadEdges,
+  initialRoadSegments,
+  initialJunctions,
+  initialNavigationPoints,
+  initialNoGoZones
 } from './initialData'
 import { Robot, InspectionPoint, MonitorPoint, Metric, InspectionTask, InspectionPath } from '@/types'
 import type {
@@ -32,6 +36,10 @@ import type {
   Installation,
   FacilityComponent
 } from '@/types/inspection'
+import type {
+  RoadNode, RoadEdge, RoadSegment, Junction, NavigationPoint,
+  NoGoZone, Geofence, RoadNetworkVersion, TopologyCheckResult
+} from '@/types/road-network'
 import { migrateToV2 } from './migrations'
 
 export class MockService {
@@ -42,12 +50,6 @@ export class MockService {
     }
     if (!storage.get(STORAGE_KEYS.INSPECTION_POINTS)) {
       storage.set(STORAGE_KEYS.INSPECTION_POINTS, initialInspectionPoints)
-    }
-    if (!storage.get(STORAGE_KEYS.MONITOR_POINTS)) {
-      storage.set(STORAGE_KEYS.MONITOR_POINTS, initialMonitorPoints)
-    }
-    if (!storage.get(STORAGE_KEYS.METRICS)) {
-      storage.set(STORAGE_KEYS.METRICS, initialMetrics)
     }
     if (!storage.get(STORAGE_KEYS.TASKS)) {
       storage.set(STORAGE_KEYS.TASKS, initialTasks)
@@ -83,7 +85,25 @@ export class MockService {
     if (!storage.get(STORAGE_KEYS.STANDARD_COMPONENTS)) {
       storage.set(STORAGE_KEYS.STANDARD_COMPONENTS, initialStandardComponents)
     }
-    
+    if (!storage.get(STORAGE_KEYS.ROAD_NODES)) {
+      storage.set(STORAGE_KEYS.ROAD_NODES, initialRoadNodes)
+    }
+    if (!storage.get(STORAGE_KEYS.ROAD_EDGES)) {
+      storage.set(STORAGE_KEYS.ROAD_EDGES, initialRoadEdges)
+    }
+    if (!storage.get(STORAGE_KEYS.ROAD_SEGMENTS)) {
+      storage.set(STORAGE_KEYS.ROAD_SEGMENTS, initialRoadSegments)
+    }
+    if (!storage.get(STORAGE_KEYS.JUNCTIONS)) {
+      storage.set(STORAGE_KEYS.JUNCTIONS, initialJunctions)
+    }
+    if (!storage.get(STORAGE_KEYS.NAV_POINTS)) {
+      storage.set(STORAGE_KEYS.NAV_POINTS, initialNavigationPoints)
+    }
+    if (!storage.get(STORAGE_KEYS.NO_GO_ZONES)) {
+      storage.set(STORAGE_KEYS.NO_GO_ZONES, initialNoGoZones)
+    }
+
     migrateToV2()
   }
   
@@ -449,7 +469,7 @@ export class MockService {
     storage.set(STORAGE_KEYS.INSPECTION_DEVICE_CHECK_ITEMS, items)
   }
 
-  // 标准部件库
+  // 标准巡检对象库
   static getStandardComponents(): StandardComponent[] {
     return storage.get<StandardComponent[]>(STORAGE_KEYS.STANDARD_COMPONENTS) || []
   }
@@ -535,5 +555,247 @@ export class MockService {
   static deleteInspectionPlan(id: string): void {
     const plans = this.getInspectionPlans().filter(p => p.id !== id)
     storage.set(STORAGE_KEYS.PLANS, plans)
+  }
+
+  // ═══════════════════════════════════════
+  // 路网管理 — 统一拓扑模型
+  // ═══════════════════════════════════════
+
+  // ── 节点 ──
+  static getRoadNodes(): RoadNode[] {
+    return storage.get<RoadNode[]>(STORAGE_KEYS.ROAD_NODES) || []
+  }
+
+  static getRoadNodesByMapId(mapId: string): RoadNode[] {
+    return this.getRoadNodes().filter(n => n.mapId === mapId)
+  }
+
+  static saveRoadNode(node: RoadNode): void {
+    const nodes = this.getRoadNodes()
+    const index = nodes.findIndex(n => n.id === node.id)
+    if (index >= 0) nodes[index] = node
+    else nodes.push(node)
+    storage.set(STORAGE_KEYS.ROAD_NODES, nodes)
+  }
+
+  /** 删除节点并级联清理关联边和引用 */
+  static deleteRoadNode(id: string): void {
+    // 1. 删除所有关联边
+    const edges = this.getRoadEdges().filter(e => e.fromNodeId === id || e.toNodeId === id)
+    edges.forEach(e => this.deleteRoadEdge(e.id))
+    // 2. 从所有节点的 edgeIds 中移除关联边 ID（已由 deleteRoadEdge 处理）
+    // 3. 删除节点
+    const nodes = this.getRoadNodes().filter(n => n.id !== id)
+    storage.set(STORAGE_KEYS.ROAD_NODES, nodes)
+  }
+
+  // ── 边 ──
+  static getRoadEdges(): RoadEdge[] {
+    return storage.get<RoadEdge[]>(STORAGE_KEYS.ROAD_EDGES) || []
+  }
+
+  static getRoadEdgesByMapId(mapId: string): RoadEdge[] {
+    return this.getRoadEdges().filter(e => e.mapId === mapId)
+  }
+
+  static saveRoadEdge(edge: RoadEdge): void {
+    const edges = this.getRoadEdges()
+    const index = edges.findIndex(e => e.id === edge.id)
+    if (index >= 0) edges[index] = edge
+    else edges.push(edge)
+    storage.set(STORAGE_KEYS.ROAD_EDGES, edges)
+  }
+
+  /** 删除边并清理节点的 edgeIds 引用 */
+  static deleteRoadEdge(id: string): void {
+    const edge = this.getRoadEdges().find(e => e.id === id)
+    if (edge) {
+      // 清理 fromNode 的 edgeIds
+      const fromNode = this.getRoadNodes().find(n => n.id === edge.fromNodeId)
+      if (fromNode) {
+        fromNode.edgeIds = fromNode.edgeIds.filter(eid => eid !== id)
+        this.saveRoadNode(fromNode)
+      }
+      // 清理 toNode 的 edgeIds
+      const toNode = this.getRoadNodes().find(n => n.id === edge.toNodeId)
+      if (toNode) {
+        toNode.edgeIds = toNode.edgeIds.filter(eid => eid !== id)
+        this.saveRoadNode(toNode)
+      }
+    }
+    const edges = this.getRoadEdges().filter(e => e.id !== id)
+    storage.set(STORAGE_KEYS.ROAD_EDGES, edges)
+  }
+
+  // ── 路段（边的聚合） ──
+  static getRoadSegments(): RoadSegment[] {
+    return storage.get<RoadSegment[]>(STORAGE_KEYS.ROAD_SEGMENTS) || []
+  }
+
+  static getRoadSegmentsByMapId(mapId: string): RoadSegment[] {
+    return this.getRoadSegments().filter(s => s.mapId === mapId)
+  }
+
+  static saveRoadSegment(segment: RoadSegment): void {
+    const segments = this.getRoadSegments()
+    const index = segments.findIndex(s => s.id === segment.id)
+    if (index >= 0) segments[index] = segment
+    else segments.push(segment)
+    storage.set(STORAGE_KEYS.ROAD_SEGMENTS, segments)
+  }
+
+  /** 删除路段并级联删除关联边和节点 */
+  static deleteRoadSegment(id: string): void {
+    const segment = this.getRoadSegments().find(s => s.id === id)
+    if (segment) {
+      // 删除关联边（会自动清理节点的 edgeIds）
+      segment.edgeIds.forEach(eid => this.deleteRoadEdge(eid))
+      // 删除孤立节点（edgeIds 为空的节点）
+      segment.nodeIds.forEach(nid => {
+        const node = this.getRoadNodes().find(n => n.id === nid)
+        if (node && node.edgeIds.length === 0) {
+          const nodes = this.getRoadNodes().filter(n => n.id !== nid)
+          storage.set(STORAGE_KEYS.ROAD_NODES, nodes)
+        }
+      })
+    }
+    const segments = this.getRoadSegments().filter(s => s.id !== id)
+    storage.set(STORAGE_KEYS.ROAD_SEGMENTS, segments)
+  }
+
+  // ── 路口 ──
+  static getJunctions(): Junction[] {
+    return storage.get<Junction[]>(STORAGE_KEYS.JUNCTIONS) || []
+  }
+
+  static getJunctionsByMapId(mapId: string): Junction[] {
+    return this.getJunctions().filter(j => j.mapId === mapId)
+  }
+
+  static saveJunction(junction: Junction): void {
+    const junctions = this.getJunctions()
+    const index = junctions.findIndex(j => j.id === junction.id)
+    if (index >= 0) junctions[index] = junction
+    else junctions.push(junction)
+    storage.set(STORAGE_KEYS.JUNCTIONS, junctions)
+  }
+
+  static deleteJunction(id: string): void {
+    const junctions = this.getJunctions().filter(j => j.id !== id)
+    storage.set(STORAGE_KEYS.JUNCTIONS, junctions)
+  }
+
+  // ── 导航点 ──
+  static getNavigationPoints(): NavigationPoint[] {
+    return storage.get<NavigationPoint[]>(STORAGE_KEYS.NAV_POINTS) || []
+  }
+
+  static getNavigationPointsByMapId(mapId: string): NavigationPoint[] {
+    return this.getNavigationPoints().filter(p => p.mapId === mapId)
+  }
+
+  static saveNavigationPoint(point: NavigationPoint): void {
+    const points = this.getNavigationPoints()
+    const index = points.findIndex(p => p.id === point.id)
+    if (index >= 0) points[index] = point
+    else points.push(point)
+    storage.set(STORAGE_KEYS.NAV_POINTS, points)
+  }
+
+  static deleteNavigationPoint(id: string): void {
+    const points = this.getNavigationPoints().filter(p => p.id !== id)
+    storage.set(STORAGE_KEYS.NAV_POINTS, points)
+  }
+
+  /** @deprecated 使用 getNavigationPoints 替代 */
+  static getNavPoints = MockService.getNavigationPoints
+  /** @deprecated 使用 saveNavigationPoint 替代 */
+  static saveNavPoint = MockService.saveNavigationPoint
+  /** @deprecated 使用 deleteNavigationPoint 替代 */
+  static deleteNavPoint = MockService.deleteNavigationPoint
+
+  // ── 绘制区域 ──
+  static getNoGoZones(): NoGoZone[] {
+    return storage.get<NoGoZone[]>(STORAGE_KEYS.NO_GO_ZONES) || []
+  }
+
+  static getNoGoZonesByMapId(mapId: string): NoGoZone[] {
+    return this.getNoGoZones().filter(z => z.mapId === mapId)
+  }
+
+  static saveNoGoZone(zone: NoGoZone): void {
+    const zones = this.getNoGoZones()
+    const index = zones.findIndex(z => z.id === zone.id)
+    if (index >= 0) zones[index] = zone
+    else zones.push(zone)
+    storage.set(STORAGE_KEYS.NO_GO_ZONES, zones)
+  }
+
+  static deleteNoGoZone(id: string): void {
+    const zones = this.getNoGoZones().filter(z => z.id !== id)
+    storage.set(STORAGE_KEYS.NO_GO_ZONES, zones)
+  }
+
+  // ── 电子围栏 ──
+  static getGeofences(): Geofence[] {
+    return storage.get<Geofence[]>(STORAGE_KEYS.GEOFENCES) || []
+  }
+
+  static getGeofencesByMapId(mapId: string): Geofence[] {
+    return this.getGeofences().filter(g => g.mapId === mapId)
+  }
+
+  static saveGeofence(geofence: Geofence): void {
+    const geofences = this.getGeofences()
+    const index = geofences.findIndex(g => g.id === geofence.id)
+    if (index >= 0) geofences[index] = geofence
+    else geofences.push(geofence)
+    storage.set(STORAGE_KEYS.GEOFENCES, geofences)
+  }
+
+  static deleteGeofence(id: string): void {
+    const geofences = this.getGeofences().filter(g => g.id !== id)
+    storage.set(STORAGE_KEYS.GEOFENCES, geofences)
+  }
+
+  // ── 路网版本（含快照） ──
+  static getRoadNetworkVersions(): RoadNetworkVersion[] {
+    return storage.get<RoadNetworkVersion[]>(STORAGE_KEYS.ROAD_NETWORK_VERSIONS) || []
+  }
+
+  static saveRoadNetworkVersion(version: RoadNetworkVersion): void {
+    const versions = this.getRoadNetworkVersions()
+    const index = versions.findIndex(v => v.id === version.id)
+    if (index >= 0) versions[index] = version
+    else versions.push(version)
+    storage.set(STORAGE_KEYS.ROAD_NETWORK_VERSIONS, versions)
+  }
+
+  static deleteRoadNetworkVersion(id: string): void {
+    const versions = this.getRoadNetworkVersions().filter(v => v.id !== id)
+    storage.set(STORAGE_KEYS.ROAD_NETWORK_VERSIONS, versions)
+  }
+
+  // ── 拓扑检查结果 ──
+  static getTopologyChecks(): TopologyCheckResult[] {
+    return storage.get<TopologyCheckResult[]>(STORAGE_KEYS.TOPOLOGY_CHECKS) || []
+  }
+
+  static saveTopologyCheck(check: TopologyCheckResult): void {
+    const checks = this.getTopologyChecks()
+    const index = checks.findIndex(c => c.id === check.id)
+    if (index >= 0) checks[index] = check
+    else checks.push(check)
+    storage.set(STORAGE_KEYS.TOPOLOGY_CHECKS, checks)
+  }
+
+  /** 从快照恢复全部路网数据 */
+  static restoreFromSnapshot(snapshot: import('@/types/road-network').RoadNetworkSnapshot): void {
+    storage.set(STORAGE_KEYS.ROAD_NODES, snapshot.nodes)
+    storage.set(STORAGE_KEYS.ROAD_EDGES, snapshot.edges)
+    storage.set(STORAGE_KEYS.ROAD_SEGMENTS, snapshot.segments)
+    storage.set(STORAGE_KEYS.JUNCTIONS, snapshot.junctions)
+    storage.set(STORAGE_KEYS.NAV_POINTS, snapshot.navPoints)
+    storage.set(STORAGE_KEYS.NO_GO_ZONES, snapshot.noGoZones)
   }
 }

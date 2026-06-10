@@ -28,7 +28,7 @@
         <a-card size="small"><span>当前场景规划</span><strong>{{ filteredPlans.length }}</strong></a-card>
         <a-card size="small"><span>装置数</span><strong>{{ sceneSummary.installationCount }}</strong></a-card>
         <a-card size="small"><span>设施/管路数</span><strong>{{ sceneSummary.facilityCount }}</strong></a-card>
-        <a-card size="small"><span>部件数</span><strong>{{ sceneSummary.componentCount }}</strong></a-card>
+        <a-card size="small"><span>巡检对象数</span><strong>{{ sceneSummary.componentCount }}</strong></a-card>
         <a-card size="small"><span>规则数</span><strong>{{ sceneSummary.ruleCount }}</strong></a-card>
       </div>
 
@@ -197,7 +197,7 @@
           <a-descriptions-item label="遗漏区域">{{ currentCoverage.missingRegions.length || 0 }}</a-descriptions-item>
           <a-descriptions-item label="遗漏装置">{{ currentCoverage.missingInstallations.length || 0 }}</a-descriptions-item>
           <a-descriptions-item label="遗漏设施">{{ currentCoverage.missingDevices.length || 0 }}</a-descriptions-item>
-          <a-descriptions-item label="遗漏部件">{{ currentCoverage.missingSubjects.length || 0 }}</a-descriptions-item>
+          <a-descriptions-item label="遗漏巡检对象">{{ currentCoverage.missingSubjects.length || 0 }}</a-descriptions-item>
           <a-descriptions-item label="遗漏巡检规则">{{ currentCoverage.missingRules.length || 0 }}</a-descriptions-item>
         </a-descriptions>
 
@@ -225,13 +225,13 @@
               <a-empty v-if="currentCoverage.missingDevices.length === 0" description="无遗漏设施" />
               <div v-for="item in currentCoverage.missingDevices" :key="item.deviceId" class="coverage-missing-item danger">
                 <div class="coverage-title">{{ item.deviceName }}</div>
-                <div class="coverage-meta">所属区域：{{ item.regionName }}</div>
+                <div class="coverage-meta">巡检区域：{{ item.regionName }}</div>
               </div>
             </a-card>
           </a-col>
           <a-col :xs="24" :lg="12" :xl="6">
-            <a-card size="small" title="遗漏部件">
-              <a-empty v-if="currentCoverage.missingSubjects.length === 0" description="无遗漏部件" />
+            <a-card size="small" title="遗漏巡检对象">
+              <a-empty v-if="currentCoverage.missingSubjects.length === 0" description="无遗漏巡检对象" />
               <div v-for="item in currentCoverage.missingSubjects" :key="item.subjectId" class="coverage-missing-item warning">
                 <div class="coverage-title">{{ item.subjectName }}</div>
                 <div class="coverage-meta">{{ item.regionName }} / {{ item.deviceName }} / {{ item.subjectType }}</div>
@@ -296,7 +296,7 @@ const columns = [
   { title: '巡检装置', key: 'installationNames', width: 220 },
   { title: '装置数', key: 'installationCount', width: 100 },
   { title: '巡检设施数', key: 'facilityCount', width: 120 },
-  { title: '巡检部件数', key: 'componentCount', width: 120 },
+  { title: '巡检巡检对象数', key: 'componentCount', width: 120 },
   { title: '巡检规则数', key: 'ruleCount', width: 120 },
   { title: '状态', key: 'status', width: 100 },
   { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt', width: 180 },
@@ -512,7 +512,7 @@ function openAllCoverageModal() {
     const components = (device.assetComponents || []).map((component: any) => ({
       id: component.id,
       name: component.name,
-      typeLabel: '部件',
+      typeLabel: '巡检对象',
       ruleIds: component.ruleIds || []
     }))
     ;components.forEach((subject: any) => {

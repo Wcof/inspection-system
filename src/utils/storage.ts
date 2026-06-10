@@ -20,7 +20,16 @@ const STORAGE_KEYS = {
   SYSTEM_CONFIG: 'system_config',
   STANDARD_COMPONENTS: 'standard_components',
   INSPECTION_TASK_SNAPSHOTS: 'inspection_task_snapshots',
-  INSPECTION_TASK_RESULTS: 'inspection_task_results'
+  INSPECTION_TASK_RESULTS: 'inspection_task_results',
+  ROAD_NODES: 'road_nodes',
+  ROAD_EDGES: 'road_edges',
+  ROAD_SEGMENTS: 'road_segments',
+  JUNCTIONS: 'junctions',
+  NAV_POINTS: 'nav_points',
+  NO_GO_ZONES: 'no_go_zones',
+  GEOFENCES: 'geofences',
+  ROAD_NETWORK_VERSIONS: 'road_network_versions',
+  TOPOLOGY_CHECKS: 'topology_checks'
 }
 
 export const storage = {

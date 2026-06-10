@@ -1,14 +1,14 @@
 <template>
   <div class="component-usage-detail">
-    <a-page-header :title="`${component?.name || '部件'}详情`" @back="goBack" />
+    <a-page-header :title="`${component?.name || '巡检对象'}详情`" @back="goBack" />
 
     <a-card style="margin-top: 16px">
       <a-descriptions bordered :column="3" size="small">
-        <a-descriptions-item label="部件名称">{{ component?.name || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="部件类型">{{ getComponentTypeText(component?.componentType) }}</a-descriptions-item>
-        <a-descriptions-item label="部件编号">{{ component?.componentNo || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="部件位号">{{ component?.componentPositionNo || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="所属区域">{{ component?.areaName || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="巡检对象名称">{{ component?.name || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="巡检对象类型">{{ getComponentTypeText(component?.componentType) }}</a-descriptions-item>
+        <a-descriptions-item label="巡检对象编号">{{ component?.componentNo || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="巡检对象位号">{{ component?.componentPositionNo || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="巡检区域">{{ component?.areaName || '-' }}</a-descriptions-item>
         <a-descriptions-item label="所属装置">{{ component?.installationName || '-' }}</a-descriptions-item>
         <a-descriptions-item label="所属设施">{{ component?.facilityName || '-' }}</a-descriptions-item>
         <a-descriptions-item label="备注">{{ component?.remark || '-' }}</a-descriptions-item>
@@ -120,7 +120,7 @@ const ruleColumns = [
 
 const pointColumns = [
   { title: '巡检点', dataIndex: 'pointName', key: 'pointName' },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '停车点', dataIndex: 'parkingPointNames', key: 'parkingPointNames', width: 180 },
   { title: '关联规则', dataIndex: 'ruleNames', key: 'ruleNames' },
   { title: '检测顺序', dataIndex: 'executionOrder', key: 'executionOrder', width: 100 }
@@ -206,7 +206,7 @@ const inspectionRecordColumns = [
   { title: '巡检点', dataIndex: 'pointName', key: 'pointName', width: 160 },
   { title: '停车点', dataIndex: 'parkingPointName', key: 'parkingPointName', width: 180 },
   { title: '采集动作', dataIndex: 'collectionAction', key: 'collectionAction', width: 190 },
-  { title: '部件编号/位号', dataIndex: 'componentRef', key: 'componentRef', width: 190 },
+  { title: '巡检对象编号/位号', dataIndex: 'componentRef', key: 'componentRef', width: 190 },
   { title: '命中规则', dataIndex: 'ruleName', key: 'ruleName', width: 170 },
   { title: '规则结果', dataIndex: 'recognizedValue', key: 'recognizedValue', width: 190 },
   { title: '结果状态', key: 'qualityStatus', width: 120 },

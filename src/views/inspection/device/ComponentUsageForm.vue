@@ -1,27 +1,27 @@
 <template>
   <div class="component-usage-form">
-    <a-page-header :title="isEdit ? '编辑部件' : '新增部件'" @back="goBack" />
+    <a-page-header :title="isEdit ? '编辑巡检对象' : '新增巡检对象'" @back="goBack" />
 
     <a-card style="margin-top: 16px">
       <a-form layout="vertical">
         <a-row :gutter="16">
-          <a-col :xs="24" :md="12"><a-form-item label="部件名称" required><a-input v-model:value="form.name" /></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="巡检对象名称" required><a-input v-model:value="form.name" /></a-form-item></a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="部件类型" required>
-              <a-select v-model:value="form.componentType" placeholder="请选择部件类型">
+            <a-form-item label="巡检对象类型" required>
+              <a-select v-model:value="form.componentType" placeholder="请选择巡检对象类型">
                 <a-select-option v-for="item in componentTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
         </a-row>
         <a-row :gutter="16">
-          <a-col :xs="24" :md="12"><a-form-item label="部件编号" required><a-input v-model:value="form.componentNo" /></a-form-item></a-col>
-          <a-col :xs="24" :md="12"><a-form-item label="部件位号" required><a-input v-model:value="form.componentPositionNo" /></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="巡检对象编号" required><a-input v-model:value="form.componentNo" /></a-form-item></a-col>
+          <a-col :xs="24" :md="12"><a-form-item label="巡检对象位号" required><a-input v-model:value="form.componentPositionNo" /></a-form-item></a-col>
         </a-row>
         <a-row :gutter="16">
           <a-col :xs="24" :md="8">
-            <a-form-item label="所属区域" required>
-              <a-select v-model:value="form.areaId" placeholder="请选择所属区域" @change="syncArea">
+            <a-form-item label="巡检区域" required>
+              <a-select v-model:value="form.areaId" placeholder="请选择巡检区域" @change="syncArea">
                 <a-select-option v-for="item in areaOptions" :key="item.id" :value="item.id">{{ item.name }}</a-select-option>
               </a-select>
             </a-form-item>
@@ -264,7 +264,7 @@ function goBack() {
 
 function handleSave() {
   if (!form.name.trim() || !form.componentNo.trim() || !form.componentPositionNo.trim() || !form.areaId || !form.installationId || !form.facilityId) {
-    message.error('请补齐部件基础信息')
+    message.error('请补齐巡检对象基础信息')
     return
   }
 
@@ -293,7 +293,7 @@ function handleSave() {
     createdAt: current.value?.createdAt || now,
     updatedAt: now
   })
-  message.success('部件已保存')
+  message.success('巡检对象已保存')
   goBack()
 }
 

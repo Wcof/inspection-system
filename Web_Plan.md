@@ -294,7 +294,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/facility',
     name: 'Facility',
-    meta: { title: '设施管理' },
+    meta: { title: '设施设备' },
     children: [
       {
         path: 'robot',

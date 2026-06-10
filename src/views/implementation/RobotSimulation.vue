@@ -27,36 +27,160 @@
     </a-card>
 
     <a-card style="margin-bottom: 16px" v-if="selectedRobot">
-      <h3>版本与型号信息</h3>
-      <a-descriptions :column="3" bordered size="small">
-        <a-descriptions-item label="硬件型号">{{ selectedRobot.versions.hardwareModel }}</a-descriptions-item>
-        <a-descriptions-item label="车控型号">{{ selectedRobot.versions.vehicleControlModel }}</a-descriptions-item>
-        <a-descriptions-item label="软件型号">{{ selectedRobot.versions.softwareModel }}</a-descriptions-item>
-        <a-descriptions-item label="自控板型号">{{ selectedRobot.versions.controlBoardModel }}</a-descriptions-item>
-        <a-descriptions-item label="挂件型号">{{ selectedRobot.versions.attachmentModel }}</a-descriptions-item>
-      </a-descriptions>
+      <h3>机器人信息</h3>
+      <a-tabs v-model:activeKey="infoTab" type="card">
+        <!-- 硬件信息 -->
+        <a-tab-pane key="hardware" tab="硬件信息">
+          <a-descriptions :column="3" bordered size="small">
+            <a-descriptions-item label="硬件型号">{{ selectedRobot.versions.hardwareModel }}</a-descriptions-item>
+            <a-descriptions-item label="车控型号">{{ selectedRobot.versions.vehicleControlModel }}</a-descriptions-item>
+            <a-descriptions-item label="自控板型号">{{ selectedRobot.versions.controlBoardModel }}</a-descriptions-item>
+            <a-descriptions-item label="底盘类型">全驱防爆底盘</a-descriptions-item>
+            <a-descriptions-item label="驱动方式">四轮独立驱动</a-descriptions-item>
+            <a-descriptions-item label="最大负载">100 kg</a-descriptions-item>
+            <a-descriptions-item label="最大速度">1.5 m/s</a-descriptions-item>
+            <a-descriptions-item label="爬坡能力">≤15°</a-descriptions-item>
+            <a-descriptions-item label="越障高度">≤50 mm</a-descriptions-item>
+            <a-descriptions-item label="防护等级">IP67</a-descriptions-item>
+            <a-descriptions-item label="防爆等级">Ex d IIC T4 Gb</a-descriptions-item>
+            <a-descriptions-item label="整机重量">≈85 kg</a-descriptions-item>
+          </a-descriptions>
+        </a-tab-pane>
+
+        <!-- 软件与版本 -->
+        <a-tab-pane key="software" tab="软件与版本">
+          <a-descriptions :column="3" bordered size="small">
+            <a-descriptions-item label="软件型号">{{ selectedRobot.versions.softwareModel }}</a-descriptions-item>
+            <a-descriptions-item label="系统内核">RobotOS v2.4</a-descriptions-item>
+            <a-descriptions-item label="导航算法">SLAM + 多传感器融合</a-descriptions-item>
+            <a-descriptions-item label="路径规划">A* + 动态避障</a-descriptions-item>
+            <a-descriptions-item label="最近固件更新">2026-05-20</a-descriptions-item>
+            <a-descriptions-item label="最近软件更新">2026-06-01</a-descriptions-item>
+          </a-descriptions>
+        </a-tab-pane>
+
+        <!-- 通讯信息 -->
+        <a-tab-pane key="communication" tab="通讯信息">
+          <a-descriptions :column="3" bordered size="small">
+            <a-descriptions-item label="主通信方式">5G 工业网关</a-descriptions-item>
+            <a-descriptions-item label="通信模块型号">EDGE-5G-01</a-descriptions-item>
+            <a-descriptions-item label="通信协议">MQTT / ROS Bridge</a-descriptions-item>
+            <a-descriptions-item label="备用通信">4G LTE</a-descriptions-item>
+            <a-descriptions-item label="Wi-Fi">802.11ac (2.4G/5G)</a-descriptions-item>
+            <a-descriptions-item label="心跳间隔">5000 ms</a-descriptions-item>
+            <a-descriptions-item label="重连间隔">3000 ms</a-descriptions-item>
+            <a-descriptions-item label="超时时间">10000 ms</a-descriptions-item>
+            <a-descriptions-item label="最大重连次数">5 次</a-descriptions-item>
+          </a-descriptions>
+        </a-tab-pane>
+
+        <!-- 悬挂配件 -->
+        <a-tab-pane key="accessories" tab="悬挂配件">
+          <a-tabs v-model:activeKey="accessoryTab" type="card" size="small">
+            <!-- 光学（云台） -->
+            <a-tab-pane key="gimbal" tab="光学（云台）">
+              <a-descriptions :column="3" bordered size="small">
+                <a-descriptions-item label="设备名称">双轴高精度防爆云台</a-descriptions-item>
+                <a-descriptions-item label="型号">GIMBAL-2AXIS-01</a-descriptions-item>
+                <a-descriptions-item label="厂商">精密工业驱动</a-descriptions-item>
+                <a-descriptions-item label="状态"><a-tag color="green">正常</a-tag></a-descriptions-item>
+                <a-descriptions-item label="分辨率">200万像素 (1080P)</a-descriptions-item>
+                <a-descriptions-item label="光学变焦">30倍</a-descriptions-item>
+                <a-descriptions-item label="旋转范围">水平360° / 垂直-15°~90°</a-descriptions-item>
+                <a-descriptions-item label="旋转速度">水平60°/s / 垂直40°/s</a-descriptions-item>
+                <a-descriptions-item label="工作温度">-20°C ~ +60°C</a-descriptions-item>
+              </a-descriptions>
+            </a-tab-pane>
+
+            <!-- 光学（双目） -->
+            <a-tab-pane key="binocular" tab="光学（双目）">
+              <a-descriptions :column="3" bordered size="small">
+                <a-descriptions-item label="设备名称">双目红外可见光一体相机</a-descriptions-item>
+                <a-descriptions-item label="型号">BI-CAM-01</a-descriptions-item>
+                <a-descriptions-item label="厂商">航天视觉</a-descriptions-item>
+                <a-descriptions-item label="状态"><a-tag color="green">正常</a-tag></a-descriptions-item>
+                <a-descriptions-item label="可见光分辨率">400万像素 (2K)</a-descriptions-item>
+                <a-descriptions-item label="红外分辨率">640×512</a-descriptions-item>
+                <a-descriptions-item label="视场角">H: 90° / V: 65°</a-descriptions-item>
+                <a-descriptions-item label="深度感知">0.5m ~ 20m</a-descriptions-item>
+                <a-descriptions-item label="帧率">30 fps</a-descriptions-item>
+              </a-descriptions>
+            </a-tab-pane>
+
+            <!-- 热成像 -->
+            <a-tab-pane key="thermal" tab="热成像">
+              <a-descriptions :column="3" bordered size="small">
+                <a-descriptions-item label="设备名称">高精度热成像仪</a-descriptions-item>
+                <a-descriptions-item label="型号">THERMAL-01</a-descriptions-item>
+                <a-descriptions-item label="厂商">高德红外</a-descriptions-item>
+                <a-descriptions-item label="状态"><a-tag color="green">正常</a-tag></a-descriptions-item>
+                <a-descriptions-item label="探测器类型">非制冷氧化钒</a-descriptions-item>
+                <a-descriptions-item label="分辨率">640×512</a-descriptions-item>
+                <a-descriptions-item label="测温范围">-20°C ~ +150°C</a-descriptions-item>
+                <a-descriptions-item label="测温精度">±2°C</a-descriptions-item>
+                <a-descriptions-item label="帧频">30 Hz</a-descriptions-item>
+              </a-descriptions>
+            </a-tab-pane>
+
+            <!-- 气体检测 -->
+            <a-tab-pane key="gas" tab="气体检测">
+              <a-descriptions :column="3" bordered size="small">
+                <a-descriptions-item label="设备名称">多组合气体检测仪</a-descriptions-item>
+                <a-descriptions-item label="型号">GAS-DET-01</a-descriptions-item>
+                <a-descriptions-item label="厂商">环境感知安防</a-descriptions-item>
+                <a-descriptions-item label="状态"><a-tag color="green">正常</a-tag></a-descriptions-item>
+                <a-descriptions-item label="检测气体">CH₄ / H₂S / CO / O₂ / VOC</a-descriptions-item>
+                <a-descriptions-item label="CH₄量程">0~100% LEL</a-descriptions-item>
+                <a-descriptions-item label="H₂S量程">0~100 ppm</a-descriptions-item>
+                <a-descriptions-item label="CO量程">0~1000 ppm</a-descriptions-item>
+                <a-descriptions-item label="响应时间">≤30 s</a-descriptions-item>
+              </a-descriptions>
+            </a-tab-pane>
+
+            <!-- 激光雷达 -->
+            <a-tab-pane key="lidar" tab="激光雷达">
+              <a-descriptions :column="3" bordered size="small">
+                <a-descriptions-item label="设备名称">32线激光雷达</a-descriptions-item>
+                <a-descriptions-item label="型号">LIDAR-32CH</a-descriptions-item>
+                <a-descriptions-item label="厂商">镭神智能</a-descriptions-item>
+                <a-descriptions-item label="状态"><a-tag color="green">正常</a-tag></a-descriptions-item>
+                <a-descriptions-item label="线数">32线</a-descriptions-item>
+                <a-descriptions-item label="测距范围">0.3m ~ 200m</a-descriptions-item>
+                <a-descriptions-item label="水平视场角">360°</a-descriptions-item>
+                <a-descriptions-item label="垂直视场角">-15° ~ +15°</a-descriptions-item>
+                <a-descriptions-item label="点云速率">640,000 pts/s</a-descriptions-item>
+              </a-descriptions>
+            </a-tab-pane>
+
+            <!-- 电源系统 -->
+            <a-tab-pane key="power" tab="电源系统">
+              <a-descriptions :column="3" bordered size="small">
+                <a-descriptions-item label="设备名称">钛酸锂高密度电池</a-descriptions-item>
+                <a-descriptions-item label="型号">BATTERY-LTO-01</a-descriptions-item>
+                <a-descriptions-item label="厂商">拓扑能源</a-descriptions-item>
+                <a-descriptions-item label="状态">
+                  <a-tag :color="(selectedRobot.batteryLevel || 0) < 20 ? 'orange' : 'green'">
+                    {{ (selectedRobot.batteryLevel || 0) < 20 ? '低电量' : '正常' }}
+                  </a-tag>
+                </a-descriptions-item>
+                <a-descriptions-item label="电池类型">钛酸锂 (LTO)</a-descriptions-item>
+                <a-descriptions-item label="额定容量">2.4 kWh</a-descriptions-item>
+                <a-descriptions-item label="额定电压">48V</a-descriptions-item>
+                <a-descriptions-item label="充电时长">≤2 h (快充)</a-descriptions-item>
+                <a-descriptions-item label="循环寿命">≥10,000 次</a-descriptions-item>
+              </a-descriptions>
+            </a-tab-pane>
+          </a-tabs>
+        </a-tab-pane>
+      </a-tabs>
     </a-card>
     
     <a-card v-if="selectedRobot">
       <h3>机器人俯视结构图</h3>
       <div class="simulation-view" ref="simulationViewRef">
         <div class="robot-model">
-          <!-- SVG 俯视结构图 -->
-          <svg class="robot-svg" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
-            <rect x="95" y="55" width="210" height="190" rx="20" fill="#eef6ff" stroke="#1677ff" stroke-width="2.5"/>
-            <rect x="155" y="70" width="90" height="42" rx="8" fill="#d6ecff" stroke="#1677ff" />
-            <rect x="160" y="125" width="80" height="60" rx="8" fill="#f7fbff" stroke="#91caff" />
-            <circle cx="130" cy="90" r="16" fill="#263238" />
-            <circle cx="270" cy="90" r="16" fill="#263238" />
-            <circle cx="130" cy="220" r="18" fill="#455a64" />
-            <circle cx="270" cy="220" r="18" fill="#455a64" />
-            <text x="200" y="170" text-anchor="middle" fill="#1f1f1f" font-size="12">电池舱</text>
-            <text x="200" y="96" text-anchor="middle" fill="#1f1f1f" font-size="10">云台</text>
-            <text x="130" y="94" text-anchor="middle" fill="#fff" font-size="9">左摄像头</text>
-            <text x="270" y="94" text-anchor="middle" fill="#fff" font-size="9">右摄像头</text>
-            <text x="130" y="224" text-anchor="middle" fill="#fff" font-size="9">左轮</text>
-            <text x="270" y="224" text-anchor="middle" fill="#fff" font-size="9">右轮</text>
-          </svg>
+          <!-- 俯视结构图 -->
+          <img class="robot-topview-img" src="@/bot.jpg" alt="机器人俯视结构图" />
           
           <!-- 设备圆点 -->
           <div 
@@ -116,6 +240,8 @@ const route = useRoute()
 const simulationViewRef = ref<HTMLElement>()
 const selectedDevice = ref<any>(null)
 const popupPosition = ref({ x: 0, y: 0 })
+const infoTab = ref('hardware')
+const accessoryTab = ref('gimbal')
 
 const robots = ref<any[]>([])
 const handleDocumentClick = (event: MouseEvent) => {
@@ -417,13 +543,14 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
 }
-.robot-simulation .simulation-view .robot-model .robot-svg {
+.robot-simulation .simulation-view .robot-model .robot-topview-img {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 100%;
-  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 .robot-simulation .simulation-view .robot-model .device-node {
   position: absolute;

@@ -1,7 +1,7 @@
 <template>
   <div class="area-manage">
     <a-page-header
-      :title="isListMode ? '区域编辑' : `区域编辑 - ${currentMap?.name || '未命名地图'}`"
+      :title="isListMode ? '区域管理' : `区域编辑 - ${currentMap?.name || '未命名地图'}`"
       :sub-title="isListMode ? '区域列表按行展示所属地图与区域形状回显。' : '支持按电子围栏方式绘制、选中和编辑区域。'"
     >
       <template #extra>
@@ -17,13 +17,18 @@
     <a-card v-if="isListMode" style="margin-top: 16px">
       <div class="search-panel">
         <a-form layout="vertical" :model="regionSearchForm" @submit.prevent>
-          <a-row :gutter="[16, 8]" align="bottom">
-            <a-col :xs="24" :sm="12" :md="9">
+          <a-row :gutter="[16, 8]">
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="区域名称" class="search-item">
                 <a-input v-model:value="regionSearchForm.name" placeholder="请输入区域名称" allow-clear />
               </a-form-item>
             </a-col>
-            <a-col :xs="24" :sm="12" :md="9">
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="区域编码" class="search-item">
+                <a-input v-model:value="regionSearchForm.code" placeholder="请输入区域编码" allow-clear />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="所属地图" class="search-item">
                 <a-select v-model:value="regionSearchForm.mapId" placeholder="请选择所属地图" allow-clear>
                   <a-select-option v-for="map in inspectionStore.inspectionMaps" :key="map.id" :value="map.id">
@@ -32,7 +37,20 @@
                 </a-select>
               </a-form-item>
             </a-col>
-            <a-col :xs="24" :sm="24" :md="6">
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="区域类型" class="search-item">
+                <a-select v-model:value="regionSearchForm.zoneType" placeholder="全部类型" allow-clear>
+                  <a-select-option value="normal">正常通行</a-select-option>
+                  <a-select-option value="forbidden">禁止通行</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="责任人" class="search-item">
+                <a-input v-model:value="regionSearchForm.responsiblePerson" placeholder="请输入责任人" allow-clear />
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="24" :md="16" :lg="18">
               <div class="search-actions">
                 <a-space>
                   <a-button type="primary">搜索</a-button>
@@ -46,7 +64,12 @@
 
       <a-table :columns="listColumns" :data-source="filteredRegionListRows" row-key="id">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'shapePreview'">
+          <template v-if="column.key === 'zoneType'">
+            <a-tag :color="record.zoneType === 'forbidden' ? 'red' : 'green'" size="small">
+              {{ record.zoneType === 'forbidden' ? '禁止通行' : '正常通行' }}
+            </a-tag>
+          </template>
+          <template v-else-if="column.key === 'shapePreview'">
             <div class="shape-preview with-map">
               <img :src="record.imageUrl || fallbackMapBackgroundUrl" alt="区域地图预览" class="shape-map-image" />
               <svg viewBox="0 0 240 140" preserveAspectRatio="none">
@@ -65,95 +88,136 @@
     </a-card>
 
     <div v-else class="layout-stack">
-      <a-card class="map-card" title="地图区域绘制" style="margin-top: 16px">
-          <div class="panel-toolbar">
-            <a-space>
-              <a-button type="primary" :disabled="drawing" @click="startPolygon">绘制新区域</a-button>
-              <a-button :disabled="draftPoints.length < 3" @click="finishPolygon">完成区域绘制</a-button>
-            </a-space>
-            <div class="help-text">点击地图依次落点形成电子围栏；选中区域后可进入编辑并调整名称、位置。</div>
+      <!-- 左侧：区域列表 -->
+      <div class="list-card">
+        <div class="list-header">
+          <span class="list-title">区域列表</span>
+          <span class="list-count">{{ filteredRegions.length }}</span>
+        </div>
+        <div class="list-search">
+          <a-input
+            v-model:value="regionKeyword"
+            size="small"
+            placeholder="搜索区域名称"
+            allow-clear
+          >
+            <template #prefix><SearchOutlined /></template>
+          </a-input>
+        </div>
+        <div class="list-body">
+          <div
+            v-for="region in filteredRegions"
+            :key="region.id"
+            class="list-item"
+            :class="{ selected: region.id === selectedRegionId }"
+            @click="selectEditableRegion(region.id)"
+          >
+            <span class="list-item-name">{{ region.name }}</span>
           </div>
+          <a-empty v-if="!filteredRegions.length" :image="simpleImage" description="暂无区域" />
+        </div>
+      </div>
 
-          <div class="map-stage" @click="appendPoint($event)" @mousemove="handlePolygonDrag($event)" @mouseup="stopPolygonDrag" @mouseleave="stopPolygonDrag">
-            <img :src="currentMap?.imageUrl || fallbackMapBackgroundUrl" alt="地图底图" class="map-image" />
-            <svg viewBox="0 0 1000 560" class="map-svg" preserveAspectRatio="none">
-              <polygon
-                v-for="region in regions"
-                :key="region.id"
-                :points="region.points"
-                :fill="region.id === editingRegionId ? 'rgba(250, 140, 22, .30)' : region.id === selectedRegionId ? 'rgba(22,119,255,.28)' : 'rgba(22,119,255,.12)'"
-                :stroke="region.id === editingRegionId ? '#fa8c16' : region.id === selectedRegionId ? '#0958d9' : '#1677ff'"
-                :stroke-width="region.id === editingRegionId || region.id === selectedRegionId ? 4 : 2"
-                @click.stop="selectEditableRegion(region.id)"
-                @mousedown.stop="startPolygonDrag(region.id, $event)"
-              />
-              <text
-                v-for="region in regions.filter(item => item.showName)"
-                :key="`label-${region.id}`"
-                :x="getPolygonCenter(region.points).x"
-                :y="getPolygonCenter(region.points).y"
-                class="region-name-label"
-                text-anchor="middle"
-                dominant-baseline="middle"
-              >{{ region.name }}</text>
-              <polygon
-                v-if="draftPoints.length"
-                :points="draftPolygon"
-                fill="rgba(250,173,20,.18)"
-                stroke="#faad14"
-                stroke-width="2"
-                stroke-dasharray="6 4"
-              />
-              <circle v-for="(point, idx) in draftPoints" :key="idx" :cx="point.x" :cy="point.y" r="5" fill="#faad14" />
-            </svg>
+      <!-- 中间：地图绘制 -->
+      <a-card class="map-card" title="地图区域绘制">
+        <div class="panel-toolbar">
+          <a-space>
+            <template v-if="!editMode">
+              <a-button type="primary" @click="enterEditMode">编辑</a-button>
+            </template>
+            <template v-else>
+              <a-button v-if="!drawing" type="primary" @click="startPolygon">新增区域</a-button>
+              <template v-else>
+                <a-tag color="processing">绘制中… 右键完成</a-tag>
+              </template>
+              <a-button type="primary" @click="saveAll">保存</a-button>
+              <a-button @click="cancelEdit">取消</a-button>
+            </template>
+          </a-space>
+          <div class="layer-toggles">
+            <a-checkbox v-model:checked="showRegionName">显示名称</a-checkbox>
           </div>
-        </a-card>
+        </div>
 
-      <a-card class="list-card" title="区域列表">
-        <a-table
-          :columns="columns"
-          :data-source="regions"
-          row-key="id"
-          :pagination="false"
-          size="small"
-          :scroll="{ x: 760, y: 320 }"
-          :custom-row="bindRegionRow"
-          :row-class-name="getRegionRowClass"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'name'">
-              <a-input
-                v-if="editingRegionId === record.id"
-                v-model:value="editingRegionName"
-                size="small"
-                placeholder="请输入区域名称"
-              />
-              <template v-else>{{ record.name }}</template>
-            </template>
-            <template v-else-if="column.key === 'shape'">
-              <div class="shape-preview compact">
-                <svg viewBox="0 0 240 140" preserveAspectRatio="none">
-                  <polygon :points="record.previewPoints" fill="rgba(22,119,255,.18)" stroke="#1677ff" stroke-width="2" />
-                </svg>
-              </div>
-            </template>
-            <template v-else-if="column.key === 'showName'">
-              <a-switch v-model:checked="record.showName" size="small" checked-children="显示" un-checked-children="隐藏" @change="saveRegions" />
-            </template>
-            <template v-else-if="column.key === 'actions'">
-              <a-space>
-                <template v-if="editingRegionId === record.id">
-                  <a-button type="link" size="small" @click.stop="saveRegionEdit">保存</a-button>
-                  <a-button type="link" size="small" @click.stop="cancelRegionEdit">取消</a-button>
-                </template>
-                <template v-else>
-                  <a-button type="link" size="small" @click.stop="openRegionEditor(record.id)">编辑</a-button>
-                  <a-button type="link" size="small" danger @click="deleteRegion(record.id)">删除</a-button>
-                </template>
-              </a-space>
-            </template>
-          </template>
-        </a-table>
+        <div class="map-stage" @click="appendPoint($event)" @contextmenu.prevent="finishPolygon" @mousemove="handlePolygonDrag($event)" @mouseup="stopPolygonDrag" @mouseleave="stopPolygonDrag">
+          <img :src="currentMap?.imageUrl || fallbackMapBackgroundUrl" alt="地图底图" class="map-image" />
+          <svg viewBox="0 0 1000 560" class="map-svg" preserveAspectRatio="none">
+            <polygon
+              v-for="region in regions"
+              :key="region.id"
+              :points="region.points"
+              :fill="region.id === selectedRegionId ? 'rgba(22,119,255,.28)' : 'rgba(22,119,255,.12)'"
+              :stroke="region.id === selectedRegionId ? '#0958d9' : '#1677ff'"
+              :stroke-width="region.id === selectedRegionId ? 4 : 2"
+              :style="editMode ? 'cursor: move' : ''"
+              @click.stop="selectEditableRegion(region.id)"
+              @mousedown.stop="editMode && startPolygonDrag(region.id, $event)"
+            />
+            <text
+              v-if="showRegionName"
+              v-for="region in regions"
+              :key="`label-${region.id}`"
+              :x="getPolygonCenter(region.points).x"
+              :y="getPolygonCenter(region.points).y"
+              class="region-name-label"
+              text-anchor="middle"
+              dominant-baseline="middle"
+            >{{ region.name }}</text>
+            <polygon
+              v-if="draftPoints.length"
+              :points="draftPolygon"
+              fill="rgba(250,173,20,.18)"
+              stroke="#faad14"
+              stroke-width="2"
+              stroke-dasharray="6 4"
+            />
+            <circle v-for="(point, idx) in draftPoints" :key="idx" :cx="point.x" :cy="point.y" r="5" fill="#faad14" />
+          </svg>
+        </div>
+      </a-card>
+
+      <!-- 右侧：属性面板 -->
+      <a-card v-if="selectedRegionData" class="property-card" :title="`区域属性 - ${selectedRegionData.name}`">
+        <a-form layout="vertical" size="small" :disabled="!editMode">
+          <a-divider orientation="left">基础信息</a-divider>
+          <a-row :gutter="12">
+            <a-col :span="12">
+              <a-form-item label="区域名称">
+                <a-input v-model:value="selectedRegionData.name" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="区域编码">
+                <a-input v-model:value="selectedRegionData.code" />
+              </a-form-item>
+            </a-col>
+          </a-row>
+          <a-form-item label="区域类型">
+            <a-select v-model:value="selectedRegionData.zoneType">
+              <a-select-option value="normal">正常通行</a-select-option>
+              <a-select-option value="forbidden">禁止通行</a-select-option>
+            </a-select>
+          </a-form-item>
+          <a-form-item label="描述">
+            <a-textarea v-model:value="selectedRegionData.description" :rows="2" placeholder="区域描述信息" />
+          </a-form-item>
+          <a-divider orientation="left">管理信息</a-divider>
+          <a-row :gutter="12">
+            <a-col :span="12">
+              <a-form-item label="责任人">
+                <a-input v-model:value="selectedRegionData.responsiblePerson" placeholder="责任人姓名" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="联系电话">
+                <a-input v-model:value="selectedRegionData.contactPhone" placeholder="联系电话" />
+              </a-form-item>
+            </a-col>
+          </a-row>
+          <a-form-item label="顶点数">
+            <span>{{ parsePoints(selectedRegionData.points).length }} 个</span>
+          </a-form-item>
+        </a-form>
       </a-card>
     </div>
 
@@ -173,12 +237,56 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <a-modal
+      v-model:open="newRegionModalVisible"
+      title="新建绘制区域"
+      @ok="confirmCreateRegion"
+      @cancel="newRegionModalVisible = false"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="区域名称" required>
+          <a-input v-model:value="newRegionForm.name" placeholder="如：巡检区域A" />
+        </a-form-item>
+        <a-row :gutter="12">
+          <a-col :span="12">
+            <a-form-item label="区域编码">
+              <a-input v-model:value="newRegionForm.code" placeholder="如：RG-A" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="区域类型">
+              <a-select v-model:value="newRegionForm.zoneType">
+                <a-select-option value="normal">正常通行</a-select-option>
+                <a-select-option value="forbidden">禁止通行</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-form-item label="描述">
+          <a-textarea v-model:value="newRegionForm.description" :rows="2" placeholder="区域描述信息" />
+        </a-form-item>
+        <a-row :gutter="12">
+          <a-col :span="12">
+            <a-form-item label="责任人">
+              <a-input v-model:value="newRegionForm.responsiblePerson" placeholder="责任人姓名" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="联系电话">
+              <a-input v-model:value="newRegionForm.contactPhone" placeholder="联系电话" />
+            </a-form-item>
+          </a-col>
+        </a-row>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { message, Modal } from 'ant-design-vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { message, Modal, Empty } from 'ant-design-vue'
+import { SearchOutlined } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
 import type { InspectionMap } from '@/types/inspection'
@@ -190,6 +298,11 @@ interface EditableRegionRow {
   points: string
   previewPoints: string
   showName: boolean
+  code: string
+  zoneType: 'normal' | 'forbidden'
+  description: string
+  responsiblePerson: string
+  contactPhone: string
 }
 
 interface RegionListRow {
@@ -197,6 +310,11 @@ interface RegionListRow {
   mapId: string
   mapName: string
   name: string
+  code: string
+  zoneType: 'normal' | 'forbidden'
+  description: string
+  responsiblePerson: string
+  contactPhone: string
   points: string
   previewPoints: string
   imageUrl?: string
@@ -208,39 +326,57 @@ const route = useRoute()
 const router = useRouter()
 const inspectionStore = useInspectionStore()
 
+const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
+
 const drawing = ref(false)
 const draftPoints = ref<Array<{ x: number; y: number }>>([])
 const regions = ref<EditableRegionRow[]>([])
+const regionKeyword = ref('')
+const showRegionName = ref(true)
+const editMode = ref(false)
+let regionsSnapshot: EditableRegionRow[] = []
 const createFromListVisible = ref(false)
 const selectedMapForCreate = ref('')
 const selectedRegionId = ref('')
-const editingRegionId = ref('')
-const editingRegionName = ref('')
 const draggingRegionId = ref('')
 const dragStartPoint = ref<{ x: number; y: number } | null>(null)
 const regionSearchForm = ref({
   name: '',
-  mapId: ''
+  code: '',
+  mapId: '',
+  zoneType: '' as '' | 'normal' | 'forbidden',
+  responsiblePerson: ''
+})
+const newRegionModalVisible = ref(false)
+const newRegionForm = reactive({
+  name: '',
+  code: '',
+  zoneType: 'normal' as 'normal' | 'forbidden',
+  description: '',
+  responsiblePerson: '',
+  contactPhone: ''
 })
 
 const selectedMapId = computed(() => (typeof route.query.mapId === 'string' ? route.query.mapId : ''))
 const isListMode = computed(() => !selectedMapId.value)
 const currentMap = computed(() => inspectionStore.inspectionMaps.find(map => map.id === selectedMapId.value))
-const editingRegion = computed(() => regions.value.find(item => item.id === editingRegionId.value))
+const selectedRegionData = computed(() => regions.value.find(item => item.id === selectedRegionId.value) || null)
 
 const listColumns = [
   { title: '区域名称', dataIndex: 'name', key: 'name' },
-  { title: '所属地图', dataIndex: 'mapName', key: 'mapName', width: 220 },
+  { title: '区域编码', dataIndex: 'code', key: 'code', width: 100 },
+  { title: '区域类型', key: 'zoneType', width: 100 },
+  { title: '所属地图', dataIndex: 'mapName', key: 'mapName', width: 160 },
+  { title: '责任人', dataIndex: 'responsiblePerson', key: 'responsiblePerson', width: 100 },
   { title: '地图形状', key: 'shapePreview', width: 180 },
   { title: '操作', key: 'actions', width: 180 }
 ]
 
-const columns = [
-  { title: '区域名称', dataIndex: 'name', key: 'name' },
-  { title: '形状预览', key: 'shape', width: 150 },
-  { title: '显示名称', key: 'showName', width: 120 },
-  { title: '操作', key: 'actions', width: 180 }
-]
+const filteredRegions = computed(() => {
+  const kw = regionKeyword.value.trim().toLowerCase()
+  if (!kw) return regions.value
+  return regions.value.filter(r => r.name.toLowerCase().includes(kw))
+})
 
 const draftPolygon = computed(() => draftPoints.value.map((point) => `${point.x},${point.y}`).join(' '))
 
@@ -250,6 +386,11 @@ const regionListRows = computed<RegionListRow[]>(() => {
     mapId: map.id,
     mapName: map.name,
     name: region.name,
+    code: region.code || '',
+    zoneType: region.zoneType || 'normal',
+    description: region.description || '',
+    responsiblePerson: region.responsiblePerson || '',
+    contactPhone: region.contactPhone || '',
     points: mapRegionToPolygon(region),
     previewPoints: buildPreviewPolygon(mapRegionToPolygon(region)),
     imageUrl: map.imageUrl
@@ -258,11 +399,17 @@ const regionListRows = computed<RegionListRow[]>(() => {
 
 const filteredRegionListRows = computed(() => {
   const name = regionSearchForm.value.name.trim().toLowerCase()
+  const code = regionSearchForm.value.code.trim().toLowerCase()
   const mapId = regionSearchForm.value.mapId
+  const zoneType = regionSearchForm.value.zoneType
+  const responsiblePerson = regionSearchForm.value.responsiblePerson.trim().toLowerCase()
   return regionListRows.value.filter((region) => {
     const matchesName = !name || region.name.toLowerCase().includes(name)
+    const matchesCode = !code || region.code.toLowerCase().includes(code)
     const matchesMap = !mapId || region.mapId === mapId
-    return matchesName && matchesMap
+    const matchesType = !zoneType || region.zoneType === zoneType
+    const matchesPerson = !responsiblePerson || (region.responsiblePerson || '').toLowerCase().includes(responsiblePerson)
+    return matchesName && matchesCode && matchesMap && matchesType && matchesPerson
   })
 })
 
@@ -353,7 +500,12 @@ function loadRegions() {
       color: region.color,
       points,
       previewPoints: buildPreviewPolygon(points),
-      showName: region.showName ?? true
+      showName: region.showName ?? true,
+      code: region.code || '',
+      zoneType: region.zoneType || 'normal',
+      description: region.description || '',
+      responsiblePerson: region.responsiblePerson || '',
+      contactPhone: region.contactPhone || ''
     }
   })
   if (!selectedRegionId.value && regions.value[0]) {
@@ -376,7 +528,12 @@ function saveRegions() {
         width: rect.width,
         height: rect.height,
         polygonPoints: region.points,
-        showName: region.showName
+        showName: region.showName,
+        code: region.code || undefined,
+        zoneType: region.zoneType,
+        description: region.description || undefined,
+        responsiblePerson: region.responsiblePerson || undefined,
+        contactPhone: region.contactPhone || undefined
       }
     }),
     updatedAt: new Date()
@@ -419,7 +576,10 @@ function confirmCreateFromList() {
 
 function resetRegionSearch() {
   regionSearchForm.value.name = ''
+  regionSearchForm.value.code = ''
   regionSearchForm.value.mapId = ''
+  regionSearchForm.value.zoneType = ''
+  regionSearchForm.value.responsiblePerson = ''
 }
 
 function parseListRegionId(listRegionId: string) {
@@ -483,78 +643,70 @@ function appendPoint(event: MouseEvent) {
 }
 
 function finishPolygon() {
-  if (draftPoints.value.length < 3) return
+  if (!editMode.value || !drawing.value || draftPoints.value.length < 3) return
+  newRegionForm.name = `新区域-${regions.value.length + 1}`
+  newRegionForm.code = ''
+  newRegionForm.zoneType = 'normal'
+  newRegionForm.description = ''
+  newRegionForm.responsiblePerson = ''
+  newRegionForm.contactPhone = ''
+  newRegionModalVisible.value = true
+}
+
+function confirmCreateRegion() {
+  if (!newRegionForm.name.trim()) {
+    message.warning('请输入区域名称')
+    return
+  }
   const points = draftPolygon.value
   const regionId = `area-${Date.now()}`
   regions.value.push({
     id: regionId,
-    name: `新区域-${regions.value.length + 1}`,
+    name: newRegionForm.name.trim(),
     color: '#1677ff',
     points,
     previewPoints: buildPreviewPolygon(points),
-    showName: true
+    showName: true,
+    code: newRegionForm.code.trim(),
+    zoneType: newRegionForm.zoneType,
+    description: newRegionForm.description.trim(),
+    responsiblePerson: newRegionForm.responsiblePerson.trim(),
+    contactPhone: newRegionForm.contactPhone.trim()
   })
-  drawing.value = false
   draftPoints.value = []
+  newRegionModalVisible.value = false
   selectedRegionId.value = regionId
-  saveRegions()
-  message.success('区域已创建')
-}
-
-function deleteRegion(regionId: string) {
-  const targetRegion = regions.value.find(item => item.id === regionId)
-  if (!targetRegion) return
-  Modal.confirm({
-    title: '确认删除区域',
-    content: `确定删除区域「${targetRegion.name}」吗？删除后不可恢复。`,
-    okText: '确认删除',
-    cancelText: '取消',
-    okButtonProps: { danger: true },
-    onOk: () => {
-      regions.value = regions.value.filter(item => item.id !== regionId)
-      if (selectedRegionId.value === regionId) {
-        selectedRegionId.value = regions.value[0]?.id || ''
-      }
-      saveRegions()
-      message.success('区域已删除')
-    }
-  })
+  message.success('区域已添加，继续绘制下一个或点击保存')
 }
 
 function selectEditableRegion(regionId: string) {
   selectedRegionId.value = regionId
 }
 
-function openRegionEditor(regionId: string) {
-  const region = regions.value.find(item => item.id === regionId)
-  if (!region) return
-  selectedRegionId.value = regionId
-  editingRegionId.value = regionId
-  editingRegionName.value = region.name
+function enterEditMode() {
+  regionsSnapshot = JSON.parse(JSON.stringify(regions.value))
+  editMode.value = true
 }
 
-function cancelRegionEdit() {
-  editingRegionId.value = ''
-  editingRegionName.value = ''
-  draggingRegionId.value = ''
-  dragStartPoint.value = null
-}
-
-function saveRegionEdit() {
-  if (!editingRegion.value) return
-  if (!editingRegionName.value.trim()) {
-    message.warning('请输入区域名称')
-    return
-  }
-  editingRegion.value.name = editingRegionName.value.trim()
-  editingRegion.value.previewPoints = buildPreviewPolygon(editingRegion.value.points)
+function saveAll() {
   saveRegions()
-  message.success('区域已更新')
-  cancelRegionEdit()
+  editMode.value = false
+  drawing.value = false
+  draftPoints.value = []
+  regionsSnapshot = []
+  message.success('已保存')
+}
+
+function cancelEdit() {
+  regions.value = JSON.parse(JSON.stringify(regionsSnapshot))
+  editMode.value = false
+  drawing.value = false
+  draftPoints.value = []
+  regionsSnapshot = []
 }
 
 function startPolygonDrag(regionId: string, event: MouseEvent) {
-  if (editingRegionId.value !== regionId) return
+  if (!editMode.value) return
   draggingRegionId.value = regionId
   dragStartPoint.value = { x: event.clientX, y: event.clientY }
 }
@@ -584,27 +736,16 @@ function movePolygon(points: string, deltaX: number, deltaY: number) {
     .join(' ')
 }
 
-function bindRegionRow(record: EditableRegionRow) {
-  return {
-    onClick: () => selectEditableRegion(record.id)
-  }
-}
-
-function getRegionRowClass(record: EditableRegionRow) {
-  if (record.id === editingRegionId.value) return 'editing-region-row'
-  if (record.id === selectedRegionId.value) return 'selected-region-row'
-  return ''
-}
-
 function handleRouteIntent() {
   if (isListMode.value) return
   if (route.query.action === 'create') {
+    enterEditMode()
     startPolygon()
     router.replace({ path: '/implementation/map/area-manage', query: { mapId: selectedMapId.value } })
     return
   }
   if (typeof route.query.regionId === 'string') {
-    openRegionEditor(route.query.regionId)
+    selectedRegionId.value = route.query.regionId
   }
 }
 
@@ -644,14 +785,115 @@ onMounted(() => {
 }
 
 .layout-stack {
-  display: grid;
-  grid-template-rows: auto auto;
+  display: flex;
+  flex-direction: row;
   gap: 16px;
+  flex: 1;
+  min-height: 0;
+  margin-top: 16px;
 }
 
-.map-card,
 .list-card {
+  width: 20%;
+  min-width: 220px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.list-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.list-count {
+  font-size: 12px;
+  color: #8c8c8c;
+  background: #f5f5f5;
+  padding: 0 6px;
+  border-radius: 10px;
+  line-height: 20px;
+}
+
+.list-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.list-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid #fafafa;
+}
+
+.list-item:hover {
+  background: #f5f5f5;
+}
+
+.list-item.selected {
+  background: rgba(22, 119, 255, 0.08);
+}
+
+.list-item-name {
+  flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.map-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-card :deep(.ant-card-body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.property-card {
+  width: 25%;
+  min-width: 260px;
+  max-width: 360px;
+  overflow: auto;
+}
+
+.property-card :deep(.ant-form-item) {
+  margin-bottom: 12px;
+}
+
+.property-card :deep(.ant-divider) {
+  margin: 12px 0 8px;
 }
 
 .panel-toolbar {
@@ -661,21 +903,22 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
-.help-text {
-  color: #8c8c8c;
-  font-size: 12px;
+.layer-toggles {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .map-stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  flex: 1;
   min-height: 420px;
-  max-height: min(62vh, 720px);
   border: 1px solid #f0f0f0;
   border-radius: 8px;
   overflow: hidden;
   background: #f6f8fb;
+  cursor: crosshair;
 }
 
 .map-image {
@@ -701,10 +944,6 @@ onMounted(() => {
   stroke: rgba(255, 255, 255, 0.88);
   stroke-width: 5px;
   pointer-events: none;
-}
-
-.map-stage {
-  cursor: crosshair;
 }
 
 .shape-preview {
@@ -738,28 +977,20 @@ onMounted(() => {
   display: block;
 }
 
-.area-manage :deep(.list-card .ant-table-thead > tr > th) {
-  white-space: nowrap;
-}
-
-.area-manage :deep(.list-card .ant-table-tbody > tr > td) {
-  padding-top: 10px;
-  padding-bottom: 10px;
-  vertical-align: middle;
-}
-
-.area-manage :deep(.selected-region-row > td) {
-  background: rgba(22, 119, 255, 0.08) !important;
-}
-
-.area-manage :deep(.editing-region-row > td) {
-  background: rgba(250, 140, 22, 0.12) !important;
-}
-
 @media (max-width: 992px) {
+  .layout-stack {
+    flex-direction: column;
+  }
+  .list-card {
+    width: 100%;
+    max-width: none;
+  }
+  .property-card {
+    width: 100%;
+    max-width: none;
+  }
   .map-stage {
     min-height: 340px;
-    max-height: 54vh;
   }
 }
 </style>

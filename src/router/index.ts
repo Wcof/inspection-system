@@ -50,6 +50,12 @@ const routes: RouteRecordRaw[] = [
             name: 'ManagementDispatchCenter',
             component: () => import('../views/management/DispatchCenter.vue'),
             meta: { title: '总调度台' }
+          },
+          {
+            path: 'console',
+            name: 'ManagementDispatchConsole',
+            component: () => import('../views/management/dispatch/Console.vue'),
+            meta: { title: '控制台' }
           }
         ]
       },
@@ -196,7 +202,7 @@ const routes: RouteRecordRaw[] = [
             path: 'component-rule-analysis',
             name: 'ManagementReportComponentRuleAnalysis',
             component: () => import('../views/management/report/ReportComponentRuleAnalysis.vue'),
-            meta: { title: '部件规则分析' }
+            meta: { title: '巡检对象规则分析' }
           },
           {
             path: 'evidence-playback-analysis',
@@ -261,6 +267,12 @@ const routes: RouteRecordRaw[] = [
             name: 'ImplementationMapAreaManage',
             component: () => import('../views/map/AreaManage.vue'),
             meta: { title: '区域管理' }
+          },
+          {
+            path: 'road-network',
+            name: 'ImplementationMapRoadNetwork',
+            component: () => import('../views/map/RoadNetwork.vue'),
+            meta: { title: '路网管理' }
           }
         ]
       },
@@ -360,25 +372,25 @@ const routes: RouteRecordRaw[] = [
             path: 'standard-components',
             name: 'ImplementationStandardComponentLibrary',
             redirect: '/implementation/device/component-types',
-            meta: { title: '部件类型配置' }
+            meta: { title: '巡检对象类型配置' }
           },
           {
             path: 'component-usage',
             name: 'ImplementationComponentUsageList',
             component: () => import('../views/inspection/device/ComponentUsageList.vue'),
-            meta: { title: '部件管理' }
+            meta: { title: '巡检对象' }
           },
           {
             path: 'component-usage/detail/:componentId',
             name: 'ImplementationComponentUsageDetail',
             component: () => import('../views/inspection/device/ComponentUsageDetail.vue'),
-            meta: { title: '部件详情' }
+            meta: { title: '巡检对象详情' }
           },
           {
             path: 'component-usage/form/:componentId?',
             name: 'ImplementationComponentUsageForm',
             component: () => import('../views/inspection/device/ComponentUsageForm.vue'),
-            meta: { title: '部件编辑' }
+            meta: { title: '巡检对象编辑' }
           },
           {
             path: 'installation-list',
@@ -408,7 +420,7 @@ const routes: RouteRecordRaw[] = [
             path: 'component-types',
             name: 'ImplementationComponentTypeConfig',
             component: () => import('../views/inspection/device/ComponentTypeConfig.vue'),
-            meta: { title: '部件类型配置' }
+            meta: { title: '巡检对象类型配置' }
           },
           {
             path: 'detail/:id',
@@ -433,13 +445,13 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'metric',
         name: 'ImplementationMetric',
-        meta: { title: '检测项管理' },
+        meta: { title: '检测对象' },
         children: [
           {
             path: 'list',
             name: 'ImplementationMetricList',
             component: () => import('../views/implementation/MetricManagement.vue'),
-            meta: { title: '检测项管理' }
+            meta: { title: '检测对象' }
           }
         ]
       },
@@ -471,6 +483,37 @@ const routes: RouteRecordRaw[] = [
             name: 'ImplementationDetectionItemConfigEdit',
             component: () => import('../views/implementation/detection-item-config/DetectionItemConfigForm.vue'),
             meta: { title: '编辑检测项配置' }
+          }
+        ]
+      },
+      {
+        path: 'safety-strategy',
+        name: 'ImplementationSafetyStrategy',
+        meta: { title: '安全策略配置' },
+        children: [
+          {
+            path: 'list',
+            name: 'ImplementationSafetyStrategyList',
+            component: () => import('../views/implementation/safety-strategy/SafetyStrategyList.vue'),
+            meta: { title: '安全策略配置' }
+          },
+          {
+            path: 'create',
+            name: 'ImplementationSafetyStrategyCreate',
+            component: () => import('../views/implementation/safety-strategy/SafetyStrategyForm.vue'),
+            meta: { title: '新增安全策略' }
+          },
+          {
+            path: 'detail/:id',
+            name: 'ImplementationSafetyStrategyDetail',
+            component: () => import('../views/implementation/safety-strategy/SafetyStrategyDetail.vue'),
+            meta: { title: '安全策略详情' }
+          },
+          {
+            path: 'edit/:id',
+            name: 'ImplementationSafetyStrategyEdit',
+            component: () => import('../views/implementation/safety-strategy/SafetyStrategyForm.vue'),
+            meta: { title: '编辑安全策略' }
           }
         ]
       },

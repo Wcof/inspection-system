@@ -1,8 +1,8 @@
 <template>
   <div class="standard-component-library">
-    <a-page-header title="标准部件库" sub-title="维护可复用的标准部件类型">
+    <a-page-header title="标准巡检对象库" sub-title="维护可复用的标准巡检对象类型">
       <template #extra>
-        <a-button type="primary" @click="openCreate">新增标准部件</a-button>
+        <a-button type="primary" @click="openCreate">新增标准巡检对象</a-button>
       </template>
     </a-page-header>
 
@@ -11,13 +11,13 @@
         <a-form layout="vertical" :model="searchForm" @submit.prevent>
           <a-row :gutter="[16, 8]">
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="部件名称" class="search-item">
-                <a-input v-model:value="searchForm.name" placeholder="请输入部件名称" allow-clear />
+              <a-form-item label="巡检对象名称" class="search-item">
+                <a-input v-model:value="searchForm.name" placeholder="请输入巡检对象名称" allow-clear />
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="部件类型" class="search-item">
-                <a-select v-model:value="searchForm.type" placeholder="请选择部件类型" allow-clear>
+              <a-form-item label="巡检对象类型" class="search-item">
+                <a-select v-model:value="searchForm.type" placeholder="请选择巡检对象类型" allow-clear>
                   <a-select-option v-for="item in componentTypeOptions" :key="item.value" :value="item.value">
                     {{ item.label }}
                   </a-select-option>
@@ -59,16 +59,16 @@
 
     <a-modal
       v-model:open="modalOpen"
-      :title="editingId ? '编辑标准部件' : '新增标准部件'"
+      :title="editingId ? '编辑标准巡检对象' : '新增标准巡检对象'"
       @ok="save"
       @cancel="modalOpen = false"
     >
       <a-form layout="vertical">
-        <a-form-item label="部件名称" required>
-          <a-input v-model:value="form.name" placeholder="请输入部件名称" />
+        <a-form-item label="巡检对象名称" required>
+          <a-input v-model:value="form.name" placeholder="请输入巡检对象名称" />
         </a-form-item>
-        <a-form-item label="部件类型" required>
-          <a-select v-model:value="form.type" placeholder="请选择部件类型">
+        <a-form-item label="巡检对象类型" required>
+          <a-select v-model:value="form.type" placeholder="请选择巡检对象类型">
             <a-select-option v-for="item in componentTypeOptions" :key="item.value" :value="item.value">
               {{ item.label }}
             </a-select-option>
@@ -109,8 +109,8 @@ const appliedSearch = reactive({
 })
 
 const columns = [
-  { title: '部件名称', dataIndex: 'name', key: 'name' },
-  { title: '部件类型', key: 'type', width: 180 },
+  { title: '巡检对象名称', dataIndex: 'name', key: 'name' },
+  { title: '巡检对象类型', key: 'type', width: 180 },
   { title: '说明', dataIndex: 'description', key: 'description' },
   { title: '更新时间', key: 'updatedAt', width: 180 },
   { title: '操作', key: 'actions', width: 140 }
@@ -190,7 +190,7 @@ function openEdit(record: StandardComponent) {
 
 function save() {
   if (!form.name.trim()) {
-    message.error('请填写部件名称')
+    message.error('请填写巡检对象名称')
     return
   }
 
@@ -208,12 +208,12 @@ function save() {
 
   inspectionStore.saveStandardComponent(payload)
   modalOpen.value = false
-  message.success(editingId.value ? '标准部件已更新' : '标准部件已新增')
+  message.success(editingId.value ? '标准巡检对象已更新' : '标准巡检对象已新增')
 }
 
 function remove(id: string) {
   Modal.confirm({
-    title: '确认删除该标准部件？',
+    title: '确认删除该标准巡检对象？',
     okText: '确认',
     cancelText: '取消',
     okButtonProps: { danger: true },

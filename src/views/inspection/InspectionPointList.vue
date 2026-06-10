@@ -32,8 +32,8 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="所属区域" class="search-item">
-                <a-select v-model:value="searchForm.areaId" placeholder="请选择所属区域" allow-clear>
+              <a-form-item label="巡检区域" class="search-item">
+                <a-select v-model:value="searchForm.areaId" placeholder="请选择巡检区域" allow-clear>
                   <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">
                     {{ area.name }}
                   </a-select-option>
@@ -137,6 +137,15 @@
               style="width: 56px; height: 56px; object-fit: cover; border-radius: 4px"
             />
             <span v-else>-</span>
+          </template>
+          <template v-if="column.key === 'deviceNames'">
+            {{ isInspectionBizPoint(record) ? getPointDeviceNames(record.id) : '-' }}
+          </template>
+          <template v-if="column.key === 'facilityNames'">
+            {{ isInspectionBizPoint(record) ? getPointFacilityNames(record) : '-' }}
+          </template>
+          <template v-if="column.key === 'objectNames'">
+            {{ isInspectionBizPoint(record) ? getPointObjectNames(record) : '-' }}
           </template>
           <template v-if="column.key === 'checkItemCount'">
             {{ getPointCheckItemCount(record.id) }}
@@ -264,9 +273,12 @@ const searchForm = reactive({
 const columns = [
   { title: '巡检名称', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code' },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '装置区/作业区', key: 'workArea', width: 150 },
   { title: '现场预览图', key: 'previewImage', width: 100 },
+  { title: '巡检装置', key: 'deviceNames', width: 150 },
+  { title: '巡检设施设备', key: 'facilityNames', width: 150 },
+  { title: '巡检对象', key: 'objectNames', width: 150 },
   { title: '巡检项数量', key: 'checkItemCount', width: 100 },
   { title: '设施设备数量', key: 'deviceCount', width: 110 },
   { title: '停车点', key: 'parkingPointCount', width: 90 },
@@ -498,6 +510,27 @@ function getPointDeviceCount(pointId: string) {
 function getPointCheckItemCount(pointId: string) {
   const deviceIds = inspectionStore.inspectionDevices.filter(device => device.inspectionPointId === pointId).map(device => device.id)
   return inspectionStore.inspectionDeviceCheckItems.filter(item => deviceIds.includes(item.deviceId)).length
+}
+
+function getPointDeviceNames(pointId: string) {
+  const names = inspectionStore.inspectionDevices
+    .filter(d => d.inspectionPointId === pointId)
+    .map(d => d.name)
+  return names.length ? names.join('、') : '-'
+}
+
+function getPointFacilityNames(point: InspectionPoint) {
+  const names = point.coverageObjects
+    ?.filter(o => o.type === 'asset' || o.type === 'component')
+    .map(o => o.name) || []
+  return names.length ? names.join('、') : '-'
+}
+
+function getPointObjectNames(point: InspectionPoint) {
+  const names = point.coverageObjects
+    ?.filter(o => o.type === 'component' || o.type === 'connection')
+    .map(o => o.name) || []
+  return names.length ? names.join('、') : '-'
 }
 
 function goToCockpit() {

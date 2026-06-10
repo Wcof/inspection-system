@@ -1,12 +1,12 @@
 <template>
   <div class="component-usage-list">
-    <a-page-header title="部件管理" sub-title="独立维护部件，按区域/装置/设施/类型筛选，并通过规则库完成检测规则关联" />
+    <a-page-header title="巡检对象" sub-title="独立维护巡检对象，按区域/装置/设施/类型筛选，并通过规则库完成检测规则关联" />
 
     <a-card style="margin-top: 16px">
       <a-form layout="vertical" @submit.prevent>
         <a-row :gutter="[16, 8]">
           <a-col :xs="24" :sm="12" :md="8" :lg="6">
-            <a-form-item label="所属区域"><a-input v-model:value="filters.area" allow-clear placeholder="区域名称" /></a-form-item>
+            <a-form-item label="巡检区域"><a-input v-model:value="filters.area" allow-clear placeholder="区域名称" /></a-form-item>
           </a-col>
           <a-col :xs="24" :sm="12" :md="8" :lg="6">
             <a-form-item label="所属装置"><a-input v-model:value="filters.installation" allow-clear placeholder="装置名称" /></a-form-item>
@@ -15,8 +15,8 @@
             <a-form-item label="所属设施"><a-input v-model:value="filters.facility" allow-clear placeholder="设施名称" /></a-form-item>
           </a-col>
           <a-col :xs="24" :sm="12" :md="8" :lg="6">
-            <a-form-item label="部件类型">
-              <a-select v-model:value="filters.componentType" allow-clear placeholder="选择部件类型">
+            <a-form-item label="巡检对象类型">
+              <a-select v-model:value="filters.componentType" allow-clear placeholder="选择巡检对象类型">
                 <a-select-option v-for="item in componentTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</a-select-option>
               </a-select>
             </a-form-item>
@@ -27,7 +27,7 @@
       <div class="actions-row">
         <a-space>
           <a-button @click="resetFilters">重置</a-button>
-          <a-button type="primary" @click="goCreate">新增部件</a-button>
+          <a-button type="primary" @click="goCreate">新增巡检对象</a-button>
         </a-space>
       </div>
 
@@ -79,11 +79,11 @@ const componentTypeOptions = [
 ]
 
 const columns = [
-  { title: '部件编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
-  { title: '部件名称', dataIndex: 'name', key: 'name', width: 150 },
-  { title: '部件位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 130 },
-  { title: '部件类型', key: 'componentType', width: 120 },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '巡检对象编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
+  { title: '巡检对象名称', dataIndex: 'name', key: 'name', width: 150 },
+  { title: '巡检对象位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 130 },
+  { title: '巡检对象类型', key: 'componentType', width: 120 },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '所属装置', dataIndex: 'installationName', key: 'installationName', width: 130 },
   { title: '所属设施', dataIndex: 'facilityName', key: 'facilityName', width: 150 },
   { title: '检测规则数', key: 'ruleCount', width: 100 },
@@ -134,13 +134,13 @@ function goToEdit(componentId: string) {
 
 function remove(id: string) {
   Modal.confirm({
-    title: '确认删除该部件？',
+    title: '确认删除该巡检对象？',
     okText: '确认',
     cancelText: '取消',
     okButtonProps: { danger: true },
     onOk() {
       inspectionStore.deleteFacilityComponent(id)
-      message.success('部件已删除')
+      message.success('巡检对象已删除')
     }
   })
 }

@@ -2,7 +2,7 @@
   <div class="inspection-point-config">
     <a-page-header
       :title="`${point?.name || '巡检点'}配置`"
-      sub-title="按装置、设施、部件统一维护巡检配置。"
+      sub-title="按装置、设施、巡检对象统一维护巡检配置。"
       @back="goBack"
     >
       <template #extra>
@@ -29,9 +29,9 @@
           <a-descriptions bordered :column="3" size="small">
             <a-descriptions-item label="巡检点">{{ point?.name || '-' }}</a-descriptions-item>
             <a-descriptions-item label="所属地图">{{ currentMap?.name || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="所属区域">{{ point?.areaName || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="巡检区域">{{ point?.areaName || '-' }}</a-descriptions-item>
             <a-descriptions-item label="关联设施数">{{ uniqueFacilityCount }}</a-descriptions-item>
-            <a-descriptions-item label="关联部件数">{{ totalRuleCount }}</a-descriptions-item>
+            <a-descriptions-item label="关联巡检对象数">{{ totalRuleCount }}</a-descriptions-item>
             <a-descriptions-item label="巡检规则数">{{ configRows.length }}</a-descriptions-item>
 
           </a-descriptions>
@@ -44,7 +44,7 @@
         type="info"
         show-icon
         style="margin-bottom: 12px"
-        message="检测对象统一配置：按装置、设施、部件维护云台参数与检测规则。"
+        message="检测对象统一配置：按装置、设施、巡检对象维护云台参数与检测规则。"
       />
 
       <a-form layout="vertical" class="search-form" @submit.prevent>
@@ -55,8 +55,8 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :sm="12" :md="8" :lg="6">
-            <a-form-item label="部件检索">
-              <a-input v-model:value="filtersDraft.componentKeyword" allow-clear placeholder="输入部件名称" />
+            <a-form-item label="巡检对象检索">
+              <a-input v-model:value="filtersDraft.componentKeyword" allow-clear placeholder="输入巡检对象名称" />
             </a-form-item>
           </a-col>
           <a-col :xs="24" :sm="12" :md="8" :lg="6" style="display: flex; align-items: end">
@@ -156,13 +156,13 @@ const uniqueFacilityCount = computed(() => new Set(configRows.value.map((item) =
 const totalRuleCount = computed(() => configRows.value.reduce((count, item) => count + item.ruleIds.length, 0))
 
 const configColumns = [
-  { title: '装置', key: 'installationId', width: 190 },
-  { title: '设施', key: 'facilityId', width: 200 },
-  { title: '部件', key: 'componentId', width: 220 },
+  { title: '覆盖装置', key: 'installationId', width: 190 },
+  { title: '覆盖设施设备', key: 'facilityId', width: 200 },
+  { title: '检测对象', key: 'componentId', width: 220 },
+  { title: '检测规则', key: 'ruleIds', width: 200 },
   { title: '云台X轴', key: 'ptzX', width: 120 },
   { title: '云台Y轴', key: 'ptzY', width: 120 },
-  { title: '焦距', key: 'focalLength', width: 140 },
-  { title: '检测规则', key: 'ruleIds' }
+  { title: '焦距', key: 'focalLength', width: 140 }
 ]
 
 const filteredConfigRows = computed(() => {

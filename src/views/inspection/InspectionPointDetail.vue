@@ -71,7 +71,7 @@
                 </a-form-item>
               </a-col>
               <a-col :span="8">
-                <a-form-item label="所属区域">
+                <a-form-item label="巡检区域" required>
                   <a-select v-model:value="form.areaId" allow-clear :disabled="!isEditMode" @change="onAreaChange">
                     <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
                   </a-select>
@@ -89,9 +89,9 @@
             <a-descriptions bordered :column="3" size="small" class="summary-descriptions">
               <a-descriptions-item label="巡检点">{{ currentPoint?.name || '-' }}</a-descriptions-item>
               <a-descriptions-item label="所属地图">{{ currentMap?.name || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="所属区域">{{ form.areaName || currentPoint?.areaName || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="巡检区域">{{ form.areaName || currentPoint?.areaName || '-' }}</a-descriptions-item>
               <a-descriptions-item label="关联设施数">{{ uniqueFacilityCount }}</a-descriptions-item>
-              <a-descriptions-item label="关联部件数">{{ totalRuleCount }}</a-descriptions-item>
+              <a-descriptions-item label="关联巡检对象数">{{ totalRuleCount }}</a-descriptions-item>
               <a-descriptions-item label="巡检规则数">{{ mergedConfigRows.length }}</a-descriptions-item>
             </a-descriptions>
           </template>
@@ -111,8 +111,8 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                  <a-form-item label="部件检索">
-                    <a-input v-model:value="filtersDraft.componentKeyword" allow-clear placeholder="输入部件名称" />
+                  <a-form-item label="巡检对象检索">
+                    <a-input v-model:value="filtersDraft.componentKeyword" allow-clear placeholder="输入巡检对象名称" />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :sm="12" :md="8" :lg="6" style="display: flex; align-items: end">
@@ -141,7 +141,7 @@
           <a-card title="充电站信息">
             <a-descriptions bordered :column="3" size="small">
               <a-descriptions-item label="点位名称">{{ form.name || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="所属区域">{{ form.areaName || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="巡检区域">{{ form.areaName || '-' }}</a-descriptions-item>
               <a-descriptions-item label="校准状态">{{ currentPoint?.calibrationStatus === 'calibrated' ? '已校准' : '待校准' }}</a-descriptions-item>
               <a-descriptions-item label="坐标">{{ coordinateText }}</a-descriptions-item>
               <a-descriptions-item label="说明">当前作为充电站点位使用，可在地图页维护位置。</a-descriptions-item>
@@ -157,7 +157,7 @@
           <a-card title="维修站信息">
             <a-descriptions bordered :column="3" size="small">
               <a-descriptions-item label="点位名称">{{ form.name || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="所属区域">{{ form.areaName || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="巡检区域">{{ form.areaName || '-' }}</a-descriptions-item>
               <a-descriptions-item label="校准状态">{{ currentPoint?.calibrationStatus === 'calibrated' ? '已校准' : '待校准' }}</a-descriptions-item>
               <a-descriptions-item label="坐标">{{ coordinateText }}</a-descriptions-item>
               <a-descriptions-item label="说明">当前作为维修/维护停靠点位使用，可在地图页维护边界条件。</a-descriptions-item>
@@ -213,13 +213,13 @@ const constraintForm = reactive<ParkingPointConstraint>({
 })
 
 const configColumns = [
-  { title: '装置', dataIndex: 'installationName', key: 'installationName', width: 180 },
-  { title: '设施', dataIndex: 'facilityName', key: 'facilityName', width: 200 },
-  { title: '部件', dataIndex: 'componentName', key: 'componentName', width: 220 },
+  { title: '覆盖装置', dataIndex: 'installationName', key: 'installationName', width: 180 },
+  { title: '覆盖设施设备', dataIndex: 'facilityName', key: 'facilityName', width: 200 },
+  { title: '检测对象', dataIndex: 'componentName', key: 'componentName', width: 220 },
+  { title: '检测规则', dataIndex: 'ruleNamesText', key: 'ruleNamesText', width: 200 },
   { title: '云台X轴', dataIndex: 'ptzX', key: 'ptzX', width: 120 },
   { title: '云台Y轴', dataIndex: 'ptzY', key: 'ptzY', width: 120 },
-  { title: '焦距', dataIndex: 'focalLength', key: 'focalLength', width: 140 },
-  { title: '检测规则', dataIndex: 'ruleNamesText', key: 'ruleNamesText' }
+  { title: '焦距', dataIndex: 'focalLength', key: 'focalLength', width: 140 }
 ]
 
 const recordColumns = [
@@ -241,7 +241,7 @@ const filtersDraft = reactive({
 
 const pageTitle = computed(() => `${form.name || currentPoint.value?.name || '点位'}${isEditMode.value ? '编辑' : '详情'}`)
 const pageSubtitle = computed(() => isInspectionPoint.value
-  ? '显示地图位置，并围绕装置、设施、部件与检测规则查看当前巡检点。'
+  ? '显示地图位置，并围绕装置、设施、巡检对象与检测规则查看当前巡检点。'
   : '显示当前点位的地图位置和基础属性。')
 
 const coordinateText = computed(() => {

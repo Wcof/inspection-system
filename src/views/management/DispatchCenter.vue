@@ -72,7 +72,7 @@
         <a-descriptions-item label="检测结果">{{ coverageResult.hasMissing ? '存在遗漏' : '覆盖正常' }}</a-descriptions-item>
         <a-descriptions-item label="遗漏区域">{{ coverageResult.missingRegions.length }}</a-descriptions-item>
         <a-descriptions-item label="遗漏设施">{{ coverageResult.missingDevices.length }}</a-descriptions-item>
-        <a-descriptions-item label="遗漏部件/连接">{{ coverageResult.missingSubjects.length }}</a-descriptions-item>
+        <a-descriptions-item label="遗漏巡检对象/连接">{{ coverageResult.missingSubjects.length }}</a-descriptions-item>
         <a-descriptions-item label="遗漏巡检规则">{{ coverageResult.missingRules.length }}</a-descriptions-item>
         <a-descriptions-item label="待人工确认">{{ coverageResult.pendingManual.length }}</a-descriptions-item>
       </a-descriptions>
@@ -109,7 +109,7 @@
               @click="toggleDeviceSelection(item)"
             >
               <div class="coverage-title">{{ item.deviceName }}</div>
-              <div class="coverage-meta">所属区域：{{ item.regionName }}</div>
+              <div class="coverage-meta">巡检区域：{{ item.regionName }}</div>
               <div class="coverage-meta">所属任务：{{ getCoverageOwnerTaskText(item) }}</div>
               <div class="coverage-meta">所属规划：{{ getCoverageOwnerPlanText(item) }}</div>
               <a-space size="small" style="margin-top: 6px">
@@ -120,8 +120,8 @@
           </a-card>
         </a-col>
         <a-col :xs="24" :lg="12" :xl="6">
-          <a-card size="small" title="遗漏部件/连接">
-            <a-empty v-if="filteredMissingSubjects.length === 0" description="无遗漏部件/连接" />
+          <a-card size="small" title="遗漏巡检对象/连接">
+            <a-empty v-if="filteredMissingSubjects.length === 0" description="无遗漏巡检对象/连接" />
             <div
               v-for="item in filteredMissingSubjects"
               :key="item.subjectId"
@@ -340,7 +340,7 @@ const coverageResult = reactive<{
     { deviceId: 'device-003', deviceName: '储罐液位计', regionId: 'region-b', regionName: '储罐区', ownerType: 'plan_missing', planId: 'plan-002', planName: '每周安全巡检' }
   ],
   missingSubjects: [
-    { subjectId: 'device-001-valve', subjectName: '入口阀门', subjectType: '部件', deviceId: 'device-001', deviceName: '1号反应釜温度计', regionId: 'region-a', regionName: '反应区', ownerType: 'task_missing', taskId: 'task-001', taskName: '每日例行巡检', taskNo: 'TASK-2024-001' },
+    { subjectId: 'device-001-valve', subjectName: '入口阀门', subjectType: '巡检对象', deviceId: 'device-001', deviceName: '1号反应釜温度计', regionId: 'region-a', regionName: '反应区', ownerType: 'task_missing', taskId: 'task-001', taskName: '每日例行巡检', taskNo: 'TASK-2024-001' },
     { subjectId: 'device-003-conn-flange-pipe', subjectName: '法兰-管线', subjectType: '连接', deviceId: 'device-003', deviceName: '储罐液位计', regionId: 'region-b', regionName: '储罐区', ownerType: 'plan_missing', planId: 'plan-002', planName: '每周安全巡检' }
   ],
   missingRules: [

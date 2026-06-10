@@ -1,0 +1,426 @@
+{
+  "facts": [
+    {
+      "id": "F01",
+      "content": "巡检计划编码由系统自动生成，格式类似 IP202604060001，唯一且不可编辑",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F02",
+      "content": "巡检计划类型分为三种：点位巡检、巡逻巡检、全局巡检",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F03",
+      "content": "全局巡检是兜底性质的巡检，不需要选择地图和点位，一直会生效",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F04",
+      "content": "巡检计划状态只有计划状态，没有激活/未激活/暂停等手动状态",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F05",
+      "content": "计划状态由系统自动派生：草稿、运行中、已结束、失效",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F06",
+      "content": "调度周期分为：一次性、周期性（每周、每月）",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F07",
+      "content": "每周调度需选择周一到周日的具体日期，每月调度需选择1-30号",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F08",
+      "content": "巡检计划需要设置开始时间和截止时间，系统根据配置自动生成巡检路线",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F09",
+      "content": "巡检路线支持三种策略：手动顺序、自动最短路径、固定模板",
+      "source": "session-codex-019d61d6",
+      "confidence": "medium"
+    },
+    {
+      "id": "F10",
+      "content": "报表统计模块包含5个页面：统计总览、巡检点分析、设施设备分析、气体分析、安全行为分析",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    },
+    {
+      "id": "F11",
+      "content": "报表统计不要单独建任务趋势分析页面，不要做综合混合大表",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    },
+    {
+      "id": "F12",
+      "content": "巡检分析报告（天/周/月/季）作为后续增强能力，本轮不单独挂菜单",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    },
+    {
+      "id": "F13",
+      "content": "驾驶舱页面从实施端路由迁到管理端一级路由，放在调度台下面、异常中心上面",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    },
+    {
+      "id": "F14",
+      "content": "设施设备新增字段包括：设备编号、设备分类、规格型号、责任人、出厂厂家、失效日期、使用证号、机构核准证书、投用日期、最近检测时间、下次检测时间、失效预警天数、设备状态等",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    },
+    {
+      "id": "F15",
+      "content": "Dashboard页面需要整个浏览器左右滑动的问题需要修复，正常页面不能左右滑动",
+      "source": "session-codex-019d8fc7",
+      "confidence": "high"
+    },
+    {
+      "id": "F16",
+      "content": "巡检总览中今日已巡检里程调整为已巡检里程，统计指标更名为检测项，按数量统计而非百分比",
+      "source": "session-codex-019d8fc7",
+      "confidence": "high"
+    },
+    {
+      "id": "F17",
+      "content": "地图中需要新增AP设备点位，显示AP信号信息，绿色正常红色异常",
+      "source": "session-codex-019d8fc7",
+      "confidence": "high"
+    },
+    {
+      "id": "F18",
+      "content": "机器人总览需要新增挂件总览，显示气体传感器总数、正常/异常数量，云台总数、正常数量",
+      "source": "session-codex-019d8fc7",
+      "confidence": "high"
+    },
+    {
+      "id": "F19",
+      "content": "机器人map-popup弹窗需要新增类型字段，显示四轮/履带/滑轨",
+      "source": "session-codex-019d8fc7",
+      "confidence": "high"
+    },
+    {
+      "id": "F20",
+      "content": "机器人管理中新建机器人时高级配置只有TCP协议，需要支持多协议",
+      "source": "session-codex-019d61d6",
+      "confidence": "medium"
+    },
+    {
+      "id": "F21",
+      "content": "编辑地图页面的地图详情中需要移除：地图类型、区域、状态、版本、宽度、高度、比例尺单位、经度、纬度、兼容机器人",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "F22",
+      "content": "项目使用GitHub Pages部署，需要支持v2版本路径区分展示",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    },
+    {
+      "id": "F23",
+      "content": "项目数据是mock数据，不涉及后端接口",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    }
+  ],
+  "background": [
+    {
+      "id": "B01",
+      "content": "这是一个安全生产巡检机器人管理系统，用于管理自主巡检机器人在工业环境中的巡检任务",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "B02",
+      "content": "系统包含管理端和实施端两个界面，管理端负责调度、任务、异常处理、报表统计，实施端负责地图、机器人、巡检点、设备、检测规则配置",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    },
+    {
+      "id": "B03",
+      "content": "当前巡检计划和任务逻辑存在缺陷，需要优化计划创建、任务生成、状态管理等流程",
+      "source": "session-codex-019d61d6",
+      "confidence": "high"
+    },
+    {
+      "id": "B04",
+      "content": "报表统计页面设计不合理，需要重新规划页面结构和内容",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    },
+    {
+      "id": "B05",
+      "content": "Dashboard驾驶舱页面布局和功能需要优化，包括左右面板布局、数据展示等",
+      "source": "session-codex-019d8fc7",
+      "confidence": "high"
+    },
+    {
+      "id": "B06",
+      "content": "设施设备管理字段不完整，需要补充设备全生命周期管理所需字段",
+      "source": "session-codex-019d9ac7",
+      "confidence": "high"
+    }
+  ],
+  "goals": [
+    {
+      "id": "G01",
+      "description": "优化巡检计划管理流程，实现计划创建、任务自动生成、状态自动派生的完整闭环",
+      "source": "session-codex-019d61d6",
+      "priority": "high"
+    },
+    {
+      "id": "G02",
+      "description": "建立清晰的报表统计体系，按业务维度拆分分析页面，支持多时间维度统计",
+      "source": "session-codex-019d9ac7",
+      "priority": "high"
+    },
+    {
+      "id": "G03",
+      "description": "优化Dashboard驾驶舱页面布局，提升信息展示效率和用户体验",
+      "source": "session-codex-019d8fc7",
+      "priority": "high"
+    },
+    {
+      "id": "G04",
+      "description": "完善设施设备管理字段，支持设备全生命周期管理",
+      "source": "session-codex-019d9ac7",
+      "priority": "medium"
+    },
+    {
+      "id": "G05",
+      "description": "增强地图功能，支持AP设备点位显示和信号监控",
+      "source": "session-codex-019d8fc7",
+      "priority": "medium"
+    },
+    {
+      "id": "G06",
+      "description": "完善机器人信息展示，包括类型、挂件（气体传感器、云台）状态",
+      "source": "session-codex-019d8fc7",
+      "priority": "medium"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D01",
+      "decision": "巡检计划状态采用系统自动派生方式，不提供手动激活/暂停功能",
+      "rationale": "减少人工干预和错误操作，状态根据时间窗和资源配置自动计算",
+      "source": "session-codex-019d61d6"
+    },
+    {
+      "id": "D02",
+      "decision": "报表统计采用1个总入口页+4个分析子页的结构",
+      "rationale": "避免页面过于零散或过于混合，按业务维度清晰拆分",
+      "source": "session-codex-019d9ac7"
+    },
+    {
+      "id": "D03",
+      "decision": "巡检分析报告本轮不单独挂菜单，先放在统计总览中",
+      "rationale": "作为后续增强能力，避免本轮过度设计",
+      "source": "session-codex-019d9ac7"
+    },
+    {
+      "id": "D04",
+      "decision": "驾驶舱页面迁移到管理端一级路由",
+      "rationale": "驾驶舱是管理端核心功能，应与调度台同级",
+      "source": "session-codex-019d9ac7"
+    },
+    {
+      "id": "D05",
+      "decision": "使用GitHub Pages部署，支持v2版本路径区分",
+      "rationale": "需要与主分支代码区分，同时保持兼容性",
+      "source": "session-codex-019d9ac7"
+    },
+    {
+      "id": "D06",
+      "decision": "巡检任务使用planId + plannedExecuteAt做去重",
+      "rationale": "确保同一计划同一调度触发点只生成一个任务，防止重复",
+      "source": "session-codex-019d61d6"
+    },
+    {
+      "id": "D07",
+      "decision": "任务创建时固化快照信息（机器人、地图、点位集合、路线顺序）",
+      "rationale": "避免后续计划修改影响历史任务的执行",
+      "source": "session-codex-019d61d6"
+    },
+    {
+      "id": "D08",
+      "decision": "Dashboard页面布局调整：信息播报放在右侧面板，充电站概览放在左侧面板",
+      "rationale": "优化信息分组和展示逻辑",
+      "source": "session-codex-019d8fc7"
+    }
+  ],
+  "constraints": [
+    {
+      "id": "C01",
+      "constraint": "数据使用mock数据，不涉及后端接口",
+      "impact": "前端需要自行处理数据持久化和状态管理",
+      "source": "session-codex-019d61d6"
+    },
+    {
+      "id": "C02",
+      "constraint": "仅修改智能巡检相关页面，不调整其他模块",
+      "impact": "改动范围受限，需要在页面层完成mock任务生成",
+      "source": "session-codex-019d61d6"
+    },
+    {
+      "id": "C03",
+      "constraint": "需要支持GitHub Pages静态部署",
+      "impact": "不能使用需要服务端的功能，所有逻辑需在前端完成",
+      "source": "session-codex-019d9ac7"
+    },
+    {
+      "id": "C04",
+      "constraint": "v2版本需要与主分支在同一站点共存",
+      "impact": "需要通过路径前缀区分版本，构建配置需要调整",
+      "source": "session-codex-019d9ac7"
+    },
+    {
+      "id": "C05",
+      "constraint": "每月调度日期范围为1-30号",
+      "impact": "31号的处理逻辑需要明确（是否忽略或归入30号）",
+      "source": "session-codex-019d61d6"
+    },
+    {
+      "id": "C06",
+      "constraint": "Dashboard页面不能出现左右滑动",
+      "impact": "需要优化响应式布局，确保在常规浏览器宽度下正常显示",
+      "source": "session-codex-019d8fc7"
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "CF01",
+      "description": "会话1中提到巡检计划状态只有计划状态，没有激活/未激活/暂停，但实际实现中可能存在状态管理的混乱",
+      "source": "session-codex-019d61d6",
+      "turn": "8-9"
+    },
+    {
+      "id": "CF02",
+      "description": "会话3中信息播报卡片的位置多次调整（先说放左边，后又改到右边），说明需求在不断变化",
+      "source": "session-codex-019d8fc7",
+      "turn": "4-5"
+    },
+    {
+      "id": "CF03",
+      "description": "会话1中提到机器人管理高级配置只有TCP协议，但未明确需要支持哪些其他协议",
+      "source": "session-codex-019d61d6",
+      "turn": "10"
+    },
+    {
+      "id": "CF04",
+      "description": "会话1中提到移除地图详情的多个字段，但未说明移除后是否需要保留其他关联功能",
+      "source": "session-codex-019d61d6",
+      "turn": "11"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q01",
+      "question": "巡检计划的全局巡检类型具体适用场景是什么？是否所有机器人都会参与？",
+      "source": "session-codex-019d61d6",
+      "priority": "high"
+    },
+    {
+      "id": "Q02",
+      "question": "每月调度如果选择31号，系统如何处理？是忽略还是报错？",
+      "source": "session-codex-019d61d6",
+      "priority": "medium"
+    },
+    {
+      "id": "Q03",
+      "question": "巡检路线的自动最短路径算法使用什么逻辑？是否考虑禁行区域？",
+      "source": "session-codex-019d61d6",
+      "priority": "medium"
+    },
+    {
+      "id": "Q04",
+      "question": "报表统计中的气体分析热力图具体展示什么数据？按区域还是按时间？",
+      "source": "session-codex-019d9ac7",
+      "priority": "medium"
+    },
+    {
+      "id": "Q05",
+      "question": "设施设备新增的失效预警天数和检测预警天数有什么区别？触发逻辑是什么？",
+      "source": "session-codex-019d9ac7",
+      "priority": "medium"
+    },
+    {
+      "id": "Q06",
+      "question": "AP设备点位的数据来源是什么？如何获取AP信号强度信息？",
+      "source": "session-codex-019d8fc7",
+      "priority": "medium"
+    },
+    {
+      "id": "Q07",
+      "question": "机器人挂件（气体传感器、云台）的状态数据从哪里获取？",
+      "source": "session-codex-019d8fc7",
+      "priority": "medium"
+    },
+    {
+      "id": "Q08",
+      "question": "v2版本部署后，如何处理v1和v2之间的数据兼容性？",
+      "source": "session-codex-019d9ac7",
+      "priority": "high"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A01",
+      "assumption": "巡检计划的生效时间窗校验逻辑：开始时间必须小于截止时间，且调度时间必须落在时间窗内",
+      "basis": "会话1中Agent的回答提到了这个校验规则",
+      "confidence": "medium"
+    },
+    {
+      "id": "A02",
+      "assumption": "派生状态的计算逻辑：草稿=未发布，运行中=当前时间在生效窗内，已结束=超过截止时间，失效=配置非法或资源不可用",
+      "basis": "会话1中Agent的回答明确了状态计算规则",
+      "confidence": "high"
+    },
+    {
+      "id": "A03",
+      "assumption": "报表统计的时间维度切换支持日/周/月/季，但具体实现方式未明确",
+      "basis": "会话2中提到了时间维度切换，但未详细说明交互方式",
+      "confidence": "low"
+    },
+    {
+      "id": "A04",
+      "assumption": "设施设备的NFCID字段用于物理设备识别，可能需要与硬件集成",
+      "basis": "会话2中提到了NFCID字段，但未说明具体用途",
+      "confidence": "low"
+    },
+    {
+      "id": "A05",
+      "assumption": "Dashboard页面的区域划分（A区域、B区域、C区域）是固定的，不是动态配置的",
+      "basis": "会话3中提到了巡检点显示的二级选择包含区域选项",
+      "confidence": "medium"
+    },
+    {
+      "id": "A06",
+      "assumption": "机器人类型（四轮、履带、滑轨）是固定的枚举值，不会动态扩展",
+      "basis": "会话3中提到了这三种类型，但未说明是否可配置",
+      "confidence": "medium"
+    },
+    {
+      "id": "A07",
+      "assumption": "项目使用Vue 3 + TypeScript + Vite技术栈，前端状态管理使用Pinia",
+      "basis": "从代码结构和会话内容推断",
+      "confidence": "high"
+    }
+  ]
+}

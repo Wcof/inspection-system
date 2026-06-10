@@ -1,20 +1,20 @@
 <template>
   <div class="metric-management">
-    <a-page-header title="检测项管理" sub-title="支持检测类型、优先级、关联层级与阈值管理">
+    <a-page-header title="检测对象" sub-title="支持检测类型、优先级、关联层级与阈值管理">
       <template #extra><a-button type="primary" @click="openCreateModal">新增</a-button></template>
     </a-page-header>
 
     <a-layout class="metric-layout">
       <a-layout-sider width="300" class="tree-sider">
         <div class="tree-panel">
-          <a-input v-model:value="treeSearchValue" placeholder="搜索分区/巡检点/设备" allow-clear style="margin-bottom: 12px" />
+          <a-input v-model:value="treeSearchValue" placeholder="搜索区域/装置/设施设备" allow-clear style="margin-bottom: 12px" />
           <a-tree v-model:selectedKeys="selectedTreeKeys" :tree-data="filteredTreeData" default-expand-all />
         </div>
       </a-layout-sider>
 
       <a-layout-content class="list-content">
         <a-card size="small" style="margin-bottom: 12px">
-          <span class="header-title">检测项列表</span>
+          <span class="header-title">检测规则列表</span>
           <a-tag v-if="selectedPathLabel" color="blue">{{ selectedPathLabel }}</a-tag>
           <span class="header-count">共 {{ filteredItems.length }} 项</span>
         </a-card>
@@ -28,28 +28,28 @@
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                <a-form-item label="检测项名称" class="search-item">
-                  <a-input v-model:value="searchForm.name" allow-clear placeholder="请输入检测项名称" />
+                <a-form-item label="检测规则" class="search-item">
+                  <a-input v-model:value="searchForm.name" allow-clear placeholder="请输入检测规则名称" />
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                <a-form-item label="所属分区" class="search-item">
-                  <a-select v-model:value="searchForm.areaId" allow-clear placeholder="请选择分区">
+                <a-form-item label="检测区域" class="search-item">
+                  <a-select v-model:value="searchForm.areaId" allow-clear placeholder="请选择检测区域">
                     <a-select-option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
                   </a-select>
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                <a-form-item label="巡检点" class="search-item">
-                  <a-select v-model:value="searchForm.pointId" allow-clear placeholder="请选择巡检点">
-                    <a-select-option v-for="point in pointsByArea" :key="point.id" :value="point.id">{{ point.name }}</a-select-option>
+                <a-form-item label="检测装置" class="search-item">
+                  <a-select v-model:value="searchForm.installationId" allow-clear placeholder="请选择检测装置">
+                    <a-select-option v-for="inst in installationsByArea" :key="inst.id" :value="inst.id">{{ inst.name }}</a-select-option>
                   </a-select>
                 </a-form-item>
               </a-col>
               <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                <a-form-item label="设施设备" class="search-item">
+                <a-form-item label="检测设施设备" class="search-item">
                   <a-select v-model:value="searchForm.deviceId" allow-clear placeholder="请选择设备">
-                    <a-select-option v-for="device in devicesByPoint" :key="device.id" :value="device.id">{{ device.name }}</a-select-option>
+                    <a-select-option v-for="device in devicesByInstallation" :key="device.id" :value="device.id">{{ device.name }}</a-select-option>
                   </a-select>
                 </a-form-item>
               </a-col>
@@ -80,9 +80,10 @@
                 {{ detectionTypeText(record.detectionType) }}
               </a-tag>
             </template>
-            <template v-else-if="column.key === 'region'">{{ getPoint(record.deviceId)?.areaName || '-' }}</template>
-            <template v-else-if="column.key === 'point'">{{ getPoint(record.deviceId)?.name || '-' }}</template>
+            <template v-else-if="column.key === 'region'">{{ getAreaName(record.deviceId) }}</template>
+            <template v-else-if="column.key === 'installation'">{{ getInstallationName(record.deviceId) }}</template>
             <template v-else-if="column.key === 'device'">{{ getDeviceName(record.deviceId) }}</template>
+            <template v-else-if="column.key === 'component'">{{ getComponentName(record.deviceId, record.subjectId) }}</template>
             <template v-else-if="column.key === 'priority'">
               <a-tag :color="priorityColor(record.priorityLevel || inferPriority(record))">{{ priorityText(record.priorityLevel || inferPriority(record)) }}</a-tag>
             </template>
@@ -104,25 +105,25 @@
       </a-layout-content>
     </a-layout>
 
-    <a-modal v-model:open="editVisible" :title="editMode === 'create' ? '新增检测项' : '编辑检测项'" width="760px">
+    <a-modal v-model:open="editVisible" :title="editMode === 'create' ? '新增检测规则' : '编辑检测规则'" width="760px">
       <a-form layout="vertical">
         <a-row :gutter="12">
           <a-col :span="8">
-            <a-form-item label="关联分区" required>
-              <a-select v-model:value="editForm.areaId" placeholder="请选择分区" @change="onAreaChange">
+            <a-form-item label="关联检测区域" required>
+              <a-select v-model:value="editForm.areaId" placeholder="请选择检测区域" @change="onAreaChange">
                 <a-select-option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
           <a-col :span="8">
-            <a-form-item label="关联巡检点" required>
-              <a-select v-model:value="editForm.pointId" placeholder="请选择巡检点" @change="onPointChange">
-                <a-select-option v-for="point in selectablePoints" :key="point.id" :value="point.id">{{ point.name }}</a-select-option>
+            <a-form-item label="关联检测装置" required>
+              <a-select v-model:value="editForm.installationId" placeholder="请选择装置" @change="onInstallationChange">
+                <a-select-option v-for="inst in selectableInstallations" :key="inst.id" :value="inst.id">{{ inst.name }}</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
           <a-col :span="8">
-            <a-form-item label="关联设施设备" required>
+            <a-form-item label="关联检测设施设备" required>
               <a-select v-model:value="editForm.deviceId" placeholder="请选择设施设备">
                 <a-select-option v-for="device in selectableDevices" :key="device.id" :value="device.id">{{ device.name }}</a-select-option>
               </a-select>
@@ -130,8 +131,8 @@
           </a-col>
         </a-row>
         <a-row :gutter="12">
-          <a-col :span="8"><a-form-item label="检测项名称" required><a-input v-model:value="editForm.name" /></a-form-item></a-col>
-          <a-col :span="8"><a-form-item label="检测项编码" required><a-input v-model:value="editForm.code" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item label="检测规则名称" required><a-input v-model:value="editForm.name" /></a-form-item></a-col>
+          <a-col :span="8"><a-form-item label="检测规则编码" required><a-input v-model:value="editForm.code" /></a-form-item></a-col>
           <a-col :span="8">
             <a-form-item label="检测类型" required>
               <a-select v-model:value="editForm.detectionType" @change="onDetectionTypeChange">
@@ -235,14 +236,14 @@ const searchForm = reactive({
   index: '',
   name: '',
   areaId: '',
-  pointId: '',
+  installationId: '',
   deviceId: '',
   priority: ''
 })
 
 const editForm = reactive<any>({
   areaId: '',
-  pointId: '',
+  installationId: '',
   deviceId: '',
   name: '',
   code: '',
@@ -266,27 +267,44 @@ const thresholdUnitOptions = [
 ]
 
 const areas = computed(() => {
-  const map = new Map<string, any>()
-  inspectionStore.inspectionPoints.forEach((point: any) => {
-    if (point.areaId) map.set(point.areaId, { id: point.areaId, name: point.areaName || point.areaId })
+  const map = new Map<string, { id: string; name: string }>()
+  inspectionStore.installations.forEach((inst: any) => {
+    if (inst.areaId && !map.has(inst.areaId)) {
+      map.set(inst.areaId, { id: inst.areaId, name: inst.areaName || inst.areaId })
+    }
   })
+  // fallback: 从巡检点提取区域
+  if (map.size === 0) {
+    inspectionStore.inspectionPoints.forEach((point: any) => {
+      if (point.areaId && !map.has(point.areaId)) {
+        map.set(point.areaId, { id: point.areaId, name: point.areaName || point.areaId })
+      }
+    })
+  }
   return Array.from(map.values())
 })
 
 const treeData = computed(() => [{
   title: '全部',
   key: 'all',
-  children: areas.value.map((area: any) => ({
+  children: areas.value.map((area) => ({
     title: area.name,
     key: `area:${area.id}`,
-    children: inspectionStore.inspectionPoints
-      .filter((point: any) => point.areaId === area.id)
-      .map((point: any) => ({
-        title: point.name,
-        key: `point:${point.id}`,
+    children: inspectionStore.installations
+      .filter((inst: any) => inst.areaId === area.id)
+      .map((inst: any) => ({
+        title: inst.name,
+        key: `installation:${inst.id}`,
         children: inspectionStore.inspectionDevices
-          .filter((device: any) => device.inspectionPointId === point.id)
-          .map((device: any) => ({ title: device.name, key: `device:${device.id}` }))
+          .filter((device: any) => device.installationId === inst.id)
+          .map((device: any) => ({
+            title: device.name,
+            key: `device:${device.id}`,
+            children: (device.assetComponents || []).map((comp: any) => ({
+              title: comp.name,
+              key: `component:${device.id}:${comp.id}`
+            }))
+          }))
       }))
   }))
 }])
@@ -307,26 +325,33 @@ const selectedTreeKey = computed(() => selectedTreeKeys.value[0] || 'all')
 
 function resolveTreeLabel(key: string) {
   if (key === 'all') return ''
-  const [type, id] = key.split(':')
-  if (type === 'area') return areas.value.find((item: any) => item.id === id)?.name || key
-  if (type === 'point') return inspectionStore.inspectionPoints.find((item: any) => item.id === id)?.name || key
-  if (type === 'device') return inspectionStore.inspectionDevices.find((item: any) => item.id === id)?.name || key
+  const parts = key.split(':')
+  const type = parts[0]
+  if (type === 'area') return areas.value.find(item => item.id === parts[1])?.name || key
+  if (type === 'installation') return inspectionStore.installations.find((item: any) => item.id === parts[1])?.name || key
+  if (type === 'device') return inspectionStore.inspectionDevices.find((item: any) => item.id === parts[1])?.name || key
+  if (type === 'component') {
+    const device = inspectionStore.inspectionDevices.find((item: any) => item.id === parts[1]) as any
+    const comp = device?.assetComponents?.find((c: any) => c.id === parts[2])
+    return comp?.name || key
+  }
   return key
 }
 
 const selectedPathLabel = computed(() => resolveTreeLabel(selectedTreeKey.value))
-const selectablePoints = computed(() => inspectionStore.inspectionPoints.filter((point: any) => !editForm.areaId || point.areaId === editForm.areaId))
-const selectableDevices = computed(() => inspectionStore.inspectionDevices.filter((device: any) => !editForm.pointId || device.inspectionPointId === editForm.pointId))
-const pointsByArea = computed(() => inspectionStore.inspectionPoints.filter(point => !searchForm.areaId || point.areaId === searchForm.areaId))
-const devicesByPoint = computed(() => inspectionStore.inspectionDevices.filter(device => !searchForm.pointId || device.inspectionPointId === searchForm.pointId))
+const installationsByArea = computed(() => inspectionStore.installations.filter((inst: any) => !searchForm.areaId || inst.areaId === searchForm.areaId))
+const devicesByInstallation = computed(() => inspectionStore.inspectionDevices.filter((device: any) => !searchForm.installationId || device.installationId === searchForm.installationId))
+const selectableInstallations = computed(() => inspectionStore.installations.filter((inst: any) => !editForm.areaId || inst.areaId === editForm.areaId))
+const selectableDevices = computed(() => inspectionStore.inspectionDevices.filter((device: any) => !editForm.installationId || device.installationId === editForm.installationId))
 
 const columns = [
   { title: '序号', key: 'index', width: 70 },
-  { title: '检测项名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: '检测规则', dataIndex: 'name', key: 'name', width: 180 },
   { title: '检测类型', key: 'detectionType', width: 110 },
-  { title: '所属分区', key: 'region', width: 140 },
-  { title: '巡检点', key: 'point', width: 160 },
-  { title: '设施设备', key: 'device', width: 160 },
+  { title: '检测区域', key: 'region', width: 120 },
+  { title: '检测装置', key: 'installation', width: 140 },
+  { title: '检测设施设备', key: 'device', width: 140 },
+  { title: '检测部件', key: 'component', width: 140 },
   { title: '优先级', key: 'priority', width: 100 },
   { title: '巡检周期', key: 'cycle', width: 120 },
   { title: '巡检窗口', key: 'window', width: 160 },
@@ -373,37 +398,73 @@ const filteredItems = computed(() => {
       priorityLevel: (item as any).priorityLevel || inferPriority(item)
     }))
     .filter((item: any) => {
+      const key = selectedTreeKey.value
+      if (key === 'all') return true
+
       const device = inspectionStore.inspectionDevices.find((d: any) => d.id === item.deviceId) as any
-      const point = inspectionStore.inspectionPoints.find((p: any) => p.id === device?.inspectionPointId) as any
-      if (selectedTreeKey.value === 'all') return true
-      if (selectedTreeKey.value.startsWith('device:')) return item.deviceId === selectedTreeKey.value.replace('device:', '')
-      if (selectedTreeKey.value.startsWith('point:')) return device?.inspectionPointId === selectedTreeKey.value.replace('point:', '')
-      if (selectedTreeKey.value.startsWith('area:')) return point?.areaId === selectedTreeKey.value.replace('area:', '')
+
+      if (key.startsWith('device:')) return item.deviceId === key.replace('device:', '')
+
+      if (key.startsWith('installation:')) {
+        const instId = key.replace('installation:', '')
+        return device?.installationId === instId
+      }
+
+      if (key.startsWith('area:')) {
+        const areaId = key.replace('area:', '')
+        // 通过装置→区域链路过滤
+        const inst = inspectionStore.installations.find((i: any) => i.id === device?.installationId) as any
+        return inst?.areaId === areaId
+      }
+
+      if (key.startsWith('component:')) {
+        const [, deviceId, compId] = key.split(':')
+        return item.deviceId === deviceId && (item as any).subjectId === compId
+      }
+
       return true
     })
 
   return base.filter((item: any) => {
-    const device = inspectionStore.inspectionDevices.find((d: any) => d.id === item.deviceId) as any
-    const point = inspectionStore.inspectionPoints.find((p: any) => p.id === device?.inspectionPointId) as any
+    const device = getDevice(item.deviceId)
+    const inst = device?.installationId ? inspectionStore.installations.find((i: any) => i.id === device.installationId) as any : null
 
     const matchIndex = !searchForm.index || String(item._index).includes(searchForm.index.trim())
     const matchName = !searchForm.name || item.name.toLowerCase().includes(searchForm.name.trim().toLowerCase())
-    const matchArea = !searchForm.areaId || point?.areaId === searchForm.areaId
-    const matchPoint = !searchForm.pointId || point?.id === searchForm.pointId
+    const matchArea = !searchForm.areaId || inst?.areaId === searchForm.areaId
+    const matchInstallation = !searchForm.installationId || device?.installationId === searchForm.installationId
     const matchDevice = !searchForm.deviceId || item.deviceId === searchForm.deviceId
     const matchPriority = !searchForm.priority || item.priorityLevel === searchForm.priority
 
-    return matchIndex && matchName && matchArea && matchPoint && matchDevice && matchPriority
+    return matchIndex && matchName && matchArea && matchInstallation && matchDevice && matchPriority
   })
 })
 
-function getDeviceName(deviceId: string) {
-  return inspectionStore.inspectionDevices.find((device: any) => device.id === deviceId)?.name || '-'
+function getDevice(deviceId: string) {
+  return inspectionStore.inspectionDevices.find((d: any) => d.id === deviceId) as any
 }
 
-function getPoint(deviceId: string) {
-  const device = inspectionStore.inspectionDevices.find((item: any) => item.id === deviceId)
-  return inspectionStore.inspectionPoints.find((point: any) => point.id === device?.inspectionPointId) as any
+function getDeviceName(deviceId: string) {
+  return getDevice(deviceId)?.name || '-'
+}
+
+function getInstallationName(deviceId: string) {
+  const device = getDevice(deviceId)
+  if (!device?.installationId) return '-'
+  return inspectionStore.installations.find((inst: any) => inst.id === device.installationId)?.name || '-'
+}
+
+function getAreaName(deviceId: string) {
+  const device = getDevice(deviceId)
+  if (!device?.installationId) return '-'
+  const inst = inspectionStore.installations.find((i: any) => i.id === device.installationId) as any
+  return inst?.areaName || '-'
+}
+
+function getComponentName(deviceId: string, subjectId?: string) {
+  if (!subjectId) return '-'
+  const device = getDevice(deviceId)
+  return device?.assetComponents?.find((c: any) => c.id === subjectId)?.name || '-'
 }
 
 function getCycleText(record: any) {
@@ -442,14 +503,14 @@ function resetSearch() {
   searchForm.index = ''
   searchForm.name = ''
   searchForm.areaId = ''
-  searchForm.pointId = ''
+  searchForm.installationId = ''
   searchForm.deviceId = ''
   searchForm.priority = ''
 }
 
 function resetForm() {
   editForm.areaId = ''
-  editForm.pointId = ''
+  editForm.installationId = ''
   editForm.deviceId = ''
   editForm.name = ''
   editForm.code = ''
@@ -472,31 +533,41 @@ function openCreateModal() {
 
 function prefillByTree() {
   resetForm()
-  if (selectedTreeKey.value.startsWith('area:')) {
-    editForm.areaId = selectedTreeKey.value.replace('area:', '')
+  const key = selectedTreeKey.value
+  if (key.startsWith('area:')) {
+    editForm.areaId = key.replace('area:', '')
   }
-  if (selectedTreeKey.value.startsWith('point:')) {
-    const pointId = selectedTreeKey.value.replace('point:', '')
-    const point = inspectionStore.inspectionPoints.find((item: any) => item.id === pointId) as any
-    editForm.pointId = pointId
-    editForm.areaId = point?.areaId || ''
+  if (key.startsWith('installation:')) {
+    const instId = key.replace('installation:', '')
+    const inst = inspectionStore.installations.find((item: any) => item.id === instId) as any
+    editForm.installationId = instId
+    editForm.areaId = inst?.areaId || ''
   }
-  if (selectedTreeKey.value.startsWith('device:')) {
-    const deviceId = selectedTreeKey.value.replace('device:', '')
-    const device = inspectionStore.inspectionDevices.find((item: any) => item.id === deviceId) as any
-    const point = inspectionStore.inspectionPoints.find((item: any) => item.id === device?.inspectionPointId) as any
+  if (key.startsWith('device:')) {
+    const deviceId = key.replace('device:', '')
+    const device = getDevice(deviceId)
+    const inst = inspectionStore.installations.find((item: any) => item.id === device?.installationId) as any
     editForm.deviceId = deviceId
-    editForm.pointId = point?.id || ''
-    editForm.areaId = point?.areaId || ''
+    editForm.installationId = device?.installationId || ''
+    editForm.areaId = inst?.areaId || ''
+  }
+  if (key.startsWith('component:')) {
+    const [, deviceId] = key.split(':')
+    const device = getDevice(deviceId)
+    const inst = inspectionStore.installations.find((item: any) => item.id === device?.installationId) as any
+    editForm.deviceId = deviceId
+    editForm.installationId = device?.installationId || ''
+    editForm.areaId = inst?.areaId || ''
   }
 }
 
 function openEditModal(record: any) {
   editMode.value = 'edit'
   editingId.value = record.id
-  const point = getPoint(record.deviceId)
-  editForm.areaId = point?.areaId || ''
-  editForm.pointId = point?.id || ''
+  const device = getDevice(record.deviceId)
+  const inst = device?.installationId ? inspectionStore.installations.find((i: any) => i.id === device.installationId) as any : null
+  editForm.areaId = inst?.areaId || ''
+  editForm.installationId = device?.installationId || ''
   editForm.deviceId = record.deviceId
   editForm.name = record.name
   editForm.code = record.code
@@ -532,17 +603,17 @@ function onDetectionTypeChange(value: string) {
 }
 
 function onAreaChange() {
-  editForm.pointId = ''
+  editForm.installationId = ''
   editForm.deviceId = ''
 }
 
-function onPointChange() {
+function onInstallationChange() {
   editForm.deviceId = ''
 }
 
 function saveCurrentEdit(): boolean {
-  if (!editForm.areaId || !editForm.pointId || !editForm.deviceId || !editForm.name || !editForm.code) {
-    message.error('请完整填写分区、巡检点、设备、名称和编码')
+  if (!editForm.areaId || !editForm.installationId || !editForm.deviceId || !editForm.name || !editForm.code) {
+    message.error('请完整填写检测区域、检测装置、检测设施设备、名称和编码')
     return false
   }
 
@@ -574,14 +645,14 @@ function handleSave() {
   const saved = saveCurrentEdit()
   if (!saved) return
   editVisible.value = false
-  message.success('检测项已保存')
+  message.success('检测规则已保存')
 }
 
 function handleSaveAndGoCockpit() {
   const saved = saveCurrentEdit()
   if (!saved) return
   editVisible.value = false
-  message.success('检测项已保存，正在前往驾驶舱')
+  message.success('检测规则已保存，正在前往驾驶舱')
   router.push('/management/cockpit/view')
 }
 
@@ -605,7 +676,7 @@ function handleReferenceImageChange(info: any) {
 
 function handleDelete(id: string) {
   Modal.confirm({
-    title: '确认删除检测项？',
+    title: '确认删除检测规则？',
     onOk: () => {
       inspectionStore.deleteInspectionDeviceCheckItem(id)
       message.success('已删除')

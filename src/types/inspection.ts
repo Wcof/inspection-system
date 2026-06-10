@@ -31,7 +31,7 @@ export enum InspectionPointType {
   AREA = 'area'
 }
 
-export type InspectionPointBizType = 'inspection' | 'charging' | 'maintenance' | 'standby'
+export type InspectionPointBizType = 'inspection' | 'charging' | 'parking' | 'maintenance' | 'standby'
 export type InspectionMode = 'fixed' | 'area'
 
 export enum PositionSource {
@@ -271,6 +271,11 @@ export interface MapRegion {
   height: number
   polygonPoints?: string
   showName?: boolean
+  code?: string
+  zoneType?: 'normal' | 'forbidden'
+  description?: string
+  responsiblePerson?: string
+  contactPhone?: string
 }
 
 export interface InspectionMap {
@@ -491,6 +496,7 @@ export interface InspectionDeviceCheckItem {
   checkType?: 'threshold' | 'vision'
   priority?: 'primary' | 'secondary'
   subjectType?: DetectionSubjectType
+  subjectId?: string
   targetObject?: string
   detectionType?: DetectionCapabilityType
   collectableCondition?: string

@@ -3,7 +3,7 @@
     v-model="selectedPeriod"
     badge="FACILITY ANALYSIS"
     title="设施对象分析"
-    subtitle="按设施、部件、设施/管路与部件、检测规则、异常和证据链复盘安全生产巡检结果。"
+    subtitle="按设施、巡检对象、设施/管路与巡检对象、检测规则、异常和证据链复盘安全生产巡检结果。"
     :period-options="periodOptions"
   >
     <template #hero-extra>
@@ -23,7 +23,7 @@
     </div>
 
     <div class="content-grid">
-      <a-card title="设施 / 部件巡检清单" size="small" class="panel-card">
+      <a-card title="设施 / 巡检对象巡检清单" size="small" class="panel-card">
         <a-table :columns="columns" :data-source="rows" row-key="id" :pagination="{ pageSize: 6 }" :scroll="{ x: 1320 }">
           <template #bodyCell="{ column, record, text }">
             <template v-if="column.key === 'objectType'">
@@ -103,7 +103,7 @@ const rows = computed(() => inspectionStore.inspectionDevices.flatMap((facility:
       areaName: facility.areaName || '未配置区域',
       facilityName: facility.name,
       objectName: component.name,
-      objectType: '部件',
+      objectType: '巡检对象',
       rules: getRuleNames(component.ruleIds),
       exceptionCount: abnormalCount,
       status: abnormalCount > 1 ? '异常' : abnormalCount === 1 ? '需复核' : '正常',
@@ -121,7 +121,7 @@ const summaryCards = computed(() => {
   const ruleCount = new Set(rows.value.flatMap(row => row.rules)).size
   return [
     { label: '设施数', value: facilityCount, desc: '按区域归属统计' },
-    { label: '部件数', value: componentCount, desc: '仅统计需巡检部件' },
+    { label: '巡检对象数', value: componentCount, desc: '仅统计需巡检巡检对象' },
     { label: '设施/管路', value: facilityCount, desc: '按设施/管路对象统计' },
     { label: '检测规则', value: ruleCount, desc: '已生效规则种类' }
   ]
@@ -144,9 +144,9 @@ const riskRows = computed(() => rows.value
 const highRiskSummary = computed(() => riskRows.value[0]?.name || '暂无高风险对象')
 
 const columns = [
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '设施', dataIndex: 'facilityName', key: 'facilityName', width: 180 },
-  { title: '部件', dataIndex: 'objectName', key: 'objectName', width: 180 },
+  { title: '巡检对象', dataIndex: 'objectName', key: 'objectName', width: 180 },
   { title: '对象类型', key: 'objectType', width: 100 },
   { title: '检测规则', key: 'rules', width: 260 },
   { title: '异常数', dataIndex: 'exceptionCount', key: 'exceptionCount', width: 90 },

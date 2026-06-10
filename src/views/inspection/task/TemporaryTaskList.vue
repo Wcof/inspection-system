@@ -1,6 +1,6 @@
 <template>
   <div class="temporary-task-list">
-    <a-page-header title="非规划任务" sub-title="包含临时插单、补检、作业票任务、第三方任务、应急快速到场" @back="goBack" />
+    <a-page-header title="临时任务" sub-title="包含临时插单、补检、作业票任务、第三方任务、应急快速到场" @back="goBack" />
 
     <a-card style="margin-top: 16px">
       <div class="scene-switch" style="margin-bottom: 12px">
@@ -20,7 +20,7 @@
         <a-card size="small"><span>当前分类任务</span><strong>{{ filteredTasks.length }}</strong></a-card>
         <a-card size="small"><span>装置数</span><strong>{{ taskSummary.installationCount }}</strong></a-card>
         <a-card size="small"><span>设施/管路数</span><strong>{{ taskSummary.facilityCount }}</strong></a-card>
-        <a-card size="small"><span>部件数</span><strong>{{ taskSummary.componentCount }}</strong></a-card>
+        <a-card size="small"><span>巡检对象数</span><strong>{{ taskSummary.componentCount }}</strong></a-card>
         <a-card size="small"><span>规则数</span><strong>{{ taskSummary.ruleCount }}</strong></a-card>
       </div>
 
@@ -163,6 +163,13 @@
           <template v-else-if="column.key === 'timeRange'">{{ getTaskTimeRangeText(record) }}</template>
           <template v-else-if="column.key === 'actions'">
             <a-button type="link" size="small" @click="viewDetail(record.id)">详情</a-button>
+            <a-button
+              v-if="record.status === 'running' || record.status === 'paused'"
+              type="link"
+              size="small"
+              danger
+              @click="handleTerminate(record)"
+            >终止</a-button>
           </template>
         </template>
       </a-table>
@@ -173,6 +180,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { message, Modal } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
 import { useRobotStore } from '@/stores/robot'
 import type { InspectionTaskInstanceStatus } from '@/types/inspection'
@@ -211,13 +219,13 @@ const columns = [
   { title: '巡检装置', key: 'installationNames', width: 220 },
   { title: '装置数', dataIndex: 'installationCount', key: 'installationCount', width: 100 },
   { title: '巡检设施数', dataIndex: 'facilityCount', key: 'facilityCount', width: 120 },
-  { title: '部件数', dataIndex: 'componentCount', key: 'componentCount', width: 120 },
+  { title: '巡检对象数', dataIndex: 'componentCount', key: 'componentCount', width: 120 },
   { title: '巡检规则数', dataIndex: 'ruleCount', key: 'ruleCount', width: 120 },
   { title: '执行机器人', key: 'robot', width: 150 },
   { title: '异常数', dataIndex: 'exceptionCount', key: 'exceptionCount', width: 90 },
   { title: '执行时间', key: 'timeRange', width: 280 },
   { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 180 },
-  { title: '操作', key: 'actions', width: 100, fixed: 'right' }
+  { title: '操作', key: 'actions', width: 160, fixed: 'right' }
 ]
 
 const sceneOptions = [
@@ -593,6 +601,20 @@ function goBack() {
 
 function viewDetail(id: string) {
   router.push(`/management/task/detail/${id}?source=temp`)
+}
+
+function handleTerminate(record: any) {
+  Modal.confirm({
+    title: '确认终止',
+    content: '确定要终止该任务吗？终止后任务将无法恢复。',
+    okText: '确认',
+    cancelText: '取消',
+    okType: 'danger',
+    onOk() {
+      inspectionStore.terminateTask(record.id)
+      message.success('任务已终止')
+    }
+  })
 }
 
 onMounted(() => {

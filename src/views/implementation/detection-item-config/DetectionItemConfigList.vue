@@ -1,6 +1,6 @@
 <template>
   <div>
-    <a-page-header title="检测规则配置" sub-title="标准检测能力库，供部件配置引用">
+    <a-page-header title="检测规则配置" sub-title="标准检测能力库，供巡检对象配置引用">
       <template #extra>
         <a-button type="primary" @click="goCreate">新增规则</a-button>
       </template>

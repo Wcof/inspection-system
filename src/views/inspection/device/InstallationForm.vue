@@ -23,8 +23,8 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :md="12">
-            <a-form-item label="所属区域" required>
-              <a-select v-model:value="form.areaId" placeholder="请选择所属区域" @change="syncArea">
+            <a-form-item label="巡检区域" required>
+              <a-select v-model:value="form.areaId" placeholder="请选择巡检区域" @change="syncArea">
                 <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
               </a-select>
             </a-form-item>
@@ -108,7 +108,7 @@ function fillForm(data?: Installation) {
 
 function handleSave() {
   if (!form.name.trim() || !form.code.trim() || !form.installationPositionNo.trim() || !form.areaId) {
-    message.error('请补齐装置名称、编号、位号和所属区域')
+    message.error('请补齐装置名称、编号、位号和巡检区域')
     return
   }
 

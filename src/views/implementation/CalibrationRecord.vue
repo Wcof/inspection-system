@@ -35,7 +35,7 @@
         </a-table-column>
         <a-table-column title="点位名称" data-index="pointName" />
         <a-table-column title="点位编码" data-index="pointCode" />
-        <a-table-column title="所属区域" data-index="areaName" />
+        <a-table-column title="巡检区域" data-index="areaName" />
         <a-table-column title="校准机器人" data-index="calibrationRobot" />
         <a-table-column title="校准状态" data-index="status">
           <template #default="{ record }">

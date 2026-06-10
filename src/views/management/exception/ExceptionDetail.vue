@@ -27,7 +27,7 @@
           <a-descriptions-item label="巡检点">{{ detail.inspectionPointName }}</a-descriptions-item>
           <a-descriptions-item label="停车点">{{ detail.parkingPointName }}</a-descriptions-item>
           <a-descriptions-item label="设施/管路">{{ detail.facilityName }}</a-descriptions-item>
-          <a-descriptions-item label="部件">{{ detail.componentName }}</a-descriptions-item>
+          <a-descriptions-item label="巡检对象">{{ detail.componentName }}</a-descriptions-item>
           <a-descriptions-item label="规则">{{ detail.ruleName }}</a-descriptions-item>
         </template>
         <template v-else>

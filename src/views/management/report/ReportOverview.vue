@@ -11,7 +11,7 @@
       <a-button @click="goTo('plan-coverage-analysis')">规划覆盖</a-button>
       <a-button @click="goTo('exception-analysis')">异常告警</a-button>
       <a-button @click="goTo('dispatch-analysis')">调度决策</a-button>
-      <a-button @click="goTo('component-rule-analysis')">部件规则</a-button>
+      <a-button @click="goTo('component-rule-analysis')">巡检对象规则</a-button>
       <a-button @click="goTo('evidence-playback-analysis')">证据回放</a-button>
       <a-button @click="goTo('third-party-task-analysis')">第三方回传</a-button>
       <a-button @click="goTo('inspection-point-analysis')">巡检点分析</a-button>

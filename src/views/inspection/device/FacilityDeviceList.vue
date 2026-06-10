@@ -1,6 +1,6 @@
 <template>
   <div class="facility-device-list">
-    <a-page-header title="设施管理" sub-title="支持设施维度查询、关联部件与检测规则统计、参考图预览" />
+    <a-page-header title="设施设备" sub-title="支持设施维度查询、关联巡检对象与检测规则统计、参考图预览" />
 
     <a-card style="margin-top: 16px">
       <div class="search-panel">
@@ -22,8 +22,8 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
-              <a-form-item label="所属区域" class="search-item">
-                <a-select v-model:value="searchForm.areaId" allow-clear placeholder="请选择所属区域">
+              <a-form-item label="巡检区域" class="search-item">
+                <a-select v-model:value="searchForm.areaId" allow-clear placeholder="请选择巡检区域">
                   <a-select-option v-for="area in areas" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
                 </a-select>
               </a-form-item>
@@ -110,9 +110,9 @@ const columns = [
   { title: '设施位号', dataIndex: 'facilityPositionNo', key: 'facilityPositionNo', width: 150 },
   { title: '设施名称', dataIndex: 'name', key: 'name', width: 150 },
   { title: '设施类别', dataIndex: 'deviceCategory', key: 'deviceCategory', width: 130 },
-  { title: '所属区域', key: 'area', width: 130 },
+  { title: '巡检区域', key: 'area', width: 130 },
   { title: '关联点位', key: 'point', width: 200 },
-  { title: '关联部件数', key: 'componentCount', width: 100 },
+  { title: '关联巡检对象数', key: 'componentCount', width: 100 },
   { title: '关联检测规则数', key: 'ruleCount', width: 120 },
   { title: '参考图', key: 'reference', width: 110, fixed: 'right' as const },
   { title: '操作', key: 'actions', width: 120, fixed: 'right' as const }

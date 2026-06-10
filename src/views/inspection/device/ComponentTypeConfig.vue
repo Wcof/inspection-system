@@ -1,6 +1,6 @@
 <template>
   <div class="component-type-config">
-    <a-page-header title="部件类型配置" sub-title="维护部件类型字典（CRUD）">
+    <a-page-header title="巡检对象类型配置" sub-title="维护巡检对象类型字典（CRUD）">
       <template #extra>
         <a-button type="primary" @click="openCreate">新增类型</a-button>
       </template>
@@ -52,7 +52,7 @@
 
     <a-modal
       v-model:open="modalOpen"
-      :title="editingId ? '编辑部件类型' : '新增部件类型'"
+      :title="editingId ? '编辑巡检对象类型' : '新增巡检对象类型'"
       @ok="save"
       @cancel="modalOpen = false"
     >
@@ -130,7 +130,7 @@ function loadInitial() {
     }
   }
   const defaults: ComponentTypeRow[] = [
-    { id: 'ct-1', code: 'valve', name: '阀门', description: '阀门类部件', updatedAt: new Date().toISOString() },
+    { id: 'ct-1', code: 'valve', name: '阀门', description: '阀门类巡检对象', updatedAt: new Date().toISOString() },
     { id: 'ct-2', code: 'pressure_gauge', name: '压力表', description: '压力监测表计', updatedAt: new Date().toISOString() }
   ]
   localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults))
@@ -180,10 +180,10 @@ function save() {
         ? { ...item, code: form.code.trim(), name: form.name.trim(), description: form.description.trim(), updatedAt: now }
         : item
     )
-    message.success('部件类型已更新')
+    message.success('巡检对象类型已更新')
   } else {
     types.value.push({ id: `ct-${Date.now()}`, code: form.code.trim(), name: form.name.trim(), description: form.description.trim(), updatedAt: now })
-    message.success('部件类型已新增')
+    message.success('巡检对象类型已新增')
   }
 
   persist()
@@ -192,7 +192,7 @@ function save() {
 
 function remove(id: string) {
   Modal.confirm({
-    title: '确认删除该部件类型？',
+    title: '确认删除该巡检对象类型？',
     okText: '确认',
     cancelText: '取消',
     okButtonProps: { danger: true },

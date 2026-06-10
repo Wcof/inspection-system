@@ -19,6 +19,7 @@ export enum ExceptionStrategy {
 
 
 export interface RobotVersionInfo {
+  systemVersion?: string
   firmwareVersion: string
   hardwareVersion: string
   softwareVersion: string
@@ -30,7 +31,7 @@ export interface RobotAttachment {
   id: string
   name: string
   model: string
-  category: 'chassis' | 'sensor' | 'power' | 'communication' | 'other'
+  category: 'chassis' | 'sensor' | 'gimbal' | 'power' | 'communication' | 'other'
   status: 'normal' | 'warning' | 'error' | 'offline'
   serialNumber?: string
   manufacturer?: string
@@ -60,11 +61,26 @@ export interface RobotExceptionStrategy {
   retryTimes: number
 }
 
+export interface RobotMaintenanceItem {
+  id: string
+  itemName: string
+  period: string
+  status: 'completed' | 'pending' | 'overdue'
+  statusText: string
+  lastTime: string
+  nextTrigger: string
+  operator: string
+  pdfUrl: string | null
+}
+
 export interface Robot {
   id: string
   name: string
   serialNumber: string
   model: string
+  manufacturer?: string
+  explosionProofCert?: string
+  explosionProofLevel?: string
   status: RobotStatus
   batteryLevel: number
   batteryThreshold: {
@@ -76,6 +92,7 @@ export interface Robot {
   exceptionStrategy: RobotExceptionStrategy
   versionInfo?: RobotVersionInfo
   attachments?: RobotAttachment[]
+  maintenanceItems?: RobotMaintenanceItem[]
   createdAt: Date
   updatedAt: Date
 }

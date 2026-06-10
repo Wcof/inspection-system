@@ -2,7 +2,7 @@
   <div class="point-manage">
     <a-page-header
       :title="isListMode ? '点位管理' : `点位编辑 - ${currentMap?.name || '未命名地图'}`"
-      :sub-title="isListMode ? '统一管理巡检点、充电站、维修站、通行点，并通过 Tab 切换不同业务类型。' : '维护当前地图内的点位位置与基础属性。'"
+      :sub-title="isListMode ? '统一管理巡检点、充电点、维修站、通行点，并通过 Tab 切换不同业务类型。' : '维护当前地图内的点位位置与基础属性。'"
     >
       <template #extra>
         <a-space v-if="isListMode">
@@ -19,52 +19,19 @@
         <a-tab-pane key="all" tab="全部">
           <div class="search-panel">
             <a-form layout="vertical" :model="listSearchForm" @submit.prevent>
-              <a-row :gutter="[16, 8]" align="bottom">
+              <a-row :gutter="[16, 8]">
                 <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                  <a-form-item label="点位名称" class="search-item">
+                  <a-form-item label="名称" class="search-item">
                     <a-input v-model:value="listSearchForm.name" placeholder="请输入点位名称" allow-clear />
                   </a-form-item>
                 </a-col>
-                <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                  <a-form-item label="点位编码" class="search-item">
-                    <a-input v-model:value="listSearchForm.code" placeholder="请输入点位编码" allow-clear />
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                  <a-form-item label="点位类型" class="search-item">
-                    <a-select v-model:value="listSearchForm.type" placeholder="请选择点位类型" allow-clear>
-                      <a-select-option value="inspection">巡检点</a-select-option>
-                      <a-select-option value="charging">充电站</a-select-option>
-                    </a-select>
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                  <a-form-item label="所属地图" class="search-item">
-                    <a-select v-model:value="listSearchForm.mapId" placeholder="请选择所属地图" allow-clear>
-                      <a-select-option v-for="map in inspectionStore.inspectionMaps" :key="map.id" :value="map.id">
-                        {{ map.name }}
-                      </a-select-option>
-                    </a-select>
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :sm="24" :md="16" :lg="18">
-                  <a-form-item label="所属区域" class="search-item">
-                    <a-select v-model:value="listSearchForm.areaId" placeholder="请选择所属区域" allow-clear>
-                      <a-select-option v-for="area in listAreaOptions" :key="area.id" :value="area.id">
-                        {{ area.name }}
-                      </a-select-option>
-                    </a-select>
-                  </a-form-item>
-                </a-col>
-                <a-col :xs="24" :sm="24" :md="8" :lg="6">
-                  <div class="search-actions inline">
-                    <a-space>
-                      <a-button type="primary">搜索</a-button>
-                      <a-button @click="resetListSearch">重置</a-button>
-                    </a-space>
-                  </div>
-                </a-col>
               </a-row>
+              <div class="search-actions">
+                <a-space>
+                  <a-button type="primary">搜索</a-button>
+                  <a-button @click="resetListSearch">重置</a-button>
+                </a-space>
+              </div>
             </a-form>
           </div>
 
@@ -110,8 +77,8 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                  <a-form-item label="所属区域" class="search-item">
-                    <a-select v-model:value="inspectionSearchForm.areaId" placeholder="请选择所属区域" allow-clear>
+                  <a-form-item label="巡检区域" class="search-item">
+                    <a-select v-model:value="inspectionSearchForm.areaId" placeholder="请选择巡检区域" allow-clear>
                       <a-select-option v-for="area in listAreaOptions" :key="area.id" :value="area.id">
                         {{ area.name }}
                       </a-select-option>
@@ -160,17 +127,33 @@
               <template v-else-if="column.key === 'workArea'">
                 {{ getWorkArea(record) }}
               </template>
-              <template v-else-if="column.key === 'coveredInstallationCount'">
-                {{ getCoveredInstallationCount(record) }}
+              <template v-else-if="column.key === 'coveredInstallationNames'">
+                <a-tooltip v-if="getCoveredInstallationNames(record).length">
+                  <template #title>{{ getCoveredInstallationNames(record).join('、') }}</template>
+                  <span>{{ truncateNames(getCoveredInstallationNames(record)) }}</span>
+                </a-tooltip>
+                <span v-else>-</span>
               </template>
-              <template v-else-if="column.key === 'coveredFacilityCount'">
-                {{ getCoveredFacilityCount(record) }}
+              <template v-else-if="column.key === 'coveredFacilityNames'">
+                <a-tooltip v-if="getCoveredFacilityNames(record).length">
+                  <template #title>{{ getCoveredFacilityNames(record).join('、') }}</template>
+                  <span>{{ truncateNames(getCoveredFacilityNames(record)) }}</span>
+                </a-tooltip>
+                <span v-else>-</span>
               </template>
-              <template v-else-if="column.key === 'coveredComponentCount'">
-                {{ getCoveredComponentCount(record) }}
+              <template v-else-if="column.key === 'coveredComponentNames'">
+                <a-tooltip v-if="getCoveredComponentNames(record).length">
+                  <template #title>{{ getCoveredComponentNames(record).join('、') }}</template>
+                  <span>{{ truncateNames(getCoveredComponentNames(record)) }}</span>
+                </a-tooltip>
+                <span v-else>-</span>
               </template>
-              <template v-else-if="column.key === 'coveredRuleCount'">
-                {{ getCoveredRuleCount(record) }}
+              <template v-else-if="column.key === 'coveredRuleNames'">
+                <a-tooltip v-if="getCoveredRuleNames(record).length">
+                  <template #title>{{ getCoveredRuleNames(record).join('、') }}</template>
+                  <span>{{ truncateNames(getCoveredRuleNames(record)) }}</span>
+                </a-tooltip>
+                <span v-else>-</span>
               </template>
               <template v-else-if="column.key === 'updatedAt'">
                 {{ formatDate(record.raw.updatedAt) || '-' }}
@@ -188,7 +171,7 @@
           </a-table>
         </a-tab-pane>
 
-        <a-tab-pane key="charging" tab="充电站">
+        <a-tab-pane key="charging" tab="充电点">
           <div class="search-panel">
             <a-form layout="vertical" :model="chargingSearchForm" @submit.prevent>
               <a-row :gutter="[16, 8]">
@@ -203,8 +186,8 @@
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                  <a-form-item label="所属区域" class="search-item">
-                    <a-select v-model:value="chargingSearchForm.areaId" placeholder="请选择所属区域" allow-clear>
+                  <a-form-item label="巡检区域" class="search-item">
+                    <a-select v-model:value="chargingSearchForm.areaId" placeholder="请选择巡检区域" allow-clear>
                       <a-select-option v-for="area in listAreaOptions" :key="area.id" :value="area.id">
                         {{ area.name }}
                       </a-select-option>
@@ -244,23 +227,23 @@
           </a-table>
         </a-tab-pane>
 
-        <a-tab-pane key="maintenance" tab="维修站">
+        <a-tab-pane key="parking" tab="停车点">
           <div class="search-panel">
-            <a-form layout="vertical" :model="maintenanceSearchForm" @submit.prevent>
+            <a-form layout="vertical" :model="parkingSearchForm" @submit.prevent>
               <a-row :gutter="[16, 8]">
                 <a-col :xs="24" :sm="12" :md="8" :lg="6">
                   <a-form-item label="名称" class="search-item">
-                    <a-input v-model:value="maintenanceSearchForm.name" placeholder="请输入点位名称" allow-clear />
+                    <a-input v-model:value="parkingSearchForm.name" placeholder="请输入点位名称" allow-clear />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :sm="12" :md="8" :lg="6">
                   <a-form-item label="编码" class="search-item">
-                    <a-input v-model:value="maintenanceSearchForm.code" placeholder="请输入点位编码" allow-clear />
+                    <a-input v-model:value="parkingSearchForm.code" placeholder="请输入点位编码" allow-clear />
                   </a-form-item>
                 </a-col>
                 <a-col :xs="24" :sm="12" :md="8" :lg="6">
-                  <a-form-item label="所属区域" class="search-item">
-                    <a-select v-model:value="maintenanceSearchForm.areaId" placeholder="请选择所属区域" allow-clear>
+                  <a-form-item label="巡检区域" class="search-item">
+                    <a-select v-model:value="parkingSearchForm.areaId" placeholder="请选择巡检区域" allow-clear>
                       <a-select-option v-for="area in listAreaOptions" :key="area.id" :value="area.id">
                         {{ area.name }}
                       </a-select-option>
@@ -269,20 +252,20 @@
                 </a-col>
                 <a-col :xs="24" :sm="12" :md="8" :lg="6">
                   <a-form-item label="更新时间" class="search-item">
-                    <a-input v-model:value="maintenanceSearchForm.updatedAt" placeholder="YYYY-MM-DD" allow-clear />
+                    <a-input v-model:value="parkingSearchForm.updatedAt" placeholder="YYYY-MM-DD" allow-clear />
                   </a-form-item>
                 </a-col>
               </a-row>
               <div class="search-actions">
                 <a-space>
                   <a-button type="primary">搜索</a-button>
-                  <a-button @click="resetMaintenanceSearch">重置</a-button>
+                  <a-button @click="resetParkingSearch">重置</a-button>
                 </a-space>
               </div>
             </a-form>
           </div>
 
-          <a-table :columns="baseTypeColumns" :data-source="maintenanceTabRows" row-key="id">
+          <a-table :columns="baseTypeColumns" :data-source="parkingTabRows" row-key="id">
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'coordinate'">
                 {{ formatCoordinate(record.raw.mapPosition) }}
@@ -307,8 +290,13 @@
         <a-card class="map-card" title="位置管理">
           <template #extra>
             <a-space v-if="mode !== 'moving'" class="card-actions">
-              <a-button type="primary" :disabled="mode === 'adding'" @click="enterAddMode">新增点位</a-button>
-              <a-button @click="enterMoveMode">移动点位</a-button>
+              <template v-if="mode !== 'adding'">
+                <a-button type="primary" @click="enterAddMode">新增点位</a-button>
+                <a-button @click="enterMoveMode">移动点位</a-button>
+              </template>
+              <template v-else>
+                <a-button type="primary" danger @click="cancelAdd">取消新增</a-button>
+              </template>
             </a-space>
             <a-space v-else class="card-actions">
               <a-button type="primary" @click="confirmMove">确认</a-button>
@@ -360,7 +348,8 @@
                   <a-form-item label="点位类型" class="search-item">
                     <a-select v-model:value="mapSearchForm.type" placeholder="请选择点位类型" allow-clear>
                       <a-select-option value="inspection">巡检点</a-select-option>
-                      <a-select-option value="charging">充电站</a-select-option>
+                      <a-select-option value="parking">停车点</a-select-option>
+                      <a-select-option value="charging">充电点</a-select-option>
                     </a-select>
                   </a-form-item>
                 </a-col>
@@ -381,7 +370,8 @@
                 <template v-if="editingId === record.id">
                   <a-select v-model:value="inlineEdit.type" style="width: 120px">
                     <a-select-option value="inspection">巡检点</a-select-option>
-                    <a-select-option value="charging">充电站</a-select-option>
+                    <a-select-option value="parking">停车点</a-select-option>
+                    <a-select-option value="charging">充电点</a-select-option>
                   </a-select>
                 </template>
                 <a-tag v-else :color="getPointTypeColor(record.bizType)">{{ pointTypeText(record.bizType) }}</a-tag>
@@ -415,25 +405,54 @@
         </a-card>
       </div>
 
-      <a-modal v-model:open="addModalVisible" title="新增点位" @ok="createPoint" @cancel="cancelAdd">
+      <a-modal v-model:open="addModalVisible" title="新增点位" @ok="createPoint" @cancel="cancelAdd" width="520px">
         <a-form layout="vertical">
+          <a-form-item label="点位类型" required>
+            <a-select v-model:value="addForm.type" style="width: 100%">
+              <a-select-option value="inspection">巡检点</a-select-option>
+              <a-select-option value="parking">停车点</a-select-option>
+              <a-select-option value="charging">充电点</a-select-option>
+            </a-select>
+          </a-form-item>
           <a-form-item label="点位名称" required>
             <a-input v-model:value="addForm.name" placeholder="请输入点位名称" />
-          </a-form-item>
-          <a-form-item label="点位类型" required>
-            <a-select v-model:value="addForm.type">
-              <a-select-option value="inspection">巡检点</a-select-option>
-              <a-select-option value="charging">充电站</a-select-option>
-            </a-select>
           </a-form-item>
           <a-form-item label="所属区域">
             <a-select v-model:value="addForm.areaId" allow-clear placeholder="请选择区域">
               <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
             </a-select>
           </a-form-item>
+          <a-form-item label="描述">
+            <a-textarea v-model:value="addForm.description" :rows="2" placeholder="点位描述信息" />
+          </a-form-item>
           <a-form-item label="地图坐标">
             <a-input :value="`${addForm.mapX.toFixed(2)}, ${addForm.mapY.toFixed(2)}`" disabled />
           </a-form-item>
+
+          <!-- 充电点专属 -->
+          <template v-if="addForm.type === 'charging'">
+            <a-divider orientation="left">充电属性</a-divider>
+            <a-form-item label="充电方式">
+              <a-select v-model:value="addForm.chargingMethod" style="width: 100%">
+                <a-select-option value="auto">自动对接</a-select-option>
+                <a-select-option value="manual">手动连接</a-select-option>
+                <a-select-option value="wireless">无线充电</a-select-option>
+              </a-select>
+            </a-form-item>
+            <a-row :gutter="8">
+              <a-col :span="12"><a-form-item label="充电功率(kW)"><a-input-number v-model:value="addForm.chargingPower" :min="0" style="width:100%" /></a-form-item></a-col>
+              <a-col :span="12"><a-form-item label="预计时长(min)"><a-input-number v-model:value="addForm.estimatedChargingTime" :min="0" style="width:100%" /></a-form-item></a-col>
+            </a-row>
+          </template>
+
+          <!-- 停车点专属 -->
+          <template v-if="addForm.type === 'parking'">
+            <a-divider orientation="left">停车属性</a-divider>
+            <a-row :gutter="8">
+              <a-col :span="12"><a-form-item label="停车优先级"><a-input-number v-model:value="addForm.parkingPriority" :min="1" :max="10" style="width:100%" /></a-form-item></a-col>
+              <a-col :span="12"><a-form-item label="允许等待(秒)"><a-input-number v-model:value="addForm.maxWaitingTime" :min="0" style="width:100%" /></a-form-item></a-col>
+            </a-row>
+          </template>
         </a-form>
       </a-modal>
     </template>
@@ -508,7 +527,7 @@
         <a-descriptions size="small" :column="3" bordered class="location-preview-descriptions">
           <a-descriptions-item label="点位编码">{{ locationPreviewPoint.code || '-' }}</a-descriptions-item>
           <a-descriptions-item label="所属地图">{{ locationPreviewPoint.mapName }}</a-descriptions-item>
-          <a-descriptions-item label="所属区域">{{ locationPreviewPoint.areaName || '未分区' }}</a-descriptions-item>
+          <a-descriptions-item label="巡检区域">{{ locationPreviewPoint.areaName || '未分区' }}</a-descriptions-item>
           <a-descriptions-item label="点位类型">{{ pointTypeText(locationPreviewPoint.bizType) }}</a-descriptions-item>
           <a-descriptions-item label="是否可达">{{ getReachableText(locationPreviewPoint) }}</a-descriptions-item>
           <a-descriptions-item label="更新时间">{{ formatDate(locationPreviewPoint.raw.updatedAt) || '-' }}</a-descriptions-item>
@@ -574,9 +593,10 @@ import { useRobotStore } from '@/stores/robot'
 import { CalibrationStatus, InspectionPointType, PositionSource } from '@/types/inspection'
 import { ExceptionStrategy } from '@/types'
 import type { InspectionPoint, MapRegion } from '@/types/inspection'
+import { getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
 
-type BizPointType = 'inspection' | 'charging' | 'maintenance' | 'transit'
-type ListTabKey = 'all' | 'inspection' | 'charging' | 'maintenance'
+type BizPointType = 'inspection' | 'parking' | 'charging'
+type ListTabKey = 'all' | 'inspection' | 'parking' | 'charging'
 type Mode = 'normal' | 'adding' | 'moving'
 
 interface PointRow {
@@ -633,7 +653,15 @@ const addForm = reactive({
   type: 'inspection' as BizPointType,
   areaId: '',
   mapX: 0,
-  mapY: 0
+  mapY: 0,
+  description: '',
+  // 充电点专属
+  chargingMethod: 'auto' as string,
+  chargingPower: 22,
+  estimatedChargingTime: 60,
+  // 停车点专属
+  parkingPriority: 1,
+  maxWaitingTime: 120
 })
 const mapSearchForm = reactive({
   name: '',
@@ -659,18 +687,14 @@ const chargingSearchForm = reactive({
   areaId: '',
   updatedAt: ''
 })
-const maintenanceSearchForm = reactive({
+const parkingSearchForm = reactive({
   name: '',
   code: '',
   areaId: '',
   updatedAt: ''
 })
 const listSearchForm = reactive({
-  name: '',
-  code: '',
-  type: '' as '' | BizPointType,
-  mapId: '',
-  areaId: ''
+  name: ''
 })
 
 const activeListTab = computed<ListTabKey>({
@@ -689,7 +713,7 @@ const activeListTab = computed<ListTabKey>({
 const mapColumns = [
   { title: '点位名称', dataIndex: 'name', key: 'name', width: 220, ellipsis: true },
   { title: '点位类型', key: 'pointType', width: 110 },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 140, ellipsis: true },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 140, ellipsis: true },
   { title: '地图坐标', key: 'location', width: 150 },
   { title: '操作', key: 'actions', width: 150 }
 ]
@@ -699,7 +723,7 @@ const allColumns = [
   { title: '点位编码', dataIndex: 'code', key: 'code', width: 150 },
   { title: '点位类型', key: 'pointType', width: 110 },
   { title: '所属地图', dataIndex: 'mapName', key: 'mapName', width: 170 },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 170 },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 170 },
   { title: '坐标', key: 'coordinate', width: 140 },
   { title: '是否可达', key: 'reachable', width: 100 },
   { title: '更新时间', key: 'updatedAt', width: 170 },
@@ -709,13 +733,13 @@ const allColumns = [
 const inspectionColumns = [
   { title: '巡检点名称', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code', width: 130 },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '装置区 / 分区', key: 'workArea', width: 150 },
   { title: '现场预览图', key: 'previewImage', width: 100 },
-  { title: '覆盖装置', key: 'coveredInstallationCount', width: 100 },
-  { title: '覆盖设施', key: 'coveredFacilityCount', width: 100 },
-  { title: '覆盖部件', key: 'coveredComponentCount', width: 100 },
-  { title: '覆盖检测规则', key: 'coveredRuleCount', width: 120 },
+  { title: '覆盖装置', key: 'coveredInstallationNames', width: 160 },
+  { title: '覆盖设施', key: 'coveredFacilityNames', width: 160 },
+  { title: '覆盖对象', key: 'coveredComponentNames', width: 160 },
+  { title: '覆盖检测规则', key: 'coveredRuleNames', width: 180 },
   { title: '校准状态', key: 'calibrationStatus', width: 100 },
   { title: '更新时间', key: 'updatedAt', width: 170 },
   { title: '操作', key: 'actions', width: 320 }
@@ -725,7 +749,7 @@ const baseTypeColumns = [
   { title: '点位名称', dataIndex: 'name', key: 'name' },
   { title: '点位编码', dataIndex: 'code', key: 'code', width: 150 },
   { title: '所属地图', dataIndex: 'mapName', key: 'mapName', width: 170 },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 170 },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 170 },
   { title: '坐标', key: 'coordinate', width: 140 },
   { title: '更新时间', key: 'updatedAt', width: 170 },
   { title: '操作', key: 'actions', width: 180 }
@@ -747,24 +771,15 @@ const allPointRows = computed<PointRow[]>(() =>
 
 const filteredListRows = computed(() => {
   const name = listSearchForm.name.trim().toLowerCase()
-  const code = listSearchForm.code.trim().toLowerCase()
-  const type = listSearchForm.type
-  const mapId = listSearchForm.mapId
-  const areaId = listSearchForm.areaId
   return allPointRows.value.filter((point) => {
-    const matchesName = !name || point.name.toLowerCase().includes(name)
-    const matchesCode = !code || point.code.toLowerCase().includes(code)
-    const matchesType = !type || point.bizType === type
-    const matchesMap = !mapId || point.mapId === mapId
-    const matchesArea = !areaId || point.areaId === areaId
-    return matchesName && matchesCode && matchesType && matchesMap && matchesArea
+    return !name || point.name.toLowerCase().includes(name)
   })
 })
 
 const allTabRows = computed(() => filteredListRows.value)
 const inspectionBaseRows = computed(() => filteredListRows.value.filter(point => point.bizType === 'inspection'))
 const chargingBaseRows = computed(() => filteredListRows.value.filter(point => point.bizType === 'charging'))
-const maintenanceBaseRows = computed(() => filteredListRows.value.filter(point => point.bizType === 'maintenance'))
+const parkingBaseRows = computed(() => filteredListRows.value.filter(point => point.bizType === 'parking'))
 
 const chargingTabRows = computed(() => {
   const name = chargingSearchForm.name.trim().toLowerCase()
@@ -781,12 +796,12 @@ const chargingTabRows = computed(() => {
   })
 })
 
-const maintenanceTabRows = computed(() => {
-  const name = maintenanceSearchForm.name.trim().toLowerCase()
-  const code = maintenanceSearchForm.code.trim().toLowerCase()
-  const areaId = maintenanceSearchForm.areaId
-  const updatedAt = maintenanceSearchForm.updatedAt.trim()
-  return maintenanceBaseRows.value.filter((point) => {
+const parkingTabRows = computed(() => {
+  const name = parkingSearchForm.name.trim().toLowerCase()
+  const code = parkingSearchForm.code.trim().toLowerCase()
+  const areaId = parkingSearchForm.areaId
+  const updatedAt = parkingSearchForm.updatedAt.trim()
+  return parkingBaseRows.value.filter((point) => {
     const matchesName = !name || point.name.toLowerCase().includes(name)
     const matchesCode = !code || point.code.toLowerCase().includes(code)
     const matchesArea = !areaId || point.areaId === areaId
@@ -851,7 +866,7 @@ const filteredMapPoints = computed(() => {
 })
 
 function normalizeListTab(value: unknown): ListTabKey {
-  if (value === 'inspection' || value === 'charging' || value === 'maintenance') return value
+  if (value === 'inspection' || value === 'charging' || value === 'parking') return value
   return 'all'
 }
 
@@ -867,38 +882,33 @@ function clamp(value: number) {
 }
 
 function getBizTypeFromPoint(point: InspectionPoint): BizPointType {
-  if (point.parkingPoints?.length) return 'inspection'
-  const tag = String(point.description || '').match(/^\[(巡检点|充电站)\]/)?.[1]
-  if (tag === '充电站') return 'charging'
-  if (tag === '维修站') return 'maintenance'
+  const tag = String(point.description || '').match(/^\[(巡检点|充电点|停车点)\]/)?.[1]
+  if (tag === '充电点') return 'charging'
+  if (tag === '停车点') return 'parking'
   return 'inspection'
 }
 
 function getDescriptionByBizType(type: BizPointType, name: string) {
-  if (type === 'charging') return `[充电站] ${name}`
-  if (type === 'maintenance') return `[维修站] ${name}`
-  if (type === 'transit') return `[通行点] ${name}`
+  if (type === 'charging') return `[充电点] ${name}`
+  if (type === 'parking') return `[停车点] ${name}`
   return `[巡检点] ${name}`
 }
 
 function pointTypeText(type: BizPointType) {
-  if (type === 'charging') return '充电站'
-  if (type === 'maintenance') return '维修站'
-  if (type === 'transit') return '通行点'
+  if (type === 'charging') return '充电点'
+  if (type === 'parking') return '停车点'
   return '巡检点'
 }
 
 function getPointTypeColor(type: BizPointType) {
   if (type === 'charging') return 'green'
-  if (type === 'maintenance') return 'orange'
-  if (type === 'transit') return 'cyan'
+  if (type === 'parking') return 'orange'
   return 'blue'
 }
 
 function getShortType(type: BizPointType) {
   if (type === 'charging') return '充'
-  if (type === 'maintenance') return '维'
-  if (type === 'transit') return '通'
+  if (type === 'parking') return '停'
   return '巡'
 }
 
@@ -963,35 +973,67 @@ function getCoveredComponentIds(record: PointRow) {
   return ids
 }
 
-function getCoveredInstallationCount(record: PointRow) {
-  const ids = new Set<string>()
+function getCoveredInstallationNames(record: PointRow): string[] {
+  const names: string[] = []
+  const seen = new Set<string>()
   getCoveredFacilityIds(record).forEach((facilityId) => {
     const facility = inspectionStore.inspectionDevices.find((item) => item.id === facilityId)
-    if (facility?.installationId) ids.add(facility.installationId)
+    if (facility?.installationId && !seen.has(facility.installationId)) {
+      seen.add(facility.installationId)
+      const installation = inspectionStore.installations.find((item) => item.id === facility.installationId)
+      names.push(installation?.name || facility.installationName || facility.installationId)
+    }
   })
-  return ids.size
+  return names
 }
 
-function getCoveredFacilityCount(record: PointRow) {
-  return getCoveredFacilityIds(record).size
+function getCoveredFacilityNames(record: PointRow): string[] {
+  const names: string[] = []
+  const seen = new Set<string>()
+  getCoveredFacilityIds(record).forEach((facilityId) => {
+    if (!seen.has(facilityId)) {
+      seen.add(facilityId)
+      const facility = inspectionStore.inspectionDevices.find((item) => item.id === facilityId)
+      names.push(facility?.name || facilityId)
+    }
+  })
+  return names
 }
 
-function getCoveredComponentCount(record: PointRow) {
-  return getCoveredComponentIds(record).size
+function getCoveredComponentNames(record: PointRow): string[] {
+  const names: string[] = []
+  const seen = new Set<string>()
+  getCoveredComponentIds(record).forEach((componentId) => {
+    if (!seen.has(componentId)) {
+      seen.add(componentId)
+      const component = inspectionStore.facilityComponents.find((item) => item.id === componentId)
+      names.push(component?.name || componentId)
+    }
+  })
+  return names
 }
 
-function getCoveredRuleCount(record: PointRow) {
-  const ids = new Set<string>()
+function getCoveredRuleNames(record: PointRow): string[] {
+  const ruleIds = new Set<string>()
   ;(record.raw.detectionConfigs || []).forEach((item) => {
-    if (item.enabled && item.ruleId) ids.add(item.ruleId)
+    if (item.enabled && item.ruleId) ruleIds.add(item.ruleId)
   })
-  if (!ids.size) {
+  if (!ruleIds.size) {
     getCoveredComponentIds(record).forEach((componentId) => {
       const component = inspectionStore.facilityComponents.find((item) => item.id === componentId)
-      ;(component?.ruleIds || []).forEach((ruleId) => ids.add(ruleId))
+      ;(component?.ruleIds || []).forEach((ruleId) => ruleIds.add(ruleId))
     })
   }
-  return ids.size
+  const ruleOptions = getDetectionItemConfigs()
+  return Array.from(ruleIds).map((ruleId) => {
+    const rule = ruleOptions.find((r) => r.id === ruleId)
+    return rule?.name || ruleId
+  })
+}
+
+function truncateNames(names: string[], max = 2): string {
+  if (names.length <= max) return names.join('、')
+  return `${names.slice(0, max).join('、')} +${names.length - max}`
 }
 
 function formatCoordinate(mapPosition?: InspectionPoint['mapPosition']) {
@@ -1257,7 +1299,7 @@ function createPoint() {
     mapPosition: { x: addForm.mapX, y: addForm.mapY, yaw: 0 },
     sequence: points.value.length + 1,
     calibrationStatus: CalibrationStatus.PENDING,
-    stayDurationSec: 30,
+    stayDurationSec: 0,
     monitorPoints: [],
     isCritical: false,
     exceptionStrategy: {
@@ -1273,8 +1315,7 @@ function createPoint() {
   inspectionStore.saveInspectionPoint(newPoint)
   addModalVisible.value = false
   pendingAddPreview.value = null
-  mode.value = 'normal'
-  message.success('点位新增成功')
+  message.success('点位新增成功，可继续点击地图新增下一个点位')
   loadPoints()
 }
 
@@ -1346,19 +1387,15 @@ function resetChargingSearch() {
   chargingSearchForm.updatedAt = ''
 }
 
-function resetMaintenanceSearch() {
-  maintenanceSearchForm.name = ''
-  maintenanceSearchForm.code = ''
-  maintenanceSearchForm.areaId = ''
-  maintenanceSearchForm.updatedAt = ''
+function resetParkingSearch() {
+  parkingSearchForm.name = ''
+  parkingSearchForm.code = ''
+  parkingSearchForm.areaId = ''
+  parkingSearchForm.updatedAt = ''
 }
 
 function resetListSearch() {
   listSearchForm.name = ''
-  listSearchForm.code = ''
-  listSearchForm.type = ''
-  listSearchForm.mapId = ''
-  listSearchForm.areaId = ''
 }
 
 function handleCalibrate(record: InspectionPoint) {

@@ -21,7 +21,7 @@
           <a-col :xs="24" :sm="12" :md="8" :lg="6">
             <a-form-item label="异常类型" class="search-item">
               <a-select v-model:value="searchForm.type" placeholder="请选择异常类型" allow-clear>
-                <a-select-option value="facility_component">设施/部件异常</a-select-option>
+                <a-select-option value="facility_component">设施/巡检对象异常</a-select-option>
                 <a-select-option value="gas">气体异常</a-select-option>
                 <a-select-option value="safety">安全行为异常</a-select-option>
                 <a-select-option value="monitor_failure">监测失效</a-select-option>
@@ -259,7 +259,7 @@ const inspectionColumns = [
   { title: '巡检点', dataIndex: 'inspectionPointName', key: 'inspectionPointName', width: 140 },
   { title: '停车点', dataIndex: 'parkingPointName', key: 'parkingPointName', width: 140 },
   { title: '设施/管路', dataIndex: 'facilityName', key: 'facilityName', width: 150 },
-  { title: '部件', dataIndex: 'componentName', key: 'componentName', width: 120 },
+  { title: '巡检对象', dataIndex: 'componentName', key: 'componentName', width: 120 },
   { title: '规则', dataIndex: 'ruleName', key: 'ruleName', width: 150 },
   { title: '告警事实', dataIndex: 'alertFact', key: 'alertFact', width: 220 },
   { title: '证据', key: 'evidence', width: 110 },
@@ -278,7 +278,7 @@ const allColumns = [
   { title: '区域', dataIndex: 'areaName', key: 'areaName', width: 120 },
   { title: '装置', dataIndex: 'installationName', key: 'installationName', width: 140 },
   { title: '设施/管路', dataIndex: 'facilityName', key: 'facilityName', width: 150 },
-  { title: '部件', dataIndex: 'componentName', key: 'componentName', width: 120 },
+  { title: '巡检对象', dataIndex: 'componentName', key: 'componentName', width: 120 },
   { title: '规则', dataIndex: 'ruleName', key: 'ruleName', width: 150 },
   { title: '告警事实', dataIndex: 'alertFact', key: 'alertFact', width: 220 },
   { title: '采样时间', dataIndex: 'sampledAt', key: 'sampledAt', width: 180 },
@@ -344,7 +344,7 @@ function switchNotice(offset: number) {
   currentNoticeIndex.value = Math.min(Math.max(nextIndex, 0), pendingNoticeAlerts.value.length - 1)
 }
 
-function getTypeText(type: AlertType) { return ({ facility_component: '设施/部件异常', gas: '气体异常', safety: '安全行为异常', monitor_failure: '监测失效', uninspectable: '不可检异常' } as Record<AlertType, string>)[type] }
+function getTypeText(type: AlertType) { return ({ facility_component: '设施/巡检对象异常', gas: '气体异常', safety: '安全行为异常', monitor_failure: '监测失效', uninspectable: '不可检异常' } as Record<AlertType, string>)[type] }
 function getTypeColor(type: AlertType) { return ({ facility_component: 'processing', gas: 'orange', safety: 'purple', monitor_failure: 'red', uninspectable: 'gold' } as Record<AlertType, string>)[type] }
 function getSceneText(scene?: string) { return ({ daily_inspection: '日常巡检', hazard_screening: '临时补检', environment_check: '环境检查', operation_guard: '看护作业', work_ticket_guard: '作业票监护', emergency_arrival: '应急到场' } as Record<string, string>)[scene || ''] || '日常巡检' }
 function getSceneColor(scene?: string) { return ({ daily_inspection: 'blue', hazard_screening: 'volcano', environment_check: 'green', operation_guard: 'purple', work_ticket_guard: 'gold', emergency_arrival: 'red' } as Record<string, string>)[scene || ''] || 'blue' }

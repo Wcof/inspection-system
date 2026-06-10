@@ -11,40 +11,47 @@
     </div>
     
     <a-card style="margin-top: 16px">
-      <a-row :gutter="[16, 16]">
-        <a-col :span="12">
-          <a-descriptions title="基本信息" :column="2">
-            <a-descriptions-item label="机器人名称">{{ robot?.name }}</a-descriptions-item>
-            <a-descriptions-item label="序列号">{{ robot?.serialNumber }}</a-descriptions-item>
-            <a-descriptions-item label="型号">{{ robot?.model }}</a-descriptions-item>
-            <a-descriptions-item label="状态">
-              <a-tag :color="getStatusColor(robot?.status)">{{ getStatusText(robot?.status) }}</a-tag>
-            </a-descriptions-item>
-            <a-descriptions-item label="电量">
-              <a-progress 
-                :percent="robot?.batteryLevel" 
-                :status="getBatteryStatus(robot?.batteryLevel)"
-                size="small"
-              />
-            </a-descriptions-item>
-            <a-descriptions-item label="最后在线时间">{{ formatDate(robot?.lastOnlineTime) }}</a-descriptions-item>
-          </a-descriptions>
-        </a-col>
-        <a-col :span="12">
-          <a-descriptions title="异常策略" :column="1">
-            <a-descriptions-item label="低电量策略">{{ getStrategyText(robot?.exceptionStrategy?.lowBattery) }}</a-descriptions-item>
-            <a-descriptions-item label="信号丢失策略">{{ getStrategyText(robot?.exceptionStrategy?.signalLost) }}</a-descriptions-item>
-            <a-descriptions-item label="机器人故障策略">{{ getStrategyText(robot?.exceptionStrategy?.robotFailure) }}</a-descriptions-item>
-            <a-descriptions-item label="信号丢失重试次数">{{ robot?.exceptionStrategy?.signalLostRetryCount }}</a-descriptions-item>
-            <a-descriptions-item label="重试间隔">{{ robot?.exceptionStrategy?.retryInterval }}秒</a-descriptions-item>
-            <a-descriptions-item label="最大重试次数">{{ robot?.exceptionStrategy?.retryTimes }}</a-descriptions-item>
-          </a-descriptions>
-        </a-col>
-      </a-row>
-      
+      <!-- 基本资产信息 -->
+      <a-descriptions title="基本资产信息" :column="3" bordered>
+        <a-descriptions-item label="机器人名称">{{ robot?.name }}</a-descriptions-item>
+        <a-descriptions-item label="序列号">{{ robot?.serialNumber }}</a-descriptions-item>
+        <a-descriptions-item label="设备型号">{{ robot?.model }}</a-descriptions-item>
+        <a-descriptions-item label="生产厂家">{{ robot?.manufacturer || '极客光年智能装备' }}</a-descriptions-item>
+        <a-descriptions-item label="防爆证书编号">
+          <a-tag color="blue">{{ robot?.explosionProofCert || 'CNEx26.2045X' }}</a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="防爆等级">
+          <a-tag color="orange">{{ robot?.explosionProofLevel || 'Ex d IIC T4 Gb' }}</a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="状态">
+          <a-tag :color="getStatusColor(robot?.status)">{{ getStatusText(robot?.status) }}</a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="电量">
+          <a-progress
+            :percent="robot?.batteryLevel"
+            :status="getBatteryStatus(robot?.batteryLevel)"
+            size="small"
+          />
+        </a-descriptions-item>
+        <a-descriptions-item label="最后在线时间">{{ formatDate(robot?.lastOnlineTime) }}</a-descriptions-item>
+      </a-descriptions>
+
       <a-divider style="margin: 24px 0" />
-      
-      <a-descriptions title="连接配置" :column="2">
+
+      <!-- 系统与版本 -->
+      <a-descriptions title="系统与版本" :column="3" bordered>
+        <a-descriptions-item label="系统内核版本">{{ robot?.versionInfo?.systemVersion || 'RobotOS v2.4' }}</a-descriptions-item>
+        <a-descriptions-item label="固件版本">{{ robot?.versionInfo?.firmwareVersion || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="硬件版本">{{ robot?.versionInfo?.hardwareVersion || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="软件应用版本">{{ robot?.versionInfo?.softwareVersion || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="最近固件更新">{{ formatDate(robot?.versionInfo?.lastFirmwareUpdate) || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="最近软件更新">{{ formatDate(robot?.versionInfo?.lastSoftwareUpdate) || '-' }}</a-descriptions-item>
+      </a-descriptions>
+
+      <a-divider style="margin: 24px 0" />
+
+      <!-- 连接配置 -->
+      <a-descriptions title="连接配置" :column="3" bordered>
         <a-descriptions-item label="协议">{{ robot?.connectionConfig?.protocol }}</a-descriptions-item>
         <a-descriptions-item label="主机">{{ robot?.connectionConfig?.host }}</a-descriptions-item>
         <a-descriptions-item label="端口">{{ robot?.connectionConfig?.port }}</a-descriptions-item>
@@ -56,25 +63,28 @@
 
       <a-divider style="margin: 24px 0" />
 
-      <a-descriptions title="版本信息" :column="2">
-        <a-descriptions-item label="固件版本">{{ robot?.versionInfo?.firmwareVersion || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="硬件版本">{{ robot?.versionInfo?.hardwareVersion || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="软件版本">{{ robot?.versionInfo?.softwareVersion || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="最近固件更新">{{ formatDate(robot?.versionInfo?.lastFirmwareUpdate) || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="最近软件更新">{{ formatDate(robot?.versionInfo?.lastSoftwareUpdate) || '-' }}</a-descriptions-item>
+      <!-- 异常策略 -->
+      <a-descriptions title="异常策略" :column="3" bordered>
+        <a-descriptions-item label="低电量策略">{{ getStrategyText(robot?.exceptionStrategy?.lowBattery) }}</a-descriptions-item>
+        <a-descriptions-item label="信号丢失策略">{{ getStrategyText(robot?.exceptionStrategy?.signalLost) }}</a-descriptions-item>
+        <a-descriptions-item label="机器人故障策略">{{ getStrategyText(robot?.exceptionStrategy?.robotFailure) }}</a-descriptions-item>
+        <a-descriptions-item label="信号丢失重试次数">{{ robot?.exceptionStrategy?.signalLostRetryCount }}</a-descriptions-item>
+        <a-descriptions-item label="重试间隔">{{ robot?.exceptionStrategy?.retryInterval }}秒</a-descriptions-item>
+        <a-descriptions-item label="最大重试次数">{{ robot?.exceptionStrategy?.retryTimes }}</a-descriptions-item>
       </a-descriptions>
 
       <a-divider style="margin: 24px 0" />
 
+      <!-- 挂载组件 -->
       <div class="widget-section">
         <div class="widget-header">
-          <h3 style="margin: 0 0 16px 0">挂件信息</h3>
+          <h3 style="margin: 0 0 16px 0">挂载组件</h3>
         </div>
         <a-tabs v-model:activeKey="activeWidgetTab" type="card">
           <a-tab-pane v-for="category in widgetCategories" :key="category.key" :tab="category.label">
-            <a-table 
-              :columns="widgetColumns" 
-              :data-source="getWidgetsByCategory(category.key)" 
+            <a-table
+              :columns="widgetColumns"
+              :data-source="getWidgetsByCategory(category.key)"
               :pagination="false"
               size="small"
               row-key="id"
@@ -83,15 +93,35 @@
                 <template v-if="column.key === 'status'">
                   <a-tag :color="getWidgetStatusColor(record.status)">{{ getWidgetStatusText(record.status) }}</a-tag>
                 </template>
-                <template v-if="column.key === 'maintenance'">
-                  {{ formatDate(record.nextMaintenanceDate) || '-' }}
-                </template>
               </template>
             </a-table>
           </a-tab-pane>
         </a-tabs>
       </div>
-      
+
+      <a-divider style="margin: 24px 0" />
+
+      <!-- 结构化维保管理 -->
+      <a-card title="结构化维保管理" style="margin-top: 16px" :bordered="false">
+        <template #extra>
+          <a-button type="primary" size="small">新建维保任务</a-button>
+        </template>
+        <a-table :columns="maintenanceColumns" :data-source="structuredMaintenances" :pagination="false" size="middle" row-key="id">
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'status'">
+              <a-badge :status="record.status === 'completed' ? 'success' : record.status === 'pending' ? 'processing' : 'error'" :text="record.statusText" />
+            </template>
+            <template v-if="column.key === 'attachment'">
+              <a-space v-if="record.pdfUrl">
+                <FilePdfOutlined style="color: #ff4d4f" />
+                <a :href="record.pdfUrl" target="_blank">维保校验报告.pdf</a>
+              </a-space>
+              <span v-else style="color: #bfbfbf;">暂无附件</span>
+            </template>
+          </template>
+        </a-table>
+      </a-card>
+
       <div style="margin-top: 24px; text-align: right">
         <a-button type="primary" @click="handleEdit">
           编辑
@@ -104,7 +134,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { LeftOutlined } from '@ant-design/icons-vue'
+import { LeftOutlined, FilePdfOutlined } from '@ant-design/icons-vue'
 import { useRobotStore } from '@/stores/robot'
 import { RobotStatus, ExceptionStrategy } from '@/types'
 import type { RobotAttachment } from '@/types/robot'
@@ -119,21 +149,20 @@ const activeWidgetTab = ref('chassis')
 
 // 挂件分类
 const widgetCategories = [
-  { key: 'chassis', label: '底盘' },
-  { key: 'sensor', label: '传感器' },
-  { key: 'power', label: '电源' },
-  { key: 'communication', label: '通信' },
-  { key: 'other', label: '其他' }
+  { key: 'chassis', label: '底盘系统' },
+  { key: 'sensor', label: '传感器（光学/热成/气体）' },
+  { key: 'gimbal', label: '云台/机械臂' },
+  { key: 'power', label: '电源系统' },
+  { key: 'communication', label: '通信模块' },
+  { key: 'other', label: '其他挂载' }
 ]
 
 // 挂件表格列
 const widgetColumns = [
-  { title: '名称', dataIndex: 'name', key: 'name', width: 120 },
-  { title: '型号', dataIndex: 'model', key: 'model', width: 150 },
-  { title: '序列号', dataIndex: 'serialNumber', key: 'serialNumber', width: 150 },
+  { title: '名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: '型号', dataIndex: 'model', key: 'model', width: 180 },
   { title: '状态', key: 'status', width: 100 },
-  { title: '厂商', dataIndex: 'manufacturer', key: 'manufacturer', width: 120 },
-  { title: '下次维护', key: 'maintenance', width: 120 },
+  { title: '厂商', dataIndex: 'manufacturer', key: 'manufacturer', width: 150 },
   { title: '备注', dataIndex: 'remark', key: 'remark' }
 ]
 
@@ -142,15 +171,15 @@ const attachments = computed<RobotAttachment[]>(() => {
   if (robot.value?.attachments && robot.value.attachments.length > 0) {
     return robot.value.attachments
   }
-  // 默认数据
   const model = robot.value?.model || 'Patrol-X1'
   return [
-    { id: '1', name: '底盘', model: `${model}-CHASSIS`, category: 'chassis', status: 'normal', manufacturer: '极客光年' },
-    { id: '2', name: '双目摄像头', model: `${model}-BI-CAM`, category: 'sensor', status: 'normal', manufacturer: '极客光年' },
-    { id: '3', name: '热成像', model: `${model}-THERMAL`, category: 'sensor', status: 'normal', manufacturer: '极客光年' },
-    { id: '4', name: '激光雷达', model: `${model}-LIDAR`, category: 'sensor', status: 'normal', manufacturer: '极客光年' },
-    { id: '5', name: '电池', model: `${model}-BATTERY`, category: 'power', status: (robot.value?.batteryLevel || 0) < 20 ? 'warning' : 'normal', manufacturer: '极客光年' },
-    { id: '6', name: '通信模块', model: `${model}-COMM`, category: 'communication', status: 'normal', manufacturer: '极客光年' }
+    { id: '1', name: '全驱防爆底盘', model: `${model}-CHASSIS`, category: 'chassis', status: 'normal', manufacturer: '智能动力仓' },
+    { id: '2', name: '双目红外可见光一体相机', model: `${model}-BI-CAM`, category: 'sensor', status: 'normal', manufacturer: '航天视觉' },
+    { id: '3', name: '多组合气体检测仪', model: `${model}-GAS-DET`, category: 'sensor', status: 'normal', manufacturer: '环境感知安防' },
+    { id: '4', name: '激光雷达LiDAR', model: `${model}-LIDAR`, category: 'sensor', status: 'normal', manufacturer: '镭神智能' },
+    { id: '5', name: '双轴高精度防爆云台', model: `${model}-GIMBAL`, category: 'gimbal', status: 'normal', manufacturer: '精密工业驱动' },
+    { id: '6', name: '钛酸锂高密度电池', model: `${model}-BATTERY`, category: 'power', status: (robot.value?.batteryLevel || 0) < 20 ? 'warning' : 'normal', manufacturer: '拓扑能源' },
+    { id: '7', name: '5G工业网关/通信舱', model: `${model}-5G-COMM`, category: 'communication', status: 'normal', manufacturer: '边缘联络' }
   ]
 })
 
@@ -254,6 +283,54 @@ const getWidgetStatusText = (status: string): string => {
     default: return status
   }
 }
+
+// 维保结构化表头定义
+const maintenanceColumns = [
+  { title: '维保核心项目', dataIndex: 'itemName', key: 'itemName', width: 200 },
+  { title: '基准维保周期', dataIndex: 'period', key: 'period', width: 120 },
+  { title: '当前维保状态', dataIndex: 'statusText', key: 'status', width: 120 },
+  { title: '上次维保完成时间', dataIndex: 'lastTime', key: 'lastTime', width: 180 },
+  { title: '下次维保触发阈值', dataIndex: 'nextTrigger', key: 'nextTrigger', width: 180 },
+  { title: '责任执行人', dataIndex: 'operator', key: 'operator', width: 160 },
+  { title: '原始校验报告 (附件)', key: 'attachment' }
+]
+
+// 结构化维保模拟数据
+const structuredMaintenances = ref([
+  {
+    id: 'm1',
+    itemName: '激光雷达光学镜面清洁与点云标定',
+    period: '30 天 / 每月',
+    status: 'completed',
+    statusText: '已核验通过',
+    lastTime: '2026-05-20 14:00',
+    nextTrigger: '2026-06-19 (剩余 11 天)',
+    operator: '张工 (EHS运维部)',
+    pdfUrl: '/files/reports/lidar_cal_202605.pdf'
+  },
+  {
+    id: 'm2',
+    itemName: '防爆驱动轮组磨损度及底盘密封性检验',
+    period: '90 天 / 每季',
+    status: 'pending',
+    statusText: '待维保提醒',
+    lastTime: '2026-03-10 09:30',
+    nextTrigger: '2026-06-08 (今日到期)',
+    operator: '李工 (特种设备组)',
+    pdfUrl: null
+  },
+  {
+    id: 'm3',
+    itemName: '钛酸锂核心动力电池充放电衰减率校准',
+    period: '2000 km 累计里程',
+    status: 'overdue',
+    statusText: '维保超期警告',
+    lastTime: '累计1200km时',
+    nextTrigger: '当前累计1500km (超期运行)',
+    operator: '王工 (厂家远程支持)',
+    pdfUrl: '/files/reports/battery_health_check.pdf'
+  }
+])
 
 const handleBack = () => {
   router.push('/implementation/robot/list')

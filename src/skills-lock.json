@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "skills": {
+    "prd-discuss": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-discuss/SKILL.md",
+      "computedHash": "44a615b2f50d5c3215709cfb19cdc08eca822c8ba9c3bc55e185380681143410"
+    },
+    "prd-generate": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-generate/SKILL.md",
+      "computedHash": "1fce876c1c39d70ffa38cdadd14cfcce61911d1bdcc72a9db65462ef04038cd6"
+    },
+    "prd-helper": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "6a84775a8bcc745d399083ba3e51f9c0f3b25db2ba8e7c95d2daf4694b2cd570"
+    },
+    "prd-import": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-import/SKILL.md",
+      "computedHash": "ff0e1936e8f374abcc6064e0e62e4a8bd8c782268c0081e8cb61ffe1b687e7b4"
+    },
+    "prd-refine": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-refine/SKILL.md",
+      "computedHash": "2ccf8b60c31b3a9c00a706cb61acfc66a5b80937deb9dbbe2cff0cab870db1e0"
+    },
+    "prd-relate": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-relate/SKILL.md",
+      "computedHash": "ae31fc0dfbea1e13fda64045c58fc54d19ae693630019900ef220782f0470061"
+    },
+    "prd-remove": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-remove/SKILL.md",
+      "computedHash": "2d21b68b787fb2e5e6a25222586d357330b2f6ceffb26d0e05c5473c4ebb9c9b"
+    },
+    "prd-scan": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-scan/SKILL.md",
+      "computedHash": "ce3ed57cab5a8400f2c600e1105cd50f2a960e98d289448e058b6da90d9ab979"
+    },
+    "prd-start": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-start/SKILL.md",
+      "computedHash": "fce41ad93a26b9f6df27348e73dde14de76931f93d69dc1dc5d75776a0f66083"
+    },
+    "prd-status": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-status/SKILL.md",
+      "computedHash": "ccf724b43330e39b17c7eab087b51ecb2c56e4432b03dcef80e1770c1f849108"
+    },
+    "prd-stop": {
+      "source": "Wcof/PRDContextEngine",
+      "sourceType": "github",
+      "skillPath": "skills/prd-stop/SKILL.md",
+      "computedHash": "e1827905f614ec7adb2d7927fae403b0d34d0bbc943d99bd8301150a5c3a6a93"
+    }
+  }
+}

@@ -19,7 +19,7 @@ const kpis = [
 ]
 const columns = [{ title: '类型', dataIndex: 'name', key: 'name' }, { title: '数量', dataIndex: 'count', key: 'count', width: 100 }, { title: '占比', dataIndex: 'ratio', key: 'ratio', width: 110 }, { title: '平均处理时长', dataIndex: 'duration', key: 'duration', width: 140 }]
 const rows = [
-  { name: '设施/部件异常', count: 53, ratio: '42.1%', duration: '8.3h' },
+  { name: '设施/巡检对象异常', count: 53, ratio: '42.1%', duration: '8.3h' },
   { name: '气体异常', count: 24, ratio: '19.0%', duration: '4.7h' },
   { name: '安全行为异常', count: 28, ratio: '22.2%', duration: '2.4h' },
   { name: '监测失效', count: 12, ratio: '9.5%', duration: '10.2h' },

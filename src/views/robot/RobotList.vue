@@ -97,32 +97,6 @@
             />
           </template>
         </a-table-column>
-        <a-table-column title="保养" width="260px">
-          <template #default="{ record }">
-            <div class="maintenance-cell">
-              <div class="maintenance-row">
-                <span class="maintenance-label">时间</span>
-                <a-progress
-                  :percent="getMaintenanceInfo(record).timePercent"
-                  :status="getMaintenanceInfo(record).timeStatus"
-                  size="small"
-                  :show-info="false"
-                />
-                <span class="maintenance-text">{{ getMaintenanceInfo(record).timeText }}</span>
-              </div>
-              <div class="maintenance-row">
-                <span class="maintenance-label">里程</span>
-                <a-progress
-                  :percent="getMaintenanceInfo(record).mileagePercent"
-                  :status="getMaintenanceInfo(record).mileageStatus"
-                  size="small"
-                  :show-info="false"
-                />
-                <span class="maintenance-text">{{ getMaintenanceInfo(record).mileageText }}</span>
-              </div>
-            </div>
-          </template>
-        </a-table-column>
         <a-table-column title="操作" width="280px" fixed="right">
           <template #default="{ record }">
             <a-space size="small">
@@ -400,31 +374,6 @@ const getTotalMileage = (robot: any): number => {
 const getEnduranceText = (robot: any): string => {
   const hours = Math.max(1, Math.round((robot.batteryLevel / 100) * 10))
   return `${hours} 小时`
-}
-
-const getMaintenanceInfo = (robot: any): {
-  timeText: string
-  mileageText: string
-  timePercent: number
-  mileagePercent: number
-  timeStatus: 'success' | 'warning' | 'exception'
-  mileageStatus: 'success' | 'warning' | 'exception'
-} => {
-  const totalMileage = getTotalMileage(robot)
-  const remainDays = Math.max(0, 90 - Math.floor(totalMileage / 40))
-  const remainKm = Math.max(0, 2000 - totalMileage)
-  const timePercent = Math.max(0, Math.min(100, Math.round((remainDays / 90) * 100)))
-  const mileagePercent = Math.max(0, Math.min(100, Math.round((remainKm / 2000) * 100)))
-  const timeStatus: 'success' | 'warning' | 'exception' = remainDays === 0 ? 'exception' : remainDays <= 15 ? 'warning' : 'success'
-  const mileageStatus: 'success' | 'warning' | 'exception' = remainKm === 0 ? 'exception' : remainKm <= 300 ? 'warning' : 'success'
-  return {
-    timeText: remainDays === 0 ? '待保养' : `${remainDays} 天`,
-    mileageText: remainKm === 0 ? '待保养' : `${remainKm} km`,
-    timePercent,
-    mileagePercent,
-    timeStatus,
-    mileageStatus
-  }
 }
 
 const handleAdd = () => {
@@ -724,27 +673,6 @@ const handleImportData = () => {
 .robot-list .page-header h2 {
   margin: 0;
   font-size: 20px;
-}
-.robot-list .maintenance-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.robot-list .maintenance-row {
-  display: grid;
-  grid-template-columns: 30px 1fr auto;
-  align-items: center;
-  gap: 8px;
-}
-.robot-list .maintenance-label {
-  color: #595959;
-  font-size: 12px;
-}
-.robot-list .maintenance-text {
-  color: #262626;
-  font-size: 12px;
-  min-width: 56px;
-  text-align: right;
 }
 @media (max-width: 992px) {
   .robot-list :deep(.ant-card-body) {

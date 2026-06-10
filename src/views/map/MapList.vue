@@ -1,13 +1,6 @@
 <template>
   <div class="map-list">
-    <a-page-header title="地图管理" sub-title="管理巡检地图">
-      <template #extra>
-        <a-button type="primary" @click="goToEditor">
-          <a-icon type="plus" />
-          新建地图
-        </a-button>
-      </template>
-    </a-page-header>
+    <a-page-header title="地图管理" sub-title="管理巡检地图" />
 
     <a-card style="margin-top: 16px">
       <div class="search-panel">
@@ -33,17 +26,6 @@
         </a-form>
       </div>
       <a-table :columns="columns" :data-source="filteredMaps" :loading="loading" row-key="id">
-        <template #expandedRowRender="{ record }">
-          <div class="map-children">
-            <div class="map-children-title">分区</div>
-            <a-space wrap>
-              <a-tag v-for="region in (record.regions || [])" :key="region.id" :color="region.color">
-                {{ region.name }}
-              </a-tag>
-              <span v-if="!record.regions || !record.regions.length">暂无分区</span>
-            </a-space>
-          </div>
-        </template>
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'image'">
             <img v-if="record.imageUrl" :src="record.imageUrl" alt="地图预览" style="width: 100px; height: 100px; object-fit: cover" />
@@ -51,8 +33,9 @@
           </template>
           <template v-if="column.key === 'actions'">
             <a-space>
-              <a-button type="link" size="small" @click="goToAreaManage(record.id)">区域编辑</a-button>
-              <a-button type="link" size="small" @click="goToPointManage(record.id)">点位编辑</a-button>
+              <a-button type="link" size="small" @click="goToAreaManage(record.id)">区域</a-button>
+              <a-button type="link" size="small" @click="goToPointManage(record.id)">点位</a-button>
+              <a-button type="link" size="small" @click="goToRoadNetwork(record.id)">路网</a-button>
               <a-button type="link" size="small" @click="goToEditor(record.id)">编辑</a-button>
               <a-button type="link" size="small" danger @click="handleDelete(record.id)">删除</a-button>
             </a-space>
@@ -85,7 +68,7 @@ const columns = [
   { title: '描述', dataIndex: 'description', key: 'description' },
   { title: '预览图', key: 'image', width: 120 },
   { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt' },
-  { title: '操作', key: 'actions', width: 220 }
+  { title: '操作', key: 'actions', width: 280 }
 ]
 
 function fetchMaps() {
@@ -112,6 +95,10 @@ function goToPointManage(mapId: string) {
 
 function goToAreaManage(mapId: string) {
   router.push(`/implementation/map/area-manage?mapId=${mapId}`)
+}
+
+function goToRoadNetwork(mapId: string) {
+  router.push(`/implementation/map/road-network?mapId=${mapId}`)
 }
 
 function handleDelete(id: string) {
@@ -192,14 +179,6 @@ onMounted(() => {
 }
 .map-list :deep(.ant-table-tbody > tr > td) {
   vertical-align: middle;
-}
-.map-list .map-children {
-  padding: 4px 0;
-}
-.map-list .map-children-title {
-  margin-bottom: 8px;
-  color: #8c8c8c;
-  font-size: 12px;
 }
 @media (max-width: 992px) {
   .map-list :deep(.ant-card-body) {

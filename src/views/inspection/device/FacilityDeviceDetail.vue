@@ -24,7 +24,7 @@
         </a-col>
 
         <a-col :span="24">
-          <a-card title="部件与点位配置" size="small">
+          <a-card title="巡检对象与点位配置" size="small">
             <a-table :columns="componentPointColumns" :data-source="componentPointRows" row-key="id" :pagination="false" />
           </a-card>
         </a-col>
@@ -150,9 +150,9 @@ const statusText = computed(() => {
 
 const componentPointColumns = [
   { title: '执行顺序', dataIndex: 'executionOrder', key: 'executionOrder', width: 100 },
-  { title: '部件名称', dataIndex: 'componentName', key: 'componentName', width: 180 },
-  { title: '部件编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
-  { title: '部件位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 140 },
+  { title: '巡检对象名称', dataIndex: 'componentName', key: 'componentName', width: 180 },
+  { title: '巡检对象编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
+  { title: '巡检对象位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 140 },
   { title: '检查规则', dataIndex: 'ruleSummary', key: 'ruleSummary' },
   { title: '巡检点', dataIndex: 'inspectionPointName', key: 'inspectionPointName', width: 180 },
   { title: '停车点', dataIndex: 'parkingPointDisplay', key: 'parkingPointDisplay', width: 220 }

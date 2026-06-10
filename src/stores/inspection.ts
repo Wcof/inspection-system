@@ -240,7 +240,20 @@ export const useInspectionStore = defineStore('inspection', () => {
     MockService.deleteTask(id)
     fetchAllTasks()
   }
-  
+
+  function terminateTask(id: string) {
+    const existing = MockService.getTaskById(id)
+    if (!existing) return null
+    const updated = {
+      ...existing,
+      status: InspectionTaskInstanceStatus.CANCELLED,
+      updatedAt: new Date()
+    }
+    MockService.saveTask(updated)
+    fetchAllTasks()
+    return updated
+  }
+
   function getTaskResultsByRobotId(robotId: string): any[] {
     const robotTasks = tasks.value.filter(task => task.robotId === robotId)
     const taskIds = robotTasks.map(task => task.id)
@@ -650,7 +663,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     fetchAllInspectionDeviceCheckItems()
   }
 
-  // 标准部件库
+  // 标准巡检对象库
   function fetchAllStandardComponents() {
     loading.value = true
     try {
@@ -729,6 +742,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     getTaskById,
     saveTask,
     deleteTask,
+    terminateTask,
     getTaskResultsByRobotId,
     getInspectionTaskResultsByTaskId,
     getInspectionTaskSnapshotByTaskId,

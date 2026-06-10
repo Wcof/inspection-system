@@ -77,7 +77,7 @@
         </template>
       </a-table>
 
-      <a-empty v-if="!rows.length" description="当前设施暂无可配置主体，请先在部件管理中维护资产结构。" />
+      <a-empty v-if="!rows.length" description="当前设施暂无可配置主体，请先在巡检对象中维护资产结构。" />
     </a-card>
   </div>
 </template>
@@ -117,7 +117,7 @@ const componentId = computed(() => String(route.params.componentId || ''))
 const device = computed(() => inspectionStore.inspectionDevices.find(item => item.id === deviceId.value))
 const linkedPointNames = computed(() => Array.from(new Set((device.value?.parkingPointBindings || []).map(item => item.inspectionPointName))).join('、'))
 const ruleOptions = computed(() => getDetectionItemConfigs().filter(isDetectionRuleActive))
-const pageTitle = computed(() => componentId.value ? '部件检测配置' : '设施检测配置')
+const pageTitle = computed(() => componentId.value ? '巡检对象检测配置' : '设施检测配置')
 
 const rows = computed<SubjectRow[]>(() => {
   const components = (device.value?.assetComponents || []).map(component => ({
@@ -185,7 +185,7 @@ function getSubjectTypeText(type: ObjectDetectionSubjectType) {
   if (type === 'connection') return '历史主体'
   if (type === 'area_environment') return '区域环境'
   if (type === 'asset') return '设施'
-  return '设施部件'
+  return '设施巡检对象'
 }
 
 function createEmptyState(): FormStateItem {
@@ -229,7 +229,7 @@ function getRuleOptions(row: SubjectRow) {
 function isRecommendedRule(rule: DetectionItemConfig, row: SubjectRow) {
   const target = `${rule.name || ''}${rule.code || ''}${rule.detectionType || ''}${rule.detectionAlgorithm || ''}${rule.category || ''}${rule.description || ''}${rule.collectNote || ''}`
   if (row.subjectType === 'connection') return target.includes('连接') || target.includes('法兰') || target.includes(row.subjectName)
-  return target.includes('设施部件') || target.includes(row.subjectName) || target.includes(row.categoryText)
+  return target.includes('设施巡检对象') || target.includes(row.subjectName) || target.includes(row.categoryText)
 }
 
 function buildConfigs(): ObjectDetectionConfig[] {

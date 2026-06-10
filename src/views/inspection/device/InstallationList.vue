@@ -1,6 +1,6 @@
 <template>
   <div class="installation-list">
-    <a-page-header title="装置管理" sub-title="按区域统一维护装置基础信息，并查看关联设施、部件、规则与点位概况" />
+    <a-page-header title="装置管理" sub-title="按区域统一维护装置基础信息，并查看关联设施、巡检对象、规则与点位概况" />
 
     <a-card style="margin-top: 16px">
       <a-form layout="vertical" @submit.prevent>
@@ -16,8 +16,8 @@
             </a-form-item>
           </a-col>
           <a-col :xs="24" :sm="12" :md="8" :lg="6">
-            <a-form-item label="所属区域">
-              <a-select v-model:value="query.areaId" allow-clear placeholder="请选择所属区域">
+            <a-form-item label="巡检区域">
+              <a-select v-model:value="query.areaId" allow-clear placeholder="请选择巡检区域">
                 <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
               </a-select>
             </a-form-item>
@@ -69,9 +69,9 @@ const query = reactive({
 const columns = [
   { title: '装置名称', dataIndex: 'name', key: 'name', width: 180 },
   { title: '装置编号', dataIndex: 'code', key: 'code', width: 180 },
-  { title: '所属区域', dataIndex: 'areaName', key: 'areaName', width: 140 },
+  { title: '巡检区域', dataIndex: 'areaName', key: 'areaName', width: 140 },
   { title: '设施数', key: 'facilityCount', width: 100 },
-  { title: '部件数', key: 'componentCount', width: 100 },
+  { title: '巡检对象数', key: 'componentCount', width: 100 },
   { title: '规则数', key: 'ruleCount', width: 100 },
   { title: '备注', dataIndex: 'remark', key: 'remark' },
   { title: '操作', key: 'actions', width: 180, fixed: 'right' as const }
@@ -165,7 +165,7 @@ function remove(id: string) {
   const hasFacilities = getFacilityCount(id) > 0
   const hasComponents = getComponentCount(id) > 0
   if (hasFacilities || hasComponents) {
-    message.error('该装置下仍存在设施或部件，无法删除')
+    message.error('该装置下仍存在设施或巡检对象，无法删除')
     return
   }
   Modal.confirm({

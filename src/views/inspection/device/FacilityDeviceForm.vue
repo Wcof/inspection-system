@@ -18,7 +18,7 @@
         <a-row :gutter="16">
           <a-col :span="8"><a-form-item label="设施位号" required><a-input v-model:value="form.facilityPositionNo" /></a-form-item></a-col>
           <a-col :span="8">
-            <a-form-item label="所属区域" required>
+            <a-form-item label="巡检区域" required>
               <a-select v-model:value="form.areaId" @change="syncArea">
                 <a-select-option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}</a-select-option>
               </a-select>
@@ -62,11 +62,11 @@
           </div>
         </a-form-item>
 
-        <a-card size="small" title="关联部件" class="model-card">
-          <a-alert type="info" show-icon style="margin-bottom: 12px" message="设施页不直接维护规则，只显示当前设施下已有部件。若需新增部件，请前往部件管理。" />
+        <a-card size="small" title="关联巡检对象" class="model-card">
+          <a-alert type="info" show-icon style="margin-bottom: 12px" message="设施页不直接维护规则，只显示当前设施下已有巡检对象。若需新增巡检对象，请前往巡检对象。" />
           <a-table :columns="componentColumns" :data-source="facilityComponents" row-key="id" :pagination="false" size="small" />
           <div style="margin-top: 12px">
-            <a-button @click="goToComponentManage">去部件管理</a-button>
+            <a-button @click="goToComponentManage">去巡检对象</a-button>
           </div>
         </a-card>
 
@@ -76,14 +76,14 @@
             type="warning"
             show-icon
             style="margin-bottom: 12px"
-            message="新增设施请先保存，再配置执行顺序。执行顺序按当前设施下部件与停车点建立绑定。"
+            message="新增设施请先保存，再配置执行顺序。执行顺序按当前设施下巡检对象与停车点建立绑定。"
           />
           <a-alert
             v-else
             type="info"
             show-icon
             style="margin-bottom: 12px"
-            message="新增执行顺序时统一使用同一个停车点，关联部件可在列表中逐条选择。"
+            message="新增执行顺序时统一使用同一个停车点，关联巡检对象可在列表中逐条选择。"
           />
           <a-table
             :columns="bindingColumns"
@@ -109,7 +109,7 @@
                 <a-select
                   v-model:value="record.componentIds[0]"
                   style="width: 100%"
-                  placeholder="请选择关联部件"
+                  placeholder="请选择关联巡检对象"
                   :options="bindingComponentOptions"
                   :disabled="!facilityComponents.length"
                   @change="(value: string) => handleBindingComponentChange(record, value)"
@@ -367,9 +367,9 @@ const selectionBoxStyle = computed(() => {
 })
 
 const componentColumns = [
-  { title: '部件名称', dataIndex: 'name', key: 'name' },
-  { title: '部件编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
-  { title: '部件位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 140 },
+  { title: '巡检对象名称', dataIndex: 'name', key: 'name' },
+  { title: '巡检对象编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
+  { title: '巡检对象位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 140 },
   { title: '所属装置', dataIndex: 'installationName', key: 'installationName', width: 140 },
   {
     title: '检查规则',
@@ -386,7 +386,7 @@ const bindingColumns = [
   { title: '', key: 'dragHandle', width: 44 },
   { title: '执行顺序', key: 'executionOrder', width: 110 },
   { title: '停车点', key: 'parkingPointId', width: 220 },
-  { title: '关联部件', key: 'componentIds' },
+  { title: '关联巡检对象', key: 'componentIds' },
   { title: '巡检规则', key: 'ruleIds' }
 ]
 
