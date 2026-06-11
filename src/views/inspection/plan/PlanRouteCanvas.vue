@@ -220,6 +220,7 @@ import { ref, computed, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import type { Waypoint, InspectionPoint, InspectionMap } from '@/types/inspection'
 import { useInspectionStore } from '@/stores/inspection'
+import mapBgImage from '@/lw.png'
 
 // ─── 常量 ─────────────────────────────────────────────
 const MAP_WIDTH = 800
@@ -263,7 +264,7 @@ const currentMap = computed<InspectionMap | undefined>(() =>
   inspectionStore.inspectionMaps.find((m: any) => m.id === props.mapId)
 )
 
-const mapImageUrl = computed(() => currentMap.value?.imageUrl || '')
+const mapImageUrl = computed(() => mapBgImage)
 
 // ─── 网格线 ──────────────────────────────────────────
 const gridLinesX = computed(() => {
