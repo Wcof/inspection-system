@@ -41,6 +41,50 @@
             </a-form-item>
           </a-col>
         </a-row>
+        <a-row :gutter="16">
+          <a-col :xs="24" :md="6">
+            <a-form-item label="优先级">
+              <a-select v-model:value="form.priority" placeholder="请选择优先级">
+                <a-select-option value="high">高</a-select-option>
+                <a-select-option value="medium">中</a-select-option>
+                <a-select-option value="low">低</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="6">
+            <a-form-item label="巡检周期">
+              <a-input v-model:value="form.inspectionCycle" placeholder="例如 4小时" />
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="6">
+            <a-form-item label="巡检窗口">
+              <a-input v-model:value="form.inspectionWindow" placeholder="例如 08:00-18:00" />
+            </a-form-item>
+          </a-col>
+          <a-col :xs="24" :md="6">
+            <a-form-item label="参考图">
+              <div class="reference-image-field">
+                <a-upload
+                  v-if="!form.referenceImageUrl"
+                  :show-upload-list="false"
+                  :before-upload="() => false"
+                  @change="handleReferenceImageChange"
+                >
+                  <a-button>上传参考图</a-button>
+                </a-upload>
+                <div v-else class="reference-preview-wrap">
+                  <img :src="form.referenceImageUrl" class="preview-image" alt="参考图预览" />
+                  <a-space>
+                    <a-upload :show-upload-list="false" :before-upload="() => false" @change="handleReferenceImageChange">
+                      <a-button size="small">重新上传</a-button>
+                    </a-upload>
+                    <a-button size="small" @click="form.referenceImageUrl = ''">清除</a-button>
+                  </a-space>
+                </div>
+              </div>
+            </a-form-item>
+          </a-col>
+        </a-row>
 
         <a-card size="small" title="关联规则" class="rules-card">
           <a-alert type="info" show-icon style="margin-bottom: 12px" message="规则通过两级选择维护：先选检测类型，再选该类型下的具体检测算法/规则。最终只保存规则 ID。" />
@@ -137,6 +181,10 @@ const form = reactive({
   installationName: '',
   facilityId: '',
   facilityName: '',
+  priority: undefined as 'high' | 'medium' | 'low' | undefined,
+  inspectionCycle: '',
+  inspectionWindow: '',
+  referenceImageUrl: '',
   status: 'active',
   remark: '',
   ruleBindings: [] as RuleBindingRow[]
@@ -251,11 +299,25 @@ function fillForm() {
     installationName: current.value.installationName,
     facilityId: current.value.facilityId,
     facilityName: current.value.facilityName,
+    priority: current.value.priority,
+    inspectionCycle: current.value.inspectionCycle || '',
+    inspectionWindow: current.value.inspectionWindow || '',
+    referenceImageUrl: current.value.referenceImageUrl || '',
     status: current.value.status,
     remark: current.value.remark || '',
     ruleBindings: buildRuleBindings(current.value.ruleIds || [])
   })
   if (!form.ruleBindings.length) addRuleBinding()
+}
+
+function handleReferenceImageChange(info: any) {
+  const file = info?.file?.originFileObj
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    form.referenceImageUrl = String(reader.result || '')
+  }
+  reader.readAsDataURL(file)
 }
 
 function goBack() {
@@ -288,6 +350,10 @@ function handleSave() {
     facilityId: form.facilityId,
     facilityName: form.facilityName,
     ruleIds,
+    priority: form.priority,
+    inspectionCycle: form.inspectionCycle || undefined,
+    inspectionWindow: form.inspectionWindow || undefined,
+    referenceImageUrl: form.referenceImageUrl || undefined,
     status: form.status as any,
     remark: form.remark,
     createdAt: current.value?.createdAt || now,
@@ -311,5 +377,20 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+}
+.reference-image-field {
+  min-height: 40px;
+}
+.reference-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.preview-image {
+  width: 120px;
+  height: 75px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
 }
 </style>

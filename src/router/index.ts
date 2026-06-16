@@ -443,19 +443,6 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       {
-        path: 'metric',
-        name: 'ImplementationMetric',
-        meta: { title: '检测对象' },
-        children: [
-          {
-            path: 'list',
-            name: 'ImplementationMetricList',
-            component: () => import('../views/implementation/MetricManagement.vue'),
-            meta: { title: '检测对象' }
-          }
-        ]
-      },
-      {
         path: 'detection-item-config',
         name: 'ImplementationDetectionItemConfig',
         meta: { title: '检测项配置' },

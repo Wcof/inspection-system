@@ -11,6 +11,15 @@
         <a-descriptions-item label="巡检区域">{{ component?.areaName || '-' }}</a-descriptions-item>
         <a-descriptions-item label="所属装置">{{ component?.installationName || '-' }}</a-descriptions-item>
         <a-descriptions-item label="所属设施">{{ component?.facilityName || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="优先级">
+          <a-tag :color="priorityColor(component?.priority)">{{ priorityText(component?.priority) }}</a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="巡检周期">{{ component?.inspectionCycle || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="巡检窗口">{{ component?.inspectionWindow || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="参考图">
+          <img v-if="component?.referenceImageUrl" :src="component.referenceImageUrl" class="ref-thumb" alt="参考图" />
+          <span v-else>-</span>
+        </a-descriptions-item>
         <a-descriptions-item label="备注">{{ component?.remark || '-' }}</a-descriptions-item>
       </a-descriptions>
     </a-card>
@@ -277,6 +286,18 @@ function getComponentTypeText(type?: string) {
   return type ? map[type] || type : '-'
 }
 
+function priorityText(value?: string) {
+  if (value === 'high') return '高'
+  if (value === 'low') return '低'
+  return '中'
+}
+
+function priorityColor(value?: string) {
+  if (value === 'high') return 'red'
+  if (value === 'low') return 'default'
+  return 'blue'
+}
+
 function getQualityStatusText(status?: string) {
   const map: Record<string, string> = {
     normal: '正常',
@@ -337,5 +358,13 @@ onMounted(() => inspectionStore.initialize())
   border: 1px solid #f0f0f0;
   border-radius: 6px;
   background: #f5f5f5;
+}
+
+.ref-thumb {
+  width: 72px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
 }
 </style>

@@ -46,6 +46,9 @@ interface FacilityComponentOption {
   componentPositionNo?: string
   installationName?: string
   ruleIds: string[]
+  priority?: 'high' | 'medium' | 'low'
+  inspectionCycle?: string
+  inspectionWindow?: string
 }
 
 const route = useRoute()
@@ -64,7 +67,10 @@ const componentRows = computed(() => {
         componentNo: item.id,
         componentPositionNo: item.subTypeName || '-',
         installationName: device.value?.installationName || '-',
-        ruleIds: [...(item.ruleIds || [])]
+        ruleIds: [...(item.ruleIds || [])],
+        priority: undefined,
+        inspectionCycle: undefined,
+        inspectionWindow: undefined
       }))
 
   return rows.map((item) => ({
@@ -89,6 +95,8 @@ const componentPointRows = computed(() => {
   const rows: Array<Record<string, string | number>> = []
   const boundComponentIds = new Set<string>()
 
+  const priorityText = (p?: string) => p === 'high' ? '高' : p === 'low' ? '低' : p === 'medium' ? '中' : '-'
+
   bindingRows.value.forEach((binding) => {
     const ids = binding.componentIds?.length ? binding.componentIds : ['']
     ids.forEach((componentId) => {
@@ -101,6 +109,9 @@ const componentPointRows = computed(() => {
         componentNo: component?.componentNo || '-',
         componentPositionNo: component?.componentPositionNo || '-',
         ruleSummary: component?.ruleSummary || binding.ruleDisplay || '-',
+        priority: priorityText(component?.priority),
+        inspectionCycle: component?.inspectionCycle || '-',
+        inspectionWindow: component?.inspectionWindow || '-',
         inspectionPointName: binding.inspectionPointName || '-',
         parkingPointDisplay: binding.parkingPointDisplay || '-'
       })
@@ -117,6 +128,9 @@ const componentPointRows = computed(() => {
         componentNo: component.componentNo || '-',
         componentPositionNo: component.componentPositionNo || '-',
         ruleSummary: component.ruleSummary || '-',
+        priority: priorityText(component.priority),
+        inspectionCycle: component.inspectionCycle || '-',
+        inspectionWindow: component.inspectionWindow || '-',
         inspectionPointName: '-',
         parkingPointDisplay: '-'
       })
@@ -154,6 +168,9 @@ const componentPointColumns = [
   { title: '巡检对象编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
   { title: '巡检对象位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 140 },
   { title: '检查规则', dataIndex: 'ruleSummary', key: 'ruleSummary' },
+  { title: '优先级', dataIndex: 'priority', key: 'priority', width: 100 },
+  { title: '巡检周期', dataIndex: 'inspectionCycle', key: 'inspectionCycle', width: 120 },
+  { title: '巡检窗口', dataIndex: 'inspectionWindow', key: 'inspectionWindow', width: 140 },
   { title: '巡检点', dataIndex: 'inspectionPointName', key: 'inspectionPointName', width: 180 },
   { title: '停车点', dataIndex: 'parkingPointDisplay', key: 'parkingPointDisplay', width: 220 }
 ]

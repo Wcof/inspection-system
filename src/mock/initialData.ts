@@ -813,6 +813,10 @@ export const initialFacilityComponents: FacilityComponent[] = [
     facilityId: 'device-001',
     facilityName: '1号反应釜',
     ruleIds: ['dic-001', 'dic-002'],
+    priority: 'high',
+    inspectionCycle: '4小时',
+    inspectionWindow: '08:00-18:00',
+    referenceImageUrl: '',
     status: DeviceStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date()
@@ -830,6 +834,9 @@ export const initialFacilityComponents: FacilityComponent[] = [
     facilityId: 'device-002',
     facilityName: '反应进料管线',
     ruleIds: ['dic-003'],
+    priority: 'medium',
+    inspectionCycle: '8小时',
+    inspectionWindow: '00:00-24:00',
     status: DeviceStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date()
@@ -847,6 +854,9 @@ export const initialFacilityComponents: FacilityComponent[] = [
     facilityId: 'device-003',
     facilityName: '储罐出料管线',
     ruleIds: ['dic-001'],
+    priority: 'low',
+    inspectionCycle: '12小时',
+    inspectionWindow: '08:00-20:00',
     status: DeviceStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date()
@@ -864,6 +874,9 @@ export const initialFacilityComponents: FacilityComponent[] = [
     facilityId: 'device-004',
     facilityName: '进水阀门',
     ruleIds: ['dic-002'],
+    priority: 'high',
+    inspectionCycle: '2小时',
+    inspectionWindow: '00:00-24:00',
     status: DeviceStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date()
@@ -881,6 +894,9 @@ export const initialFacilityComponents: FacilityComponent[] = [
     facilityId: 'device-005',
     facilityName: '可燃气体检测仪',
     ruleIds: ['dic-001'],
+    priority: 'high',
+    inspectionCycle: '1小时',
+    inspectionWindow: '00:00-24:00',
     status: DeviceStatus.ACTIVE,
     createdAt: new Date(),
     updatedAt: new Date()

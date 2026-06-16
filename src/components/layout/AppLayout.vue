@@ -76,9 +76,6 @@
               安全与检测
             </span>
           </template>
-           <a-menu-item key="metric-list">
-            <router-link to="/implementation/metric/list">检测对象</router-link>
-          </a-menu-item>
           <a-menu-item key="detection-item-config">
             <router-link to="/implementation/detection-item-config/list">检测规则配置</router-link>
           </a-menu-item>
@@ -228,7 +225,7 @@ const openKeys = computed(() => {
 
   if (path.startsWith('/implementation/map')) keys.push('map-space')
   if (path.startsWith('/implementation/device') || path.startsWith('/implementation/robot')) keys.push('facility-device')
-  if (path.startsWith('/implementation/detection-item-config') || path.startsWith('/implementation/metric') || path.startsWith('/implementation/safety-strategy')) keys.push('detection-rules')
+  if (path.startsWith('/implementation/detection-item-config') || path.startsWith('/implementation/safety-strategy')) keys.push('detection-rules')
   if (path.startsWith('/management/dispatch')) keys.push('dispatch-center')
   if (path.startsWith('/management/plan') || path.startsWith('/management/task')) keys.push('plan-execution')
   if (path.startsWith('/management/exception')) keys.push('exception-center')
@@ -267,7 +264,6 @@ const currentKey = computed(() => {
 
   // 检测规则
   if (path.startsWith('/implementation/detection-item-config')) return 'detection-item-config'
-  if (path.startsWith('/implementation/metric')) return 'metric-list'
 
   // 总调度台
   if (path.startsWith('/management/dispatch/center')) return 'dispatch-center-main'

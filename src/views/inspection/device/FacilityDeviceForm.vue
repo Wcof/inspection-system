@@ -238,6 +238,9 @@ interface FacilityComponentOption {
   componentPositionNo?: string
   installationName?: string
   ruleIds: string[]
+  priority?: 'high' | 'medium' | 'low'
+  inspectionCycle?: string
+  inspectionWindow?: string
 }
 
 const route = useRoute()
@@ -296,7 +299,10 @@ const facilityComponents = computed<FacilityComponentOption[]>(() => {
     componentNo: item.id,
     componentPositionNo: item.subTypeName || '-',
     installationName: currentDevice.value?.installationName || form.installationName || '-',
-    ruleIds: [...(item.ruleIds || [])]
+    ruleIds: [...(item.ruleIds || [])],
+    priority: item.priority,
+    inspectionCycle: item.inspectionCycle,
+    inspectionWindow: item.inspectionWindow
   }))
 })
 const detectionRuleNameMap = computed(() => {
@@ -366,11 +372,22 @@ const selectionBoxStyle = computed(() => {
   }
 })
 
+const priorityLabelMap: Record<string, string> = { high: '高', medium: '中', low: '低' }
+
 const componentColumns = [
   { title: '巡检对象名称', dataIndex: 'name', key: 'name' },
   { title: '巡检对象编号', dataIndex: 'componentNo', key: 'componentNo', width: 140 },
   { title: '巡检对象位号', dataIndex: 'componentPositionNo', key: 'componentPositionNo', width: 140 },
   { title: '所属装置', dataIndex: 'installationName', key: 'installationName', width: 140 },
+  {
+    title: '优先级',
+    dataIndex: 'priority',
+    key: 'priority',
+    width: 80,
+    customRender: ({ record }: any) => priorityLabelMap[record.priority] || '-'
+  },
+  { title: '巡检周期', dataIndex: 'inspectionCycle', key: 'inspectionCycle', width: 100, customRender: ({ record }: any) => record.inspectionCycle || '-' },
+  { title: '巡检窗口', dataIndex: 'inspectionWindow', key: 'inspectionWindow', width: 100, customRender: ({ record }: any) => record.inspectionWindow || '-' },
   {
     title: '检查规则',
     dataIndex: 'ruleIds',

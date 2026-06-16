@@ -149,6 +149,10 @@ export interface FacilityComponent {
   facilityId: string
   facilityName: string
   ruleIds: string[]
+  priority?: 'high' | 'medium' | 'low'
+  inspectionCycle?: string
+  inspectionWindow?: string
+  referenceImageUrl?: string
   status: DeviceStatus
   remark?: string
   createdAt: Date
@@ -503,6 +507,7 @@ export interface InspectionDeviceCheckItem {
   inspectionFrequency?: { value: number; unit: 'hour' | 'day' | 'week' }
   executionCycle?: { startDate: string; endDate: string }
   executionWindow?: { startTime: string; endTime: string }
+  ruleIds?: string[]
   unit: string
   threshold: {
     min?: number
