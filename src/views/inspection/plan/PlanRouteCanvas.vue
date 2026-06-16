@@ -218,8 +218,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import type { Waypoint, InspectionPoint, InspectionMap } from '@/types/inspection'
-import { useInspectionStore } from '@/stores/inspection'
+import type { Waypoint, InspectionPoint } from '@/types/inspection'
 import mapBgImage from '@/lw.png'
 
 // ─── 常量 ─────────────────────────────────────────────
@@ -250,9 +249,6 @@ const emit = defineEmits<{
   'route-changed': [pointIds: string[]]
 }>()
 
-// ─── Store ────────────────────────────────────────────
-const inspectionStore = useInspectionStore()
-
 // ─── Refs ─────────────────────────────────────────────
 const svgRef = ref<SVGSVGElement>()
 const drawMode = ref(false)
@@ -260,10 +256,6 @@ const routePointIds = ref<string[]>([])
 const mousePos = ref<{ x: number; y: number } | null>(null)
 
 // ─── 地图信息 ─────────────────────────────────────────
-const currentMap = computed<InspectionMap | undefined>(() =>
-  inspectionStore.inspectionMaps.find((m: any) => m.id === props.mapId)
-)
-
 const mapImageUrl = computed(() => mapBgImage)
 
 // ─── 网格线 ──────────────────────────────────────────
