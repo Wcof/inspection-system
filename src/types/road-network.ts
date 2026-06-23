@@ -126,6 +126,31 @@ export interface RoadSegment {
   // ── 地面与机器人限制 ──
   surfaceMaterial?: string
   allowedRobotTypes?: string[]
+  // ── 运行策略（ADR 0014）──
+  heartbeatIntervalMs?: number  // 100~10000ms，空则用机器人默认
+  voiceReminder?: {
+    type: 'none' | 'approach_hazard' | 'narrow_road' | 'restricted_area' | 'custom'
+    content?: string  // custom 时填
+  }
+  // ── 看门狗（ADR 0015）──
+  watchdogAction?: 'decelerate' | 'emergency_stop'
+  // ── 倒车动作模板（ADR 0017）──
+  reverseActionTemplate?: 'straight_pass' | 'slow_pass' | 'stop_then_straight' | 'reverse_pass' | 'uturn_reenter'
+  // ── 云台扫描策略（ADR 0012）──
+  ptzScan?: {
+    enabled: boolean
+    scanMode: 'continuous_sweep' | 'back_and_forth' | 'fixed_yaw'
+    yawStart: number        // 0~360
+    yawEnd: number          // 0~360
+    pitchMin: number        // -90~+30
+    pitchMax: number        // -90~+30
+    scanSpeed: number       // 5~60 °/s
+    height: number          // 0.5~3.0 m
+    hazardPointFlag?: boolean
+    hazardTypes?: ('leak' | 'temperature_rise' | 'debris' | 'safety_behavior' | 'gas')[]
+  }
+  // ── 安全等级（ADR 0001）──
+  safetyLevel?: 'normal' | 'warning' | 'danger'
   createdAt: Date
   updatedAt: Date
 }
