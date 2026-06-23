@@ -31,7 +31,10 @@ const STORAGE_KEYS = {
   ROAD_NETWORK_VERSIONS: 'road_network_versions',
   TOPOLOGY_CHECKS: 'topology_checks',
   DISPATCH_RESOURCE_POOLS: 'dispatch_resource_pools',
-  DISPATCH_RULES: 'dispatch_rules'
+  DISPATCH_RULES: 'dispatch_rules',
+  KNOWLEDGE_FILES: 'knowledge_files',
+  AI_CHAT_SESSIONS: 'ai_chat_sessions',
+  AI_CHAT_MESSAGES: 'ai_chat_messages'
 }
 
 export const storage = {

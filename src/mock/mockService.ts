@@ -812,6 +812,58 @@ export class MockService {
     storage.set(STORAGE_KEYS.DISPATCH_RULES, rules)
   }
 
+  // ── AI 知识库文件 ──
+  static getKnowledgeFiles(): any[] {
+    return storage.get<any[]>(STORAGE_KEYS.KNOWLEDGE_FILES) || []
+  }
+
+  static saveKnowledgeFile(file: any): void {
+    const files = this.getKnowledgeFiles()
+    const idx = files.findIndex(f => f.id === file.id)
+    if (idx >= 0) files[idx] = file
+    else files.push(file)
+    storage.set(STORAGE_KEYS.KNOWLEDGE_FILES, files)
+  }
+
+  static deleteKnowledgeFile(id: string): void {
+    const files = this.getKnowledgeFiles().filter(f => f.id !== id)
+    storage.set(STORAGE_KEYS.KNOWLEDGE_FILES, files)
+  }
+
+  // ── AI 聊天会话 ──
+  static getAIChatSessions(): any[] {
+    return storage.get<any[]>(STORAGE_KEYS.AI_CHAT_SESSIONS) || []
+  }
+
+  static saveAIChatSession(session: any): any {
+    const sessions = this.getAIChatSessions()
+    const newSession = { ...session, id: session.id || `session-${Date.now()}`, createdAt: new Date().toISOString() }
+    const idx = sessions.findIndex(s => s.id === newSession.id)
+    if (idx >= 0) sessions[idx] = newSession
+    else sessions.push(newSession)
+    storage.set(STORAGE_KEYS.AI_CHAT_SESSIONS, sessions)
+    return newSession
+  }
+
+  static deleteAIChatSession(id: string): void {
+    const sessions = this.getAIChatSessions().filter(s => s.id !== id)
+    storage.set(STORAGE_KEYS.AI_CHAT_SESSIONS, sessions)
+  }
+
+  // ── AI 聊天消息 ──
+  static getAIChatMessages(sessionId: string): any[] {
+    const all = storage.get<any[]>(STORAGE_KEYS.AI_CHAT_MESSAGES) || []
+    return all.filter(m => m.sessionId === sessionId)
+  }
+
+  static saveAIChatMessage(msg: any): any {
+    const all = storage.get<any[]>(STORAGE_KEYS.AI_CHAT_MESSAGES) || []
+    const newMsg = { ...msg, id: msg.id || `msg-${Date.now()}`, createdAt: new Date().toISOString() }
+    all.push(newMsg)
+    storage.set(STORAGE_KEYS.AI_CHAT_MESSAGES, all)
+    return newMsg
+  }
+
   static restoreFromSnapshot(snapshot: import('@/types/road-network').RoadNetworkSnapshot): void {
     storage.set(STORAGE_KEYS.ROAD_NODES, snapshot.nodes)
     storage.set(STORAGE_KEYS.ROAD_EDGES, snapshot.edges)
