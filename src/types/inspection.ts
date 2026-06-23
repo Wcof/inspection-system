@@ -904,7 +904,7 @@ export interface InspectionPlan {
   ruleIds?: string[]
   startTime?: string
   endTime?: string
-  robotId: string
+  robotId?: string
   mapId: string
   routeId?: string
   pointIds?: string[]
@@ -929,7 +929,7 @@ export interface InspectionPlan {
 export interface InspectionPlanFormData {
   name: string
   code: string
-  robotId: string
+  robotId?: string
   mapId: string
   routeId?: string
   pointIds?: string[]
@@ -937,6 +937,9 @@ export interface InspectionPlanFormData {
   status: InspectionPlanStatus
   type: InspectionTaskType
   inspectionPointIds: string[]
+  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard' | 'work_ticket_guard' | 'emergency_arrival'
+  riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+  ruleIds?: string[]
   schedule: InspectionSchedule
   config: {
     autoStart: boolean
