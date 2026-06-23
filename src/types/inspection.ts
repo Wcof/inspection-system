@@ -17,7 +17,9 @@ export enum InspectionTaskInstanceStatus {
   RUNNING = 'running',
   COMPLETED = 'completed',
   PAUSED = 'paused',
+  PROCESSING = 'processing',
   CANCELLED = 'cancelled',
+  TERMINATED = 'terminated',
   FAILED = 'failed'
 }
 

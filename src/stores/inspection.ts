@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { writeAuditLog } from '@/utils/audit'
 import { MockService } from '@/mock/mockService'
 import { 
   InspectionPoint, 
@@ -236,9 +237,9 @@ export const useInspectionStore = defineStore('inspection', () => {
     return task
   }
   
-  function deleteTask(id: string) {
-    MockService.deleteTask(id)
-    fetchAllTasks()
+  /** @deprecated 删除操作已废弃，请使用 terminateTask */
+  function deleteTask(_id: string) {
+    console.warn('deleteTask 已废弃，不再物理删除任务')
   }
 
   function terminateTask(id: string) {
@@ -246,10 +247,19 @@ export const useInspectionStore = defineStore('inspection', () => {
     if (!existing) return null
     const updated = {
       ...existing,
-      status: InspectionTaskInstanceStatus.CANCELLED,
+      status: InspectionTaskInstanceStatus.TERMINATED,
       updatedAt: new Date()
     }
     MockService.saveTask(updated)
+    writeAuditLog({
+      action: 'terminate',
+      operator: 'system',
+      targetId: id,
+      targetType: 'task',
+      beforeValue: { status: existing.status },
+      afterValue: { status: InspectionTaskInstanceStatus.TERMINATED },
+      reason: ''
+    })
     fetchAllTasks()
     return updated
   }
