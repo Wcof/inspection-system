@@ -29,7 +29,8 @@ const STORAGE_KEYS = {
   NO_GO_ZONES: 'no_go_zones',
   GEOFENCES: 'geofences',
   ROAD_NETWORK_VERSIONS: 'road_network_versions',
-  TOPOLOGY_CHECKS: 'topology_checks'
+  TOPOLOGY_CHECKS: 'topology_checks',
+  DISPATCH_RESOURCE_POOLS: 'dispatch_resource_pools'
 }
 
 export const storage = {

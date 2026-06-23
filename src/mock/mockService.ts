@@ -790,6 +790,19 @@ export class MockService {
   }
 
   /** 从快照恢复全部路网数据 */
+  // ── Dispatch Resource Pools ──
+  static getDispatchResourcePools() {
+    return storage.get<any[]>(STORAGE_KEYS.DISPATCH_RESOURCE_POOLS) || []
+  }
+
+  static saveDispatchResourcePool(pool: any) {
+    const pools = this.getDispatchResourcePools()
+    const idx = pools.findIndex(p => p.id === pool.id)
+    if (idx >= 0) pools[idx] = pool
+    else pools.push(pool)
+    storage.set(STORAGE_KEYS.DISPATCH_RESOURCE_POOLS, pools)
+  }
+
   static restoreFromSnapshot(snapshot: import('@/types/road-network').RoadNetworkSnapshot): void {
     storage.set(STORAGE_KEYS.ROAD_NODES, snapshot.nodes)
     storage.set(STORAGE_KEYS.ROAD_EDGES, snapshot.edges)
