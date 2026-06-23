@@ -34,7 +34,8 @@ const STORAGE_KEYS = {
   DISPATCH_RULES: 'dispatch_rules',
   KNOWLEDGE_FILES: 'knowledge_files',
   AI_CHAT_SESSIONS: 'ai_chat_sessions',
-  AI_CHAT_MESSAGES: 'ai_chat_messages'
+  AI_CHAT_MESSAGES: 'ai_chat_messages',
+  WORK_TICKETS: 'work_tickets'
 }
 
 export const storage = {

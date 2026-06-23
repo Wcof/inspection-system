@@ -864,6 +864,19 @@ export class MockService {
     return newMsg
   }
 
+  // ── 作业票 ──
+  static getWorkTickets(): any[] {
+    return storage.get<any[]>(STORAGE_KEYS.WORK_TICKETS) || []
+  }
+
+  static saveWorkTicket(ticket: any): void {
+    const tickets = this.getWorkTickets()
+    const idx = tickets.findIndex(t => t.id === ticket.id)
+    if (idx >= 0) tickets[idx] = ticket
+    else tickets.push(ticket)
+    storage.set(STORAGE_KEYS.WORK_TICKETS, tickets)
+  }
+
   static restoreFromSnapshot(snapshot: import('@/types/road-network').RoadNetworkSnapshot): void {
     storage.set(STORAGE_KEYS.ROAD_NODES, snapshot.nodes)
     storage.set(STORAGE_KEYS.ROAD_EDGES, snapshot.edges)

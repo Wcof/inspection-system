@@ -15,7 +15,6 @@ export function assignRobot(options: AssignRobotOptions = {}): string {
   const robots = MockService.getRobots()
   if (robots.length === 0) return ''
 
-  // Try to find a robot matching area preference
   if (options.areaId || options.preferredRobotIds?.length) {
     const preferredIds = options.preferredRobotIds ?? []
     const pools = MockService.getDispatchResourcePools()
@@ -31,7 +30,6 @@ export function assignRobot(options: AssignRobotOptions = {}): string {
     }
   }
 
-  // Fallback: first available robot
   const available = robots.find(r => r.status !== 'patrolling' && r.batteryLevel > 20)
   return available?.id ?? robots[0].id
 }
@@ -70,4 +68,41 @@ export function preemptTask(
   })
 
   return updated
+}
+
+export interface PersonnelVerificationRequest {
+  taskId: string
+  ticketId: string
+  allowedPersonnel: string[]
+  recognizedPersonnel: string[]
+}
+
+export interface PersonnelVerificationResult {
+  taskId: string
+  matched: boolean
+  recognizedPersonnel: string[]
+  missingPersonnel: string[]
+  unrecognizedPersonnel: string[]
+}
+
+/**
+ * 人员核对：比对作业票允许人员列表与现场识别结果。
+ * 不匹配时返回缺失人员和未识别人员列表。
+ */
+export function verifyPersonnel(req: PersonnelVerificationRequest): PersonnelVerificationResult {
+  const allowedSet = new Set(req.allowedPersonnel)
+  const recognizedSet = new Set(req.recognizedPersonnel)
+
+  const missingPersonnel = req.allowedPersonnel.filter(p => !recognizedSet.has(p))
+  const unrecognizedPersonnel = req.recognizedPersonnel.filter(p => !allowedSet.has(p))
+
+  const matched = missingPersonnel.length === 0 && unrecognizedPersonnel.length === 0
+
+  return {
+    taskId: req.taskId,
+    matched,
+    recognizedPersonnel: req.recognizedPersonnel,
+    missingPersonnel,
+    unrecognizedPersonnel
+  }
 }
