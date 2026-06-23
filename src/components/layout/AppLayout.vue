@@ -168,6 +168,17 @@
             <router-link to="/implementation/dispatch/edge-inspection">边巡边检</router-link>
           </a-menu-item>
         </a-sub-menu>
+        <a-sub-menu key="system-settings">
+          <template #title>
+            <span>
+              <a-icon type="setting" />
+              系统设置
+            </span>
+          </template>
+          <a-menu-item key="third-party-simulator">
+            <router-link to="/management/system/third-party-simulator">第三方系统模拟</router-link>
+          </a-menu-item>
+        </a-sub-menu>
       </a-menu>
     </a-layout-sider>
     <a-layout>

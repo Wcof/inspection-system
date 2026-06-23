@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MockService } from '@/mock/mockService'
-import { storage, STORAGE_KEYS } from '@/utils/storage'
+import { storage } from '@/utils/storage'
 
 describe('NavigationPoint migration', () => {
   beforeEach(() => {

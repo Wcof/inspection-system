@@ -17,7 +17,6 @@ describe('DispatchEngine - assignRobot', () => {
 
   it('should prefer robots from the resource pool', () => {
     const robots = MockService.getRobots()
-    const firstRobotId = robots[0].id
     const secondRobotId = robots.length > 1 ? robots[1].id : robots[0].id
     
     // Set up a resource pool preferring the second robot

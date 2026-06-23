@@ -23,7 +23,6 @@ import {
 import { Robot, InspectionPoint, MonitorPoint, Metric, InspectionTask, InspectionPath } from '@/types'
 import type {
   InspectionMap,
-  Waypoint,
   WaypointEdge,
   InspectionRoute,
   InspectionDevice,

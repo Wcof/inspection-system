@@ -12,7 +12,6 @@ import {
   InspectionTask,
   InspectionTaskFormData,
   InspectionMap,
-  Waypoint,
   WaypointEdge,
   InspectionRoute,
   InspectionRouteFormData,
@@ -32,6 +31,7 @@ import {
   Installation,
   FacilityComponent
 } from '@/types/inspection'
+import type { NavigationPoint } from '@/types/road-network'
 
 export const useInspectionStore = defineStore('inspection', () => {
   const inspectionPoints = ref<InspectionPoint[]>([])
@@ -39,7 +39,8 @@ export const useInspectionStore = defineStore('inspection', () => {
   const metrics = ref<Metric[]>([])
   const tasks = ref<InspectionTask[]>([])
   const inspectionMaps = ref<InspectionMap[]>([])
-  const waypoints = ref<Waypoint[]>([])
+  // 途径点相关 (已废弃，使用导航点)
+  const waypoints = ref<NavigationPoint[]>([])
   const waypointEdges = ref<WaypointEdge[]>([])
   const inspectionRoutes = ref<InspectionRoute[]>([])
   const inspectionDevices = ref<InspectionDevice[]>([])
@@ -437,11 +438,11 @@ export const useInspectionStore = defineStore('inspection', () => {
     }
   }
   
-  function getWaypointsByMapId(mapId: string): Waypoint[] {
+  function getWaypointsByMapId(mapId: string): NavigationPoint[] {
     return MockService.getWaypointsByMapId(mapId)
   }
   
-  function saveWaypoint(waypointData: Waypoint) {
+  function saveWaypoint(waypointData: NavigationPoint) {
     MockService.saveWaypoint(waypointData)
     fetchAllWaypoints()
     return waypointData

@@ -229,6 +229,19 @@ const routes: RouteRecordRaw[] = [
             meta: { title: '安全行为分析' }
           }
         ]
+      },
+      {
+        path: 'system',
+        name: 'ManagementSystem',
+        meta: { title: '系统设置' },
+        children: [
+          {
+            path: 'third-party-simulator',
+            name: 'ManagementThirdPartySimulator',
+            component: () => import('../views/management/system/ThirdPartySimulator.vue'),
+            meta: { title: '第三方系统模拟' }
+          }
+        ]
       }
     ]
   },
