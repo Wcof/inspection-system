@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { writeAuditLog, getAuditLogs } from '@/utils/audit'
-import type { AuditLogEntry } from '@/types/audit'
 
 describe('AuditLog', () => {
   beforeEach(() => {

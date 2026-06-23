@@ -247,7 +247,9 @@ function getStatusColor(status: InspectionTaskInstanceStatus): string {
     running: 'blue',
     completed: 'green',
     paused: 'orange',
+    processing: 'cyan',
     cancelled: 'default',
+    terminated: 'red',
     failed: 'red'
   }
   return colorMap[status] || 'default'
@@ -259,7 +261,9 @@ function getStatusText(status: InspectionTaskInstanceStatus): string {
     running: '执行中',
     completed: '已完成',
     paused: '已暂停',
+    processing: '待处理',
     cancelled: '已取消',
+    terminated: '已终止',
     failed: '失败'
   }
   return textMap[status] || status

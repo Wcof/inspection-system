@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useInspectionStore } from '@/stores/inspection'
 import { MockService } from '@/mock/mockService'
-import { InspectionTaskInstanceStatus } from '@/types/inspection'
+import { InspectionTaskInstanceStatus, InspectionTaskType } from '@/types/inspection'
+import { ExceptionStrategy } from '@/types/robot'
 
 describe('TaskStateMachine - 8 states', () => {
   beforeEach(() => {
@@ -100,12 +101,20 @@ describe('State machine transitions', () => {
       code: 'T001',
       robotId: 'robot-1',
       routeId: 'route-001',
-      type: 'normal' as const,
+      type: InspectionTaskType.PATROL,
       status: InspectionTaskInstanceStatus.PENDING,
       inspectionPointIds: [],
       currentInspectionPointIndex: 0,
       config: { autoStart: false, notifyOnComplete: false, notifyOnError: false, autoResumeAfterInterrupt: false },
-      exceptionStrategy: { lowBattery: 'return_to_base' as const, signalLost: 'wait_and_resume' as const, robotFailure: 'abort' as const, signalLostRetryCount: 3, retryInterval: 30, retryTimes: 3 },
+      exceptionStrategy: {
+        inspectionPointFailure: ExceptionStrategy.SKIP,
+        robotFailure: ExceptionStrategy.ABORT,
+        lowBattery: ExceptionStrategy.RETURN_TO_BASE,
+        signalLost: ExceptionStrategy.WAIT_AND_RESUME,
+        timeout: ExceptionStrategy.RETRY,
+        maxRetryCount: 3,
+        retryInterval: 30
+      },
       exceptionLog: [],
       createdAt: new Date(),
       updatedAt: new Date()

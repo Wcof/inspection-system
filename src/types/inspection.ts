@@ -871,6 +871,11 @@ export interface InspectionTaskFormData {
   robotId: string
   type: InspectionTaskType
   inspectionPointIds: string[]
+  taskSource?: 'execution_plan' | 'dispatch_insert' | 'auto_recheck' | 'work_ticket' | 'third_party' | 'emergency' | 'manual'
+  businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard' | 'work_ticket_guard' | 'emergency_arrival'
+  priorityLevel?: 'normal' | 'high' | 'emergency'
+  riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+  planId?: string
   schedule?: {
     startTime: Date
     endTime: Date

@@ -109,3 +109,17 @@ This project uses PRD Helper for product context collection. See `docs/prd-helpe
 - `modules/*/guide.md` — 各模块行为约束
 - `checks/guide.md` — 检查系统说明
 <!-- PRD-HELPER:END -->
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (remote `Wcof/inspection-system`), via `gh` CLI. PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical labels map 1:1 to GitHub labels: `needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` at root + `docs/adr/` for ADRs. See `docs/agents/domain.md`.

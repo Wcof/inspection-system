@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useInspectionStore } from '@/stores/inspection'
+import { InspectionTaskType } from '@/types/inspection'
+import { ExceptionStrategy } from '@/types/robot'
 import { MockService } from '@/mock/mockService'
 
 describe('Task unification', () => {
@@ -28,11 +30,19 @@ describe('Task unification', () => {
       code: 'M001',
       robotId: 'robot-1',
       routeId: 'route-001',
-      type: 'normal',
+      type: InspectionTaskType.PATROL,
       inspectionPointIds: [],
       schedule: undefined,
       config: { autoStart: false, notifyOnComplete: false, notifyOnError: false, autoResumeAfterInterrupt: false },
-      exceptionStrategy: { lowBattery: 'return_to_base', signalLost: 'wait_and_resume', robotFailure: 'abort', signalLostRetryCount: 3, retryInterval: 30, retryTimes: 3 }
+      exceptionStrategy: {
+        inspectionPointFailure: ExceptionStrategy.SKIP,
+        robotFailure: ExceptionStrategy.ABORT,
+        lowBattery: ExceptionStrategy.RETURN_TO_BASE,
+        signalLost: ExceptionStrategy.WAIT_AND_RESUME,
+        timeout: ExceptionStrategy.RETRY,
+        maxRetryCount: 3,
+        retryInterval: 30
+      }
     })
     expect(task.taskSource).toBe('manual')
   })
@@ -44,12 +54,20 @@ describe('Task unification', () => {
       code: 'W001',
       robotId: 'robot-1',
       routeId: 'route-001',
-      type: 'normal',
+      type: InspectionTaskType.PATROL,
       inspectionPointIds: [],
       taskSource: 'work_ticket',
       schedule: undefined,
       config: { autoStart: false, notifyOnComplete: false, notifyOnError: false, autoResumeAfterInterrupt: false },
-      exceptionStrategy: { lowBattery: 'return_to_base', signalLost: 'wait_and_resume', robotFailure: 'abort', signalLostRetryCount: 3, retryInterval: 30, retryTimes: 3 }
+      exceptionStrategy: {
+        inspectionPointFailure: ExceptionStrategy.SKIP,
+        robotFailure: ExceptionStrategy.ABORT,
+        lowBattery: ExceptionStrategy.RETURN_TO_BASE,
+        signalLost: ExceptionStrategy.WAIT_AND_RESUME,
+        timeout: ExceptionStrategy.RETRY,
+        maxRetryCount: 3,
+        retryInterval: 30
+      }
     })
     expect(task.taskSource).toBe('work_ticket')
   })
@@ -61,11 +79,19 @@ describe('Task unification', () => {
       code: 'N001',
       robotId: 'robot-1',
       routeId: 'route-001',
-      type: 'normal',
+      type: InspectionTaskType.PATROL,
       inspectionPointIds: [],
       schedule: undefined,
       config: { autoStart: false, notifyOnComplete: false, notifyOnError: false, autoResumeAfterInterrupt: false },
-      exceptionStrategy: { lowBattery: 'return_to_base', signalLost: 'wait_and_resume', robotFailure: 'abort', signalLostRetryCount: 3, retryInterval: 30, retryTimes: 3 }
+      exceptionStrategy: {
+        inspectionPointFailure: ExceptionStrategy.SKIP,
+        robotFailure: ExceptionStrategy.ABORT,
+        lowBattery: ExceptionStrategy.RETURN_TO_BASE,
+        signalLost: ExceptionStrategy.WAIT_AND_RESUME,
+        timeout: ExceptionStrategy.RETRY,
+        maxRetryCount: 3,
+        retryInterval: 30
+      }
     })
     expect(task.planId).toBeUndefined()
   })
