@@ -287,34 +287,30 @@ export class MockService {
     storage.set(STORAGE_KEYS.INSPECTION_MAPS, maps)
   }
   
-  // 途径点相关
-  static getWaypoints(): Waypoint[] {
-    return storage.get<Waypoint[]>(STORAGE_KEYS.WAYPOINTS) || []
+  // 途径点相关 (已废弃，使用导航点替代)
+  /** @deprecated 使用 getNavigationPoints 替代 */
+  static getWaypoints(): NavigationPoint[] {
+    return this.getNavigationPoints()
   }
   
-  static getWaypointsByMapId(mapId: string): Waypoint[] {
-    return this.getWaypoints().filter(w => w.mapId === mapId)
+  /** @deprecated 使用 getNavigationPointsByMapId 替代 */
+  static getWaypointsByMapId(mapId: string): NavigationPoint[] {
+    return this.getNavigationPointsByMapId(mapId)
   }
   
-  static getWaypointById(id: string): Waypoint | undefined {
-    const waypoints = this.getWaypoints()
-    return waypoints.find(w => w.id === id)
+  /** @deprecated 使用 getNavigationPointById 替代（注意方法名变化） */
+  static getWaypointById(id: string): NavigationPoint | undefined {
+    return this.getNavigationPoints().find(p => p.id === id)
   }
   
-  static saveWaypoint(waypoint: Waypoint): void {
-    const waypoints = this.getWaypoints()
-    const index = waypoints.findIndex(w => w.id === waypoint.id)
-    if (index >= 0) {
-      waypoints[index] = waypoint
-    } else {
-      waypoints.push(waypoint)
-    }
-    storage.set(STORAGE_KEYS.WAYPOINTS, waypoints)
+  /** @deprecated 使用 saveNavigationPoint 替代 */
+  static saveWaypoint(point: NavigationPoint): void {
+    this.saveNavigationPoint(point)
   }
   
+  /** @deprecated 使用 deleteNavigationPoint 替代 */
   static deleteWaypoint(id: string): void {
-    const waypoints = this.getWaypoints().filter(w => w.id !== id)
-    storage.set(STORAGE_KEYS.WAYPOINTS, waypoints)
+    this.deleteNavigationPoint(id)
   }
   
   // 途径点连线相关
