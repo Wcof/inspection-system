@@ -803,6 +803,19 @@ export class MockService {
     storage.set(STORAGE_KEYS.DISPATCH_RESOURCE_POOLS, pools)
   }
 
+  // ── Dispatch Rules ──
+  static getDispatchRules() {
+    return storage.get<any[]>(STORAGE_KEYS.DISPATCH_RULES) || []
+  }
+
+  static saveDispatchRule(rule: any) {
+    const rules = this.getDispatchRules()
+    const idx = rules.findIndex(r => r.id === rule.id)
+    if (idx >= 0) rules[idx] = rule
+    else rules.push(rule)
+    storage.set(STORAGE_KEYS.DISPATCH_RULES, rules)
+  }
+
   static restoreFromSnapshot(snapshot: import('@/types/road-network').RoadNetworkSnapshot): void {
     storage.set(STORAGE_KEYS.ROAD_NODES, snapshot.nodes)
     storage.set(STORAGE_KEYS.ROAD_EDGES, snapshot.edges)

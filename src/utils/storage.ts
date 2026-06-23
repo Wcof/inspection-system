@@ -30,7 +30,8 @@ const STORAGE_KEYS = {
   GEOFENCES: 'geofences',
   ROAD_NETWORK_VERSIONS: 'road_network_versions',
   TOPOLOGY_CHECKS: 'topology_checks',
-  DISPATCH_RESOURCE_POOLS: 'dispatch_resource_pools'
+  DISPATCH_RESOURCE_POOLS: 'dispatch_resource_pools',
+  DISPATCH_RULES: 'dispatch_rules'
 }
 
 export const storage = {
