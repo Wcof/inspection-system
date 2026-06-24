@@ -125,15 +125,13 @@
             <!-- 绘制区域：未绘制时显示「绘制区域」，绘制中变为激活态 -->
             <a-button
               :type="drawing ? 'primary' : 'default'"
-              @click="startPolygon"
-              :disabled="drawing"
-            >绘制区域</a-button>
-            <a-button v-if="drawing" @click="undoLastPoint">撤销</a-button>
+              @click="toggleDrawing"
+            >{{ drawing ? '绘制中...' : '绘制区域' }}</a-button>
             <a-button v-if="drawing" type="primary" @click="finishPolygon">完成绘制</a-button>
-            <a-button v-if="drawing" danger @click="cancelDrawing">取消</a-button>
-            <a-divider v-if="!drawing && (canUndo || canRedo || hasUnsavedChanges)" type="vertical" />
-            <a-button v-if="!drawing" size="small" :disabled="!canUndo" @click="handleUndo">撤销</a-button>
-            <a-button v-if="!drawing" size="small" :disabled="!canRedo" @click="handleRedo">重做</a-button>
+            <a-button v-if="drawing" danger @click="cancelDrawing">取消绘制</a-button>
+            <a-divider type="vertical" />
+            <a-button size="small" :disabled="!canUndo" @click="handleUndo">撤销</a-button>
+            <a-button size="small" :disabled="!canRedo" @click="handleRedo">重做</a-button>
             <!-- 选中后整体保存 -->
             <a-button v-if="hasUnsavedChanges" type="primary" @click="saveAll">保存</a-button>
             <a-button v-if="hasUnsavedChanges" @click="discardChanges">放弃修改</a-button>
@@ -702,8 +700,15 @@ function deleteRegionFromList(row: RegionListRow) {
   })
 }
 
+function toggleDrawing() {
+  if (drawing.value) {
+    cancelDrawing()
+  } else {
+    startPolygon()
+  }
+}
+
 function startPolygon() {
-  if (drawing.value) return
   // 直接进入绘制，无需 editMode 开关
   selectedRegionId.value = ''
   drawing.value = true
@@ -711,11 +716,6 @@ function startPolygon() {
   mousePreviewPoint.value = null
   hasUnsavedChanges.value = true
   message.info('请在地图上点击落点形成区域，右键或「完成绘制」闭合')
-}
-
-function undoLastPoint() {
-  if (!drawing.value || draftPoints.value.length === 0) return
-  draftPoints.value.pop()
 }
 
 function cancelDrawing() {
