@@ -131,6 +131,9 @@
             <a-button v-if="drawing" @click="undoLastPoint">↩ 撤销</a-button>
             <a-button v-if="drawing" type="primary" @click="finishPolygon">✅ 完成绘制</a-button>
             <a-button v-if="drawing" danger @click="cancelDrawing">❌ 取消</a-button>
+            <a-divider v-if="drawing || hasUnsavedChanges" type="vertical" />
+            <a-button size="small" :disabled="!canUndo" @click="handleUndo">↩ 撤销</a-button>
+            <a-button size="small" :disabled="!canRedo" @click="handleRedo">↪ 重做</a-button>
             <!-- 选中后整体保存 -->
             <a-button v-if="hasUnsavedChanges" type="primary" @click="saveAll">保存</a-button>
             <a-button v-if="hasUnsavedChanges" @click="discardChanges">放弃修改</a-button>
@@ -341,6 +344,7 @@ import { message, Modal, Empty } from 'ant-design-vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
+import { useUndoRedo } from '@/utils/undo-redo'
 import type { InspectionMap } from '@/types/inspection'
 
 interface EditableRegionRow {
@@ -379,6 +383,9 @@ const router = useRouter()
 const inspectionStore = useInspectionStore()
 
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
+
+// ─── 撤销/重做 ───
+const { canUndo, canRedo, pushSnapshot, undo, redo } = useUndoRedo<string>()
 
 const drawing = ref(false)
 const draftPoints = ref<Array<{ x: number; y: number }>>([])
@@ -774,6 +781,7 @@ function finishPolygon() {
     message.warning('至少需要 3 个点才能闭合区域')
     return
   }
+  pushSnapshot(JSON.stringify(regions.value))
   // 直接创建区域，使用默认名称，进入属性面板编辑
   const points = draftPolygon.value
   const regionId = `area-${Date.now()}`
@@ -899,6 +907,7 @@ function enterPropertyEdit() {
 }
 
 function savePropertyEdit() {
+  pushSnapshot(JSON.stringify(regions.value))
   propertyEditing.value = false
   hasUnsavedChanges.value = true
   message.success('属性已修改，点击「保存」提交到系统')
@@ -948,6 +957,18 @@ onBeforeUnmount(() => {
 })
 
 function onKeyDown(e: KeyboardEvent) {
+  // Ctrl+Z 撤销
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    handleUndo()
+    return
+  }
+  // Ctrl+Y / Ctrl+Shift+Z 重做
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+    e.preventDefault()
+    handleRedo()
+    return
+  }
   if (e.key === 'Delete' && selectedRegionId.value) {
     const region = regions.value.find(r => r.id === selectedRegionId.value)
     if (region) {
@@ -958,6 +979,7 @@ function onKeyDown(e: KeyboardEvent) {
         cancelText: '取消',
         okButtonProps: { danger: true },
         onOk: () => {
+          pushSnapshot(JSON.stringify(regions.value))
           regions.value = regions.value.filter(r => r.id !== region.id)
           selectedRegionId.value = ''
           hasUnsavedChanges.value = true
@@ -965,6 +987,25 @@ function onKeyDown(e: KeyboardEvent) {
         }
       })
     }
+  }
+}
+
+// ─── 撤销/重做处理 ───
+function handleUndo() {
+  const prev = undo(JSON.stringify(regions.value))
+  if (prev) {
+    regions.value = JSON.parse(prev)
+    hasUnsavedChanges.value = true
+    message.info('已撤销')
+  }
+}
+
+function handleRedo() {
+  const next = redo(JSON.stringify(regions.value))
+  if (next) {
+    regions.value = JSON.parse(next)
+    hasUnsavedChanges.value = true
+    message.info('已重做')
   }
 }
 </script>

@@ -101,6 +101,9 @@
             <a-button size="small" :type="deleteMode ? 'primary' : 'default'" :danger="deleteMode" @click="toggleDeleteMode">
               <DeleteOutlined /> {{ deleteMode ? '删除中...' : '删除' }}
             </a-button>
+            <a-divider type="vertical" />
+            <a-button size="small" :disabled="!rnCanUndo" @click="handleRnUndo">↩ 撤销</a-button>
+            <a-button size="small" :disabled="!rnCanRedo" @click="handleRnRedo">↪ 重做</a-button>
           </a-space>
           <div class="rn-layer-toggles">
             <a-checkbox v-model:checked="showSegments">路段</a-checkbox>
@@ -679,9 +682,13 @@ import type {
   RoadNodeType, RoadSegmentStatus, NavigationPointType, NoGoZoneLevel,
   TopologyIssueType, PathAlgorithm, PathResult
 } from '@/types/road-network'
+import { useUndoRedo } from '@/utils/undo-redo'
 
 const route = useRoute()
 const inspectionStore = useInspectionStore()
+
+// ─── 撤销/重做 ───
+const { canUndo: rnCanUndo, canRedo: rnCanRedo, pushSnapshot: rnPushSnapshot, undo: rnUndo, redo: rnRedo, clear: rnClearUndoRedo } = useUndoRedo<string>()
 
 // ─── 地图状态 ───
 const selectedMapId = ref('')
@@ -1717,6 +1724,39 @@ function onMapChange() {
   selectedEntity.value = null; drawMode.value = null; drawingNodes.value = []
   polygonDrawingPoints.value = []; simulationPath.value = null; simResult.value = null
   deleteMode.value = false; navPointPlacementMode.value = false; navPointPlacementPosition.value = null
+  rnClearUndoRedo()
+}
+
+// ─── 撤销/重做处理 ───
+function getRnSnapshot(): string {
+  return JSON.stringify({ nodes: nodes.value, edges: edges.value, segments: segments.value, junctions: junctions.value, navPoints: navPoints.value, noGoZones: noGoZones.value })
+}
+
+function restoreRnSnapshot(json: string) {
+  try {
+    const data = JSON.parse(json)
+    if (data.nodes) nodes.value = data.nodes
+    if (data.edges) edges.value = data.edges
+    if (data.segments) segments.value = data.segments
+    if (data.junctions) junctions.value = data.junctions
+    if (data.navPoints) navPoints.value = data.navPoints
+    if (data.noGoZones) noGoZones.value = data.noGoZones
+    hasUnsavedChanges.value = true
+  } catch { /* ignore corrupt snapshot */ }
+}
+
+function handleRnUndo() {
+  const prev = rnUndo(getRnSnapshot())
+  if (prev) { restoreRnSnapshot(prev); message.info('已撤销') }
+}
+
+function handleRnRedo() {
+  const next = rnRedo(getRnSnapshot())
+  if (next) { restoreRnSnapshot(next); message.info('已重做') }
+}
+
+function rnPushBeforeChange() {
+  rnPushSnapshot(getRnSnapshot())
 }
 
 // ─── 地图控制 ───
@@ -2007,6 +2047,18 @@ function beforeUnloadHandler(e: BeforeUnloadEvent) {
 }
 
 function onKeyDown(e: KeyboardEvent) {
+  // Ctrl+Z 撤销
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    handleRnUndo()
+    return
+  }
+  // Ctrl+Y / Ctrl+Shift+Z 重做
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+    e.preventDefault()
+    handleRnRedo()
+    return
+  }
   if (e.key === 'Escape') {
     if (navPointPlacementMode.value) {
       navPointPlacementMode.value = false
@@ -2022,6 +2074,7 @@ function onKeyDown(e: KeyboardEvent) {
       cancelText: '取消',
       okButtonProps: { danger: true },
       onOk: () => {
+        rnPushBeforeChange()
         deleteEntityLocally(selectedEntity.value!.type, selectedEntity.value!.id)
         selectedEntity.value = null
         hasUnsavedChanges.value = true
