@@ -290,6 +290,13 @@
                 <a-col :span="12"><a-form-item label="限速(km/h)"><a-input-number v-model:value="editingSegment.speedLimit" :min="0" style="width:100%" /></a-form-item></a-col>
                 <a-col :span="12"><a-form-item label="路宽(m)"><a-input-number v-model:value="editingSegment.width" :min="0" style="width:100%" /></a-form-item></a-col>
               </a-row>
+              <a-form-item label="安全等级">
+                <a-radio-group v-model:value="editingSegment.safetyLevel">
+                  <a-radio value="normal">正常</a-radio>
+                  <a-radio value="warning">预警</a-radio>
+                  <a-radio value="danger">高危</a-radio>
+                </a-radio-group>
+              </a-form-item>
               <a-row :gutter="8">
                 <a-col :span="12"><a-form-item label="限高(m)"><a-input-number v-model:value="editingSegment.heightLimit" :min="0" style="width:100%" /></a-form-item></a-col>
                 <a-col :span="12"><a-form-item label="最大载重(t)"><a-input-number v-model:value="editingSegment.maxLoad" :min="0" style="width:100%" /></a-form-item></a-col>
@@ -1442,7 +1449,7 @@ function addDrawNode(x: number, y: number) {
       mapId: selectedMapId.value, area: '', segmentType: 'trunk', status: 'active',
       nodeIds: [nodeId], edgeIds: [], length: 0, width: 3,
       startPoint: { x, y }, endPoint: { x, y },
-      bidirectional: true, speedLimit: 30,
+      bidirectional: true, speedLimit: 30, safetyLevel: 'normal' as const,
       allowReverse: false, allowUTurn: false, allowSpin: false,
       color: '#1677ff', createdAt: new Date(), updatedAt: new Date()
     }
@@ -1641,7 +1648,7 @@ function onNodeClick(node: RoadNode) {
         nodeIds: [node.id], edgeIds: [], length: 0, width: 3,
         startPoint: { x: node.position.x, y: node.position.y },
         endPoint: { x: node.position.x, y: node.position.y },
-        bidirectional: true, speedLimit: 30,
+        bidirectional: true, speedLimit: 30, safetyLevel: 'normal' as const,
         allowReverse: false, allowUTurn: false, allowSpin: false,
         color: '#1677ff', createdAt: new Date(), updatedAt: new Date()
       }

@@ -57,6 +57,43 @@
           <a-col :xs="24" :md="12"><a-form-item label="不适合调度处理"><a-select v-model:value="form.unsuitablePlanStrategy" :disabled="editorMode === 'view'"><a-select-option value="manual_review">转人工复核</a-select-option><a-select-option value="defer">延后下一轮评估</a-select-option><a-select-option value="generate_pending">生成待确认任务</a-select-option></a-select></a-form-item></a-col>
           <a-col :xs="24" :md="12"><a-form-item label="资源冲突策略"><a-select v-model:value="form.resourceConflictStrategy" :disabled="editorMode === 'view'"><a-select-option value="priority_first">优先级高者先执行</a-select-option><a-select-option value="time_first">计划时间早者先执行</a-select-option><a-select-option value="manual_review">转人工复核</a-select-option></a-select></a-form-item></a-col>
         </a-row>
+
+        <!-- 疲劳段频次与优先级控制 -->
+        <a-divider orientation="left" style="margin-top: 16px">疲劳段频次与优先级控制</a-divider>
+        <a-alert type="info" show-icon style="margin-bottom: 12px" message="针对高危时段调高频次、升格优先级。系统在疲劳时段内按下方矩阵覆盖基础调度参数。" />
+        <a-form-item label="启用疲劳段调度">
+          <a-switch v-model:checked="form.fatigueScheduleEnabled" :disabled="editorMode === 'view'" checked-children="启用" un-checked-children="停用" />
+        </a-form-item>
+        <div v-if="form.fatigueScheduleEnabled">
+          <a-table :columns="fatigueColumns" :data-source="form.fatigueSlots" row-key="slotId" :pagination="false" size="small" :scroll="{ x: 760 }">
+            <template #bodyCell="{ column, record, index }">
+              <template v-if="column.key === 'slotName'">
+                <a-input v-model:value="record.slotName" :disabled="editorMode === 'view'" placeholder="如 夜班疲劳段" size="small" />
+              </template>
+              <template v-else-if="column.key === 'timeRange'">
+                <a-time-picker v-model:value="record.startTime" :disabled="editorMode === 'view'" format="HH:mm" :allow-clear="false" size="small" style="width: 90px" />
+                <span style="margin: 0 4px">~</span>
+                <a-time-picker v-model:value="record.endTime" :disabled="editorMode === 'view'" format="HH:mm" :allow-clear="false" size="small" style="width: 90px" />
+              </template>
+              <template v-else-if="column.key === 'frequency'">
+                <a-input-number v-model:value="record.frequencyMinutes" :disabled="editorMode === 'view'" :min="5" :max="240" :step="5" size="small" addon-after="分钟" style="width: 130px" />
+              </template>
+              <template v-else-if="column.key === 'priorityBoost'">
+                <a-select v-model:value="record.priorityBoost" :disabled="editorMode === 'view'" size="small" style="width: 110px">
+                  <a-select-option value="none">不升格</a-select-option>
+                  <a-select-option value="warning">升格至预警</a-select-option>
+                  <a-select-option value="alarm">升格至告警</a-select-option>
+                  <a-select-option value="critical">升格至紧急</a-select-option>
+                </a-select>
+              </template>
+              <template v-else-if="column.key === 'actions'">
+                <a-button v-if="editorMode !== 'view'" type="link" size="small" danger @click="removeFatigueSlot(index)">删除</a-button>
+                <span v-else>-</span>
+              </template>
+            </template>
+          </a-table>
+          <a-button v-if="editorMode !== 'view'" size="small" type="dashed" style="margin-top: 8px" @click="addFatigueSlot">+ 新增疲劳时段</a-button>
+        </div>
       </a-form>
     </a-modal>
 
@@ -74,6 +111,15 @@ import { useInspectionStore } from '@/stores/inspection'
 type RuleType = 'advance' | 'on_time' | 'batch'
 type EditorMode = 'create' | 'edit' | 'view'
 
+interface FatigueSlot {
+  slotId: string
+  slotName: string
+  startTime: string
+  endTime: string
+  frequencyMinutes: number
+  priorityBoost: 'none' | 'warning' | 'alarm' | 'critical'
+}
+
 interface AreaRule {
   id: string
   areaId: string
@@ -88,6 +134,8 @@ interface AreaRule {
   dispatchEligibilityChecks: string[]
   unsuitablePlanStrategy: string
   resourceConflictStrategy: string
+  fatigueScheduleEnabled: boolean
+  fatigueSlots: FatigueSlot[]
 }
 
 interface AreaOption {
@@ -130,6 +178,14 @@ const columns = [
   { title: '操作', key: 'actions', width: 180 }
 ]
 
+const fatigueColumns = [
+  { title: '时段名称', key: 'slotName', width: 140 },
+  { title: '时间范围', key: 'timeRange', width: 220 },
+  { title: '调度频次', key: 'frequency', width: 150 },
+  { title: '优先级升格', key: 'priorityBoost', width: 130 },
+  { title: '操作', key: 'actions', width: 80 }
+]
+
 const helpColumns = [
   { title: '字段', dataIndex: 'field', key: 'field', width: 150 },
   { title: '作用', dataIndex: 'role', key: 'role' },
@@ -157,8 +213,25 @@ function createRule(id: string, areaId: string, areaName: string, ruleName: stri
     generationIntervalMinutes: 15,
     dispatchEligibilityChecks: ['plan_active', 'resource_available', 'route_reachable', 'time_window_valid', 'battery_enough', 'no_safety_block'],
     unsuitablePlanStrategy: 'manual_review',
-    resourceConflictStrategy: 'priority_first'
+    resourceConflictStrategy: 'priority_first',
+    fatigueScheduleEnabled: false,
+    fatigueSlots: []
   }
+}
+
+function addFatigueSlot() {
+  form.fatigueSlots.push({
+    slotId: `slot-${Date.now()}`,
+    slotName: `疲劳段${form.fatigueSlots.length + 1}`,
+    startTime: '23:00',
+    endTime: '06:00',
+    frequencyMinutes: 30,
+    priorityBoost: 'warning'
+  })
+}
+
+function removeFatigueSlot(index: number) {
+  form.fatigueSlots.splice(index, 1)
 }
 
 function getAreaName(areaId: string): string {

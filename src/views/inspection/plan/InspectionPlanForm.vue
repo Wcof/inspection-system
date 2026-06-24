@@ -421,7 +421,6 @@ function handleSave() {
     id: form.id || `plan-${Date.now()}`,
     name: form.name,
     code: form.code,
-    robotId: 'robot-001',
     mapId: currentMapId.value,
     pointIds,
     pointOrders: pointIds.map((id: string, index: number) => ({ pointId: id, order: index + 1 })),
