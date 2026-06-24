@@ -49,6 +49,11 @@
           <template v-if="column.key === 'status'">
             <a-tag :color="getStatusColor(record.status)">{{ record.status }}</a-tag>
           </template>
+          <template v-else-if="column.key === 'llmEnabled'">
+            <a-tag :color="record.rules?.some((r: any) => r.llmEnabled) ? 'blue' : 'default'">
+              {{ record.rules?.some((r: any) => r.llmEnabled) ? '已开启' : '未开启' }}
+            </a-tag>
+          </template>
           <template v-else-if="column.key === 'updatedAt'">
             {{ formatDate(record.updatedAt) }}
           </template>
@@ -97,6 +102,7 @@ const columns = [
   { title: '规则编码', dataIndex: 'code', key: 'code', width: 180 },
   { title: '检测类型', dataIndex: 'detectionType', key: 'detectionType', width: 120 },
   { title: '检测算法', dataIndex: 'detectionAlgorithm', key: 'detectionAlgorithm', width: 180 },
+  { title: '大模型增强', key: 'llmEnabled', width: 120 },
   { title: '结果数量', key: 'resultCount', width: 100 },
   { title: '版本', dataIndex: 'version', key: 'version', width: 100 },
   { title: '引用数量', dataIndex: 'referenceCount', key: 'referenceCount', width: 100 },

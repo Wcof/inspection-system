@@ -18,6 +18,20 @@
         </a-descriptions>
       </a-card>
 
+      <a-card title="检测算法规则">
+        <a-table :data-source="item.rules" row-key="id" :pagination="false" size="small">
+          <a-table-column title="算法名称" width="200" data-index="name" />
+          <a-table-column title="算法版本" width="120" data-index="version" />
+          <a-table-column title="算法标识" width="200" data-index="algorithm" />
+          <a-table-column title="状态" width="100" data-index="status" />
+          <a-table-column title="大模型增强兜底" width="160">
+            <template #default="{ record }">
+              <a-tag :color="record.llmEnabled ? 'blue' : 'default'">{{ record.llmEnabled ? '已开启' : '未开启' }}</a-tag>
+            </template>
+          </a-table-column>
+        </a-table>
+      </a-card>
+
       <a-card title="结果定义">
         <a-alert
           type="info"

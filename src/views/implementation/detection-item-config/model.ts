@@ -10,6 +10,8 @@ export interface RuleItem {
   version: string
   algorithm: string
   status: '启用' | '停用'
+  /** 大模型增强兜底开关：主算法识别失败时由大模型兜底 */
+  llmEnabled?: boolean
 }
 
 export interface ResultDef {

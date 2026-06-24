@@ -36,6 +36,26 @@
         </a-row>
         <a-form-item label="配置说明"><a-textarea v-model:value="form.description" :rows="3" /></a-form-item>
 
+        <a-divider orientation="left">检测算法规则</a-divider>
+        <a-table :data-source="form.rules" row-key="id" :pagination="false" size="small">
+          <a-table-column title="算法名称" width="200" data-index="name" />
+          <a-table-column title="算法版本" width="120" data-index="version" />
+          <a-table-column title="算法标识" width="200" data-index="algorithm" />
+          <a-table-column title="状态" width="100" data-index="status" />
+          <a-table-column title="大模型增强兜底" width="160">
+            <template #default="{ record }">
+              <a-switch v-model:checked="record.llmEnabled" checked-children="开" un-checked-children="关" />
+            </template>
+          </a-table-column>
+        </a-table>
+        <a-alert
+          v-if="hasLlmEnabled"
+          type="info"
+          show-icon
+          style="margin-top: 8px; margin-bottom: 16px"
+          message="大模型增强开启后，主算法识别失败时将调用大模型兜底识别，结果备注显示「大模型增强」标识"
+        />
+
         <a-divider orientation="left">结果定义</a-divider>
         <a-alert :message="resultDefinitionTip" type="info" show-icon style="margin-bottom: 12px" />
 
@@ -153,6 +173,7 @@ const showSevereThreshold = computed(() => ['热成像', '气体检测'].include
 const indicatorPlaceholder = computed(() => form.detectionType === '热成像' ? '如 最高温' : form.detectionType === '气体检测' ? '如 气体浓度' : '如 识别结果')
 const unitPlaceholder = computed(() => form.detectionType === '热成像' ? '℃' : 'ppm')
 const resultDefinitionTip = computed(() => `当前类型为${form.detectionType}，算法为${form.detectionAlgorithm}。结果定义支持配置语音播报，空值不播放。`)
+const hasLlmEnabled = computed(() => form.rules.some(r => r.llmEnabled))
 
 function goBack() {
   router.push('/implementation/detection-item-config/list')
