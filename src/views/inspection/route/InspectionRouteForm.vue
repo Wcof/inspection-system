@@ -30,13 +30,13 @@
           </a-select>
         </a-form-item>
 
-        <a-divider>选择途径点</a-divider>
+        <a-divider>选择导航点（途径点序列）</a-divider>
 
-        <a-form-item label="途径点">
+        <a-form-item label="导航点序列">
           <a-transfer
             v-model:value="form.waypointIds"
             :data-source="waypointOptions"
-            :titles="['可选途径点', '已选途径点']"
+            :titles="['可选导航点', '已选导航点（按选择顺序）']"
             :show-search="true"
             filter-option
             :row-key="(record: any) => record.key"

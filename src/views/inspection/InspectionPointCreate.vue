@@ -30,6 +30,19 @@
             <a-descriptions-item label="巡检点">{{ point?.name || '-' }}</a-descriptions-item>
             <a-descriptions-item label="所属地图">{{ currentMap?.name || '-' }}</a-descriptions-item>
             <a-descriptions-item label="巡检区域">{{ point?.areaName || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="关联导航点" :span="3">
+              <a-select
+                v-model:value="linkedNavPointId"
+                placeholder="可选：关联路网导航点（停车/到达点位）"
+                allow-clear
+                style="width: 100%"
+                @change="onLinkedNavPointChange"
+              >
+                <a-select-option v-for="np in navPointOptions" :key="np.id" :value="np.id">
+                  {{ np.name }}（{{ np.navType === 'parking' ? '停车点' : np.navType === 'charging' ? '充电点' : '通过点' }}）
+                </a-select-option>
+              </a-select>
+            </a-descriptions-item>
             <a-descriptions-item label="关联设施数">{{ uniqueFacilityCount }}</a-descriptions-item>
             <a-descriptions-item label="关联巡检对象数">{{ totalRuleCount }}</a-descriptions-item>
             <a-descriptions-item label="巡检规则数">{{ configRows.length }}</a-descriptions-item>
@@ -111,6 +124,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
+import { MockService } from '@/mock/mockService'
 import type { InspectionPointCoverageObject, InspectionPointDetectionConfig } from '@/types/inspection'
 import { getDetectionItemConfigs, isDetectionRuleActive } from '@/views/implementation/detection-item-config/model'
 
@@ -146,6 +160,17 @@ const configRows = ref<ConfigRow[]>([])
 const point = computed(() => inspectionStore.inspectionPoints.find((item) => item.id === String(route.params.id)))
 const currentMap = computed(() => inspectionStore.inspectionMaps.find((item) => item.id === point.value?.mapId))
 const ruleOptions = computed(() => getDetectionItemConfigs().filter(isDetectionRuleActive))
+
+// 关联路网导航点
+const linkedNavPointId = ref<string | undefined>(point.value?.waypointId)
+const navPointOptions = computed(() => {
+  const mapId = currentMap.value?.id
+  if (!mapId) return []
+  return MockService.getNavigationPointsByMapId(mapId)
+})
+function onLinkedNavPointChange(value: string) {
+  linkedNavPointId.value = value || undefined
+}
 
 const markerPosition = computed(() => ({
   x: normalizeMapCoordinate(point.value?.mapPosition?.x),
@@ -324,6 +349,7 @@ function handleSave() {
     coverageObjects: normalizeCoverageObjects(),
     parkingPoints: normalizeParkingPoints(),
     detectionConfigs: normalizeDetectionConfigs(),
+    waypointId: linkedNavPointId.value,
     updatedAt: new Date()
   })
   message.success('巡检点配置已保存')

@@ -74,6 +74,24 @@
 
         <a-row :gutter="16">
           <a-col :span="12">
+            <a-form-item label="关联调度规则">
+              <a-select
+                v-model:value="form.linkedDispatchRuleIds"
+                mode="multiple"
+                placeholder="可选：关联调度规则（按区域生效）"
+                :max-tag-count="3"
+                allow-clear
+              >
+                <a-select-option v-for="rule in dispatchRuleOptions" :key="rule.id" :value="rule.id">
+                  {{ rule.ruleName }}
+                </a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="16">
+          <a-col :span="12">
             <a-form-item label="巡检区域" required>
               <a-select
                 v-model:value="form.regionIds"
@@ -230,9 +248,22 @@ const form = reactive<any>({
   installationIds: [],
   facilityIds: [],
   inspectionPointIds: [],
+  linkedDispatchRuleIds: [],
   inspectionTimeStart: dayjs().format('YYYY-MM-DD'),
   inspectionTimeEnd: dayjs().add(7, 'day').format('YYYY-MM-DD'),
   description: ''
+})
+
+const dispatchRuleOptions = computed(() => {
+  const raw = localStorage.getItem('dispatch-rule-config')
+  if (!raw) return []
+  try {
+    return (JSON.parse(raw) as Array<{ id: string; ruleName: string; areaName: string; enabled: boolean }>)
+      .filter(r => r.enabled)
+      .map(r => ({ id: r.id, ruleName: `${r.areaName} - ${r.ruleName}` }))
+  } catch {
+    return []
+  }
 })
 
 const regionOptions = computed(() => {
@@ -433,6 +464,7 @@ function handleSave() {
     planType: form.planType,
     businessScene: form.businessScene,
     riskLevel: form.riskLevel,
+    linkedDispatchRuleIds: [...(form.linkedDispatchRuleIds || [])],
     taskSource: form.planType,
     inspectionTimeStart: form.inspectionTimeStart,
     inspectionTimeEnd: form.inspectionTimeEnd,

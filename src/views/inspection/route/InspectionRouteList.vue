@@ -47,7 +47,7 @@ const columns = [
   { title: '路线名称', dataIndex: 'name', key: 'name' },
   { title: '编码', dataIndex: 'code', key: 'code' },
   { title: '描述', dataIndex: 'description', key: 'description' },
-  { title: '途径点数量', key: 'waypointCount', width: 120 },
+  { title: '导航点数量', key: 'waypointCount', width: 120 },
   { title: '巡检点数量', key: 'pointCount', width: 120 },
   { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt' },
   { title: '操作', key: 'actions', width: 150 }

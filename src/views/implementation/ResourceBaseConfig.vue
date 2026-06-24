@@ -89,6 +89,33 @@
               </template>
             </template>
           </a-table-column>
+          <a-table-column title="机型兼容" data-index="compatibleModels">
+            <template #default="{ record }">
+              <a-select
+                v-if="record.editing"
+                v-model:value="record.compatibleModels"
+                mode="multiple"
+                style="width: 100%"
+                placeholder="不限机型则留空"
+              >
+                <a-select-option v-for="model in robotModelOptions" :key="model" :value="model">{{ model }}</a-select-option>
+              </a-select>
+              <template v-else>
+                <a-tag v-for="model in (record.compatibleModels || [])" :key="model" color="cyan">{{ model }}</a-tag>
+                <span v-if="!(record.compatibleModels || []).length">不限</span>
+              </template>
+            </template>
+          </a-table-column>
+          <a-table-column title="禁用时段" data-index="disabledSlots">
+            <template #default="{ record }">
+              <div v-if="record.editing">
+                <a-time-picker v-model:value="record.disabledStart" format="HH:mm" :allow-clear="true" placeholder="开始" size="small" style="width: 90px" />
+                <span style="margin: 0 4px">~</span>
+                <a-time-picker v-model:value="record.disabledEnd" format="HH:mm" :allow-clear="true" placeholder="结束" size="small" style="width: 90px" />
+              </div>
+              <span v-else>{{ formatDisabledSlot(record.disabledStart, record.disabledEnd) }}</span>
+            </template>
+          </a-table-column>
           <a-table-column title="备注" data-index="remark">
             <template #default="{ record }">
               <a-input v-if="record.editing" v-model:value="record.remark" placeholder="请输入备注" />
@@ -135,6 +162,9 @@ interface ConfigRule {
   robots: string[]
   remark: string
   editing?: boolean
+  compatibleModels?: string[]
+  disabledStart?: string
+  disabledEnd?: string
 }
 
 const STORAGE_KEY = 'resource-base-config'
@@ -159,6 +189,13 @@ const robotOptions = computed(() => robotStore.robots.map(robot => ({
   value: robot.id,
   label: `${robot.name}（${robot.model}）`
 })))
+
+const robotModelOptions = computed(() => Array.from(new Set(robotStore.robots.map(r => r.model).filter(Boolean))))
+
+function formatDisabledSlot(start?: string, end?: string): string {
+  if (!start && !end) return '无'
+  return `${start || '00:00'} ~ ${end || '23:59'}`
+}
 
 const filteredConfigRules = computed(() => configRules.value.filter((rule) => {
   const matchesArea = !searchForm.area || rule.area === searchForm.area
