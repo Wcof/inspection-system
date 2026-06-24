@@ -122,26 +122,35 @@
       <a-card class="map-card" title="地图区域绘制">
         <div class="panel-toolbar">
           <a-space>
-            <template v-if="!editMode">
-              <a-button type="primary" @click="enterEditMode">编辑</a-button>
-            </template>
-            <template v-else>
-              <a-button v-if="!drawing" type="primary" @click="startPolygon">新增区域</a-button>
-              <template v-else>
-                <a-tag color="processing">绘制中… 右键完成</a-tag>
-              </template>
-              <a-button type="primary" @click="saveAll">保存</a-button>
-              <a-button @click="cancelEdit">取消</a-button>
-            </template>
+            <!-- 绘制区域：未绘制时显示「绘制区域」，绘制中变为激活态 -->
+            <a-button
+              :type="drawing ? 'primary' : 'default'"
+              @click="startPolygon"
+              :disabled="drawing"
+            >✏️ 绘制区域</a-button>
+            <a-button v-if="drawing" @click="undoLastPoint">↩ 撤销</a-button>
+            <a-button v-if="drawing" type="primary" @click="finishPolygon">✅ 完成绘制</a-button>
+            <a-button v-if="drawing" danger @click="cancelDrawing">❌ 取消</a-button>
+            <!-- 选中后整体保存 -->
+            <a-button v-if="hasUnsavedChanges" type="primary" @click="saveAll">保存</a-button>
+            <a-button v-if="hasUnsavedChanges" @click="discardChanges">放弃修改</a-button>
           </a-space>
           <div class="layer-toggles">
             <a-checkbox v-model:checked="showRegionName">显示名称</a-checkbox>
           </div>
         </div>
 
-        <div class="map-stage" @click="appendPoint($event)" @contextmenu.prevent="finishPolygon" @mousemove="handlePolygonDrag($event)" @mouseup="stopPolygonDrag" @mouseleave="stopPolygonDrag">
+        <div
+          class="map-stage"
+          :class="{ 'is-drawing': drawing }"
+          @click="handleStageClick($event)"
+          @mousemove="handleStageMouseMove($event)"
+          @mouseup="stopPolygonDrag"
+          @mouseleave="stopPolygonDrag"
+        >
           <img :src="currentMap?.imageUrl || fallbackMapBackgroundUrl" alt="地图底图" class="map-image" />
           <svg viewBox="0 0 1000 560" class="map-svg" preserveAspectRatio="none">
+            <!-- 已有区域 -->
             <polygon
               v-for="region in regions"
               :key="region.id"
@@ -149,10 +158,11 @@
               :fill="region.id === selectedRegionId ? 'rgba(22,119,255,.28)' : 'rgba(22,119,255,.12)'"
               :stroke="region.id === selectedRegionId ? '#0958d9' : '#1677ff'"
               :stroke-width="region.id === selectedRegionId ? 4 : 2"
-              :style="editMode ? 'cursor: move' : ''"
+              :style="{ cursor: selectedRegionId === region.id ? 'move' : 'pointer' }"
               @click.stop="selectEditableRegion(region.id)"
-              @mousedown.stop="editMode && startPolygonDrag(region.id, $event)"
+              @mousedown.stop="startPolygonDrag(region.id, $event)"
             />
+            <!-- 区域名称 -->
             <text
               v-if="showRegionName"
               v-for="region in regions"
@@ -163,22 +173,64 @@
               text-anchor="middle"
               dominant-baseline="middle"
             >{{ region.name }}</text>
+            <!-- 选中区域的移动手柄 ✋ -->
+            <text
+              v-if="selectedRegionId && !drawing"
+              :x="getPolygonCenter(getSelectedRegionPoints()).x"
+              :y="getPolygonCenter(getSelectedRegionPoints()).y"
+              class="move-handle"
+              text-anchor="middle"
+              dominant-baseline="middle"
+              @mousedown.stop="startWholeMove($event)"
+            >✋</text>
+            <!-- 选中区域的顶点手柄 ●（用于改形状） -->
+            <circle
+              v-if="selectedRegionId && !drawing"
+              v-for="(pt, idx) in (selectedRegionVertexHandles)"
+              :key="`v-${idx}`"
+              :cx="pt.x"
+              :cy="pt.y"
+              r="6"
+              fill="#fff"
+              stroke="#0958d9"
+              stroke-width="2"
+              style="cursor: nwse-resize"
+              @mousedown.stop="startVertexDrag(idx, $event)"
+            />
+            <!-- 绘制中的虚线跟随预览 -->
             <polygon
               v-if="draftPoints.length"
-              :points="draftPolygon"
-              fill="rgba(250,173,20,.18)"
+              :points="draftPolygonPreview"
+              fill="rgba(250,173,20,.10)"
               stroke="#faad14"
               stroke-width="2"
               stroke-dasharray="6 4"
             />
-            <circle v-for="(point, idx) in draftPoints" :key="idx" :cx="point.x" :cy="point.y" r="5" fill="#faad14" />
+            <!-- 已落点 -->
+            <circle v-for="(point, idx) in draftPoints" :key="`d-${idx}`" :cx="point.x" :cy="point.y" :r="idx === 0 ? 7 : 5" :fill="idx === 0 ? '#faad14' : '#fff'" :stroke="idx === 0 ? '#d48806' : '#faad14'" stroke-width="2" />
+            <!-- 跟随鼠标的虚线预览 -->
+            <line v-if="drawing && draftPoints.length && mousePreviewPoint" :x1="draftPoints[draftPoints.length - 1].x" :y1="draftPoints[draftPoints.length - 1].y" :x2="mousePreviewPoint.x" :y2="mousePreviewPoint.y" stroke="#faad14" stroke-width="2" stroke-dasharray="4 4" />
+            <line v-if="drawing && draftPoints.length >= 2 && mousePreviewPoint" :x1="mousePreviewPoint.x" :y1="mousePreviewPoint.y" :x2="draftPoints[0].x" :y2="draftPoints[0].y" stroke="#faad14" stroke-width="1" stroke-dasharray="2 4" opacity="0.5" />
           </svg>
+          <div v-if="drawing" class="draw-hint">在地图上点击落点绘制区域（点击靠近起点或「完成绘制」闭合）</div>
         </div>
       </a-card>
 
-      <!-- 右侧：属性面板 -->
-      <a-card v-if="selectedRegionData" class="property-card" :title="`区域属性 - ${selectedRegionData.name}`">
-        <a-form layout="vertical" size="small" :disabled="!editMode">
+      <!-- 右侧：属性面板（三态：只读→编辑→保存） -->
+      <a-card v-if="selectedRegionData" class="property-card">
+        <template #title>
+          <span>区域属性 - {{ selectedRegionData.name }}</span>
+        </template>
+        <template #extra>
+          <a-space>
+            <a-button v-if="!propertyEditing" size="small" type="link" @click="enterPropertyEdit">编辑</a-button>
+            <template v-else>
+              <a-button size="small" type="primary" @click="savePropertyEdit">保存</a-button>
+              <a-button size="small" @click="cancelPropertyEdit">取消</a-button>
+            </template>
+          </a-space>
+        </template>
+        <a-form layout="vertical" size="small" :disabled="!propertyEditing">
           <a-divider orientation="left">基础信息</a-divider>
           <a-row :gutter="12">
             <a-col :span="12">
@@ -330,10 +382,14 @@ const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
 
 const drawing = ref(false)
 const draftPoints = ref<Array<{ x: number; y: number }>>([])
+const mousePreviewPoint = ref<{ x: number; y: number } | null>(null)
 const regions = ref<EditableRegionRow[]>([])
 const regionKeyword = ref('')
 const showRegionName = ref(true)
-const editMode = ref(false)
+// 去掉全局 editMode 开关：默认即可绘制/选中/编辑
+const hasUnsavedChanges = ref(false)
+const propertyEditing = ref(false)
+const draggingVertexIdx = ref(-1)
 let regionsSnapshot: EditableRegionRow[] = []
 const createFromListVisible = ref(false)
 const selectedMapForCreate = ref('')
@@ -379,6 +435,14 @@ const filteredRegions = computed(() => {
 })
 
 const draftPolygon = computed(() => draftPoints.value.map((point) => `${point.x},${point.y}`).join(' '))
+// 绘制中的预览多边形：包含已落点 + 鼠标当前位置（若有）
+const draftPolygonPreview = computed(() => {
+  const pts = draftPoints.value.map(p => `${p.x},${p.y}`)
+  if (mousePreviewPoint.value && pts.length > 0) {
+    pts.push(`${mousePreviewPoint.value.x},${mousePreviewPoint.value.y}`)
+  }
+  return pts.join(' ')
+})
 
 const regionListRows = computed<RegionListRow[]>(() => {
   return inspectionStore.inspectionMaps.flatMap((map) => (map.regions || []).map((region) => ({
@@ -508,6 +572,9 @@ function loadRegions() {
       contactPhone: region.contactPhone || ''
     }
   })
+  // 初始化 snapshot 用于属性编辑取消还原
+  regionsSnapshot = JSON.parse(JSON.stringify(regions.value))
+  hasUnsavedChanges.value = false
   if (!selectedRegionId.value && regions.value[0]) {
     selectedRegionId.value = regions.value[0].id
   }
@@ -628,29 +695,109 @@ function deleteRegionFromList(row: RegionListRow) {
 }
 
 function startPolygon() {
+  if (drawing.value) return
+  // 直接进入绘制，无需 editMode 开关
+  selectedRegionId.value = ''
   drawing.value = true
   draftPoints.value = []
-  message.info('请在地图上点击落点形成区域')
+  mousePreviewPoint.value = null
+  hasUnsavedChanges.value = true
+  message.info('请在地图上点击落点形成区域，点击靠近起点或「完成绘制」闭合')
 }
 
-function appendPoint(event: MouseEvent) {
+function undoLastPoint() {
+  if (!drawing.value || draftPoints.value.length === 0) return
+  draftPoints.value.pop()
+}
+
+function cancelDrawing() {
+  drawing.value = false
+  draftPoints.value = []
+  mousePreviewPoint.value = null
+}
+
+function handleStageClick(event: MouseEvent) {
   if (!drawing.value) return
   const target = event.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
   const x = ((event.clientX - rect.left) / rect.width) * 1000
   const y = ((event.clientY - rect.top) / rect.height) * 560
-  draftPoints.value.push({ x: Math.round(x), y: Math.round(y) })
+  const px = Math.round(x)
+  const py = Math.round(y)
+  // 起点闭合检测：靠近起点（<14px）且已有>=3 点则闭合
+  if (draftPoints.value.length >= 3) {
+    const first = draftPoints.value[0]
+    const dist = Math.hypot(first.x - px, first.y - py)
+    if (dist < 14) {
+      finishPolygon()
+      return
+    }
+  }
+  draftPoints.value.push({ x: px, y: py })
+}
+
+function handleStageMouseMove(event: MouseEvent) {
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  const x = ((event.clientX - rect.left) / rect.width) * 1000
+  const y = ((event.clientY - rect.top) / rect.height) * 560
+  mousePreviewPoint.value = { x: Math.round(x), y: Math.round(y) }
+  // 顶点拖动中
+  if (draggingVertexIdx.value >= 0 && selectedRegionId.value) {
+    const region = regions.value.find(r => r.id === selectedRegionId.value)
+    if (region) {
+      const pts = parsePoints(region.points)
+      pts[draggingVertexIdx.value] = { x: Math.round(x), y: Math.round(y) }
+      region.points = pts.map(p => `${p.x},${p.y}`).join(' ')
+      region.previewPoints = buildPreviewPolygon(region.points)
+      hasUnsavedChanges.value = true
+    }
+  }
+  // 整体移动中
+  if (draggingRegionId.value && dragStartPoint.value) {
+    const region = regions.value.find(item => item.id === draggingRegionId.value)
+    if (region) {
+      const deltaX = ((event.clientX - dragStartPoint.value.x) / rect.width) * 1000
+      const deltaY = ((event.clientY - dragStartPoint.value.y) / rect.height) * 560
+      if (deltaX || deltaY) {
+        region.points = movePolygon(region.points, deltaX, deltaY)
+        region.previewPoints = buildPreviewPolygon(region.points)
+        hasUnsavedChanges.value = true
+      }
+      dragStartPoint.value = { x: event.clientX, y: event.clientY }
+    }
+  }
 }
 
 function finishPolygon() {
-  if (!editMode.value || !drawing.value || draftPoints.value.length < 3) return
-  newRegionForm.name = `新区域-${regions.value.length + 1}`
-  newRegionForm.code = ''
-  newRegionForm.zoneType = 'normal'
-  newRegionForm.description = ''
-  newRegionForm.responsiblePerson = ''
-  newRegionForm.contactPhone = ''
-  newRegionModalVisible.value = true
+  if (!drawing.value || draftPoints.value.length < 3) {
+    message.warning('至少需要 3 个点才能闭合区域')
+    return
+  }
+  // 直接创建区域，使用默认名称，进入属性面板编辑
+  const points = draftPolygon.value
+  const regionId = `area-${Date.now()}`
+  regions.value.push({
+    id: regionId,
+    name: `新区域-${regions.value.length + 1}`,
+    color: '#1677ff',
+    points,
+    previewPoints: buildPreviewPolygon(points),
+    showName: true,
+    code: '',
+    zoneType: 'normal',
+    description: '',
+    responsiblePerson: '',
+    contactPhone: ''
+  })
+  draftPoints.value = []
+  mousePreviewPoint.value = null
+  drawing.value = false
+  selectedRegionId.value = regionId
+  hasUnsavedChanges.value = true
+  // 直接进入属性编辑态，让用户填写名称
+  propertyEditing.value = true
+  message.success('区域已创建，请在右侧填写名称等信息')
 }
 
 function confirmCreateRegion() {
@@ -676,57 +823,56 @@ function confirmCreateRegion() {
   draftPoints.value = []
   newRegionModalVisible.value = false
   selectedRegionId.value = regionId
+  hasUnsavedChanges.value = true
   message.success('区域已添加，继续绘制下一个或点击保存')
 }
 
 function selectEditableRegion(regionId: string) {
+  if (drawing.value) return // 绘制中不切换选中
   selectedRegionId.value = regionId
-}
-
-function enterEditMode() {
-  regionsSnapshot = JSON.parse(JSON.stringify(regions.value))
-  editMode.value = true
+  propertyEditing.value = false
 }
 
 function saveAll() {
   saveRegions()
-  editMode.value = false
   drawing.value = false
   draftPoints.value = []
   regionsSnapshot = []
+  hasUnsavedChanges.value = false
   message.success('已保存')
 }
 
-function cancelEdit() {
-  regions.value = JSON.parse(JSON.stringify(regionsSnapshot))
-  editMode.value = false
+function discardChanges() {
+  if (regionsSnapshot.length) {
+    regions.value = JSON.parse(JSON.stringify(regionsSnapshot))
+  }
   drawing.value = false
   draftPoints.value = []
-  regionsSnapshot = []
+  hasUnsavedChanges.value = false
+  message.info('已放弃修改')
 }
 
 function startPolygonDrag(regionId: string, event: MouseEvent) {
-  if (!editMode.value) return
+  if (drawing.value) return
+  // 仅当点击的是 polygon 本身时才触发整体移动；手柄 ✋ 有独立 mousedown
   draggingRegionId.value = regionId
   dragStartPoint.value = { x: event.clientX, y: event.clientY }
 }
 
-function handlePolygonDrag(event: MouseEvent) {
-  if (!draggingRegionId.value || !dragStartPoint.value) return
-  const region = regions.value.find(item => item.id === draggingRegionId.value)
-  if (!region) return
-  const target = event.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
-  const deltaX = ((event.clientX - dragStartPoint.value.x) / rect.width) * 1000
-  const deltaY = ((event.clientY - dragStartPoint.value.y) / rect.height) * 560
-  if (!deltaX && !deltaY) return
-  region.points = movePolygon(region.points, deltaX, deltaY)
-  region.previewPoints = buildPreviewPolygon(region.points)
+function startWholeMove(event: MouseEvent) {
+  if (drawing.value || !selectedRegionId.value) return
+  draggingRegionId.value = selectedRegionId.value
   dragStartPoint.value = { x: event.clientX, y: event.clientY }
+}
+
+function startVertexDrag(idx: number, _event: MouseEvent) {
+  if (drawing.value) return
+  draggingVertexIdx.value = idx
 }
 
 function stopPolygonDrag() {
   draggingRegionId.value = ''
+  draggingVertexIdx.value = -1
   dragStartPoint.value = null
 }
 
@@ -736,10 +882,43 @@ function movePolygon(points: string, deltaX: number, deltaY: number) {
     .join(' ')
 }
 
+function getSelectedRegionPoints(): string {
+  const region = regions.value.find(r => r.id === selectedRegionId.value)
+  return region?.points || ''
+}
+
+const selectedRegionVertexHandles = computed(() => {
+  if (!selectedRegionId.value) return []
+  const region = regions.value.find(r => r.id === selectedRegionId.value)
+  if (!region) return []
+  return parsePoints(region.points)
+})
+
+function enterPropertyEdit() {
+  propertyEditing.value = true
+}
+
+function savePropertyEdit() {
+  propertyEditing.value = false
+  hasUnsavedChanges.value = true
+  message.success('属性已修改，点击「保存」提交到系统')
+}
+
+function cancelPropertyEdit() {
+  // 从 snapshot 还原当前选中区域
+  if (selectedRegionId.value && regionsSnapshot.length) {
+    const snap = regionsSnapshot.find(r => r.id === selectedRegionId.value)
+    if (snap) {
+      const region = regions.value.find(r => r.id === selectedRegionId.value)
+      if (region) Object.assign(region, JSON.parse(JSON.stringify(snap)))
+    }
+  }
+  propertyEditing.value = false
+}
+
 function handleRouteIntent() {
   if (isListMode.value) return
   if (route.query.action === 'create') {
-    enterEditMode()
     startPolygon()
     router.replace({ path: '/implementation/map/area-manage', query: { mapId: selectedMapId.value } })
     return
@@ -781,7 +960,8 @@ function onKeyDown(e: KeyboardEvent) {
         onOk: () => {
           regions.value = regions.value.filter(r => r.id !== region.id)
           selectedRegionId.value = ''
-          message.success('区域已删除')
+          hasUnsavedChanges.value = true
+          message.success('区域已删除，点击「保存」提交')
         }
       })
     }
@@ -790,6 +970,26 @@ function onKeyDown(e: KeyboardEvent) {
 </script>
 
 <style scoped lang="css">
+.map-stage.is-drawing {
+  cursor: crosshair;
+}
+.draw-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.move-handle {
+  font-size: 20px;
+  cursor: move;
+  user-select: none;
+}
 .search-panel {
   margin-bottom: 12px;
   padding: 12px;
