@@ -9,13 +9,8 @@
         </a-select>
       </div>
       <div class="rn-toolbar-right">
-        <template v-if="!editMode">
-          <a-button size="small" type="primary" @click="enterEditMode"><EditOutlined /> 编辑</a-button>
-        </template>
-        <template v-else>
-          <a-button size="small" @click="cancelEditMode">取消</a-button>
-          <a-button size="small" type="primary" @click="saveAndExitEditMode"><SaveOutlined /> 保存</a-button>
-        </template>
+        <a-button v-if="hasUnsavedChanges" size="small" @click="discardAllChanges">放弃修改</a-button>
+        <a-button v-if="hasUnsavedChanges" size="small" type="primary" @click="saveAll"><SaveOutlined /> 保存</a-button>
         <a-button size="small" @click="runTopologyCheck" :loading="checkingTopology"><BugOutlined /> 检查</a-button>
         <a-button size="small" @click="pathSimVisible = true"><BranchesOutlined /> 模拟</a-button>
       </div>
@@ -91,23 +86,21 @@
               <a-button @click="resetView">重置</a-button>
             </a-button-group>
             <a-divider type="vertical" />
-            <template v-if="editMode">
-              <a-button size="small" :type="drawMode === 'segment' ? 'primary' : 'default'" @click="toggleDrawMode('segment')">
-                <EditOutlined /> {{ drawMode === 'segment' ? '绘制中...' : '绘制路段' }}
-              </a-button>
-              <a-button size="small" type="default" @click="openCreateNavPointModal">
-                <AimOutlined /> 新建点位
-              </a-button>
-              <a-button size="small" :type="drawMode === 'polygon' ? 'primary' : 'default'" @click="toggleDrawMode('polygon')">
-                <StopOutlined /> {{ drawMode === 'polygon' ? '绘制中...' : '绘制区域' }}
-              </a-button>
-              <a-button v-if="drawMode === 'segment'" size="small" type="primary" @click="finishSegmentDrawing">完成绘制</a-button>
-              <a-button v-if="drawMode" size="small" danger @click="clearDrawing">取消绘制</a-button>
-              <a-divider type="vertical" />
-              <a-button size="small" :type="deleteMode ? 'primary' : 'default'" :danger="deleteMode" @click="toggleDeleteMode">
-                <DeleteOutlined /> {{ deleteMode ? '删除中...' : '删除' }}
-              </a-button>
-            </template>
+            <a-button size="small" :type="drawMode === 'segment' ? 'primary' : 'default'" @click="toggleDrawMode('segment')">
+              <EditOutlined /> {{ drawMode === 'segment' ? '绘制中...' : '绘制路段' }}
+            </a-button>
+            <a-button size="small" type="default" @click="openCreateNavPointModal">
+              <AimOutlined /> 新建点位
+            </a-button>
+            <a-button size="small" :type="drawMode === 'polygon' ? 'primary' : 'default'" @click="toggleDrawMode('polygon')">
+              <StopOutlined /> {{ drawMode === 'polygon' ? '绘制中...' : '绘制区域' }}
+            </a-button>
+            <a-button v-if="drawMode === 'segment'" size="small" type="primary" @click="finishSegmentDrawing">完成绘制</a-button>
+            <a-button v-if="drawMode" size="small" danger @click="clearDrawing">取消绘制</a-button>
+            <a-divider type="vertical" />
+            <a-button size="small" :type="deleteMode ? 'primary' : 'default'" :danger="deleteMode" @click="toggleDeleteMode">
+              <DeleteOutlined /> {{ deleteMode ? '删除中...' : '删除' }}
+            </a-button>
           </a-space>
           <div class="rn-layer-toggles">
             <a-checkbox v-model:checked="showSegments">路段</a-checkbox>
@@ -266,12 +259,19 @@
         <template v-if="!propertyCollapsed && selectedEntity">
           <div class="prop-header">
             <span class="prop-title">{{ propertyTitle }}</span>
-            <a-button v-if="editMode" size="small" danger @click="deleteSelectedEntity">删除</a-button>
+            <a-space size="small">
+              <a-button v-if="!propertyEditing" size="small" type="link" @click="enterPropertyEdit">编辑</a-button>
+              <template v-else>
+                <a-button size="small" type="primary" @click="savePropertyEdit">保存</a-button>
+                <a-button size="small" @click="cancelPropertyEdit">取消</a-button>
+              </template>
+              <a-button size="small" danger @click="deleteSelectedEntity">删除</a-button>
+            </a-space>
           </div>
 
           <!-- 路段属性 -->
           <template v-if="selectedEntity.type === 'segment' && editingSegment">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !editMode }">
+            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
               <a-divider orientation="left">基础信息</a-divider>
               <a-form-item label="路段名称" required><a-input v-model:value="editingSegment.name" /></a-form-item>
               <a-form-item label="路段编码" required><a-input v-model:value="editingSegment.code" /></a-form-item>
@@ -324,7 +324,7 @@
 
           <!-- 路口属性 -->
           <template v-if="selectedEntity.type === 'junction' && editingJunction">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !editMode }">
+            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
               <a-divider orientation="left">基础信息</a-divider>
               <a-form-item label="路口名称" required><a-input v-model:value="editingJunction.name" /></a-form-item>
               <a-form-item label="路口编码" required><a-input v-model:value="editingJunction.code" /></a-form-item>
@@ -364,7 +364,7 @@
 
           <!-- 点位属性 -->
           <template v-if="selectedEntity.type === 'navpoint' && editingNavPoint">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !editMode }">
+            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
               <a-divider orientation="left">基础信息</a-divider>
               <a-form-item label="点位名称" required><a-input v-model:value="editingNavPoint.name" /></a-form-item>
               <a-form-item label="点位编码" required><a-input v-model:value="editingNavPoint.code" /></a-form-item>
@@ -420,7 +420,7 @@
 
           <!-- 区域属性 -->
           <template v-if="selectedEntity.type === 'nogozone' && editingNoGoZone">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !editMode }">
+            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
               <a-divider orientation="left">基础信息</a-divider>
               <a-form-item label="区域名称" required><a-input v-model:value="editingNoGoZone.name" /></a-form-item>
               <a-form-item label="区域编码" required><a-input v-model:value="editingNoGoZone.code" /></a-form-item>
@@ -458,7 +458,7 @@
 
           <!-- 节点属性 -->
           <template v-if="selectedEntity.type === 'node' && editingNode">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !editMode }">
+            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
               <a-form-item label="节点ID"><a-input :value="editingNode.id" disabled /></a-form-item>
               <a-form-item label="名称"><a-input v-model:value="editingNode.name" placeholder="输入节点名称" /></a-form-item>
               <a-form-item label="类型">
@@ -793,7 +793,8 @@ const drawingNodes = ref<string[]>([])
 const polygonDrawingPoints = ref<{ x: number; y: number }[]>([])
 const deleteMode = ref(false)
 const hasUnsavedChanges = ref(false)
-const editMode = ref(false)
+const propertyEditing = ref(false)
+// editMode 已移除：工具栏直接可用，属性面板由 propertyEditing 三态控制
 
 // ─── 点位放置模式 ───
 const navPointPlacementMode = ref(false)
@@ -1092,14 +1093,27 @@ function locateTopologyIssue(issue: TopologyIssue) {
   topologyVisible.value = false
 }
 
-// ─── 编辑模式 ───
-function enterEditMode() {
-  editMode.value = true
-  clearDrawing()
+// ─── 属性面板三态 ───
+function enterPropertyEdit() {
+  propertyEditing.value = true
 }
 
-function cancelEditMode() {
-  editMode.value = false
+function savePropertyEdit() {
+  if (selectedEntity.value) saveSelectedEntity()
+  propertyEditing.value = false
+  hasUnsavedChanges.value = true
+  message.success('属性已修改，点击「保存」提交到系统')
+}
+
+function cancelPropertyEdit() {
+  // 重新加载选中实体的原始数据
+  if (selectedEntity.value) {
+    selectEntity(selectedEntity.value.type, selectedEntity.value.id)
+  }
+  propertyEditing.value = false
+}
+
+function discardAllChanges() {
   clearDrawing()
   deleteMode.value = false
   selectedEntity.value = null
@@ -1109,17 +1123,9 @@ function cancelEditMode() {
   editingNoGoZone.value = null
   editingNode.value = null
   editingNodeJunction.value = null
-  // 重新加载原始数据，丢弃所有修改
   loadData()
-  message.info('已取消所有修改')
-}
-
-function saveAndExitEditMode() {
-  if (selectedEntity.value) saveSelectedEntity()
-  saveAll()
-  editMode.value = false
-  clearDrawing()
-  deleteMode.value = false
+  hasUnsavedChanges.value = false
+  message.info('已放弃所有修改')
 }
 
 // ─── 选择实体 ───
@@ -1227,7 +1233,7 @@ function saveSelectedEntity() {
 }
 
 function deleteSelectedEntity() {
-  if (!editMode.value || !selectedEntity.value) return
+  if (!selectedEntity.value) return
   const { type, id } = selectedEntity.value
   Modal.confirm({
     title: '确认删除',
@@ -1283,7 +1289,6 @@ function deleteEntityLocally(type: string, id: string) {
 
 // ─── 编辑模式切换 ───
 function openCreateNavPointModal() {
-  if (!editMode.value) return
   if (!selectedMapId.value) { message.warning('请先选择地图'); return }
   // 进入放置模式，等待用户在地图上点击
   navPointPlacementMode.value = true
@@ -1296,7 +1301,6 @@ function openCreateNavPointModal() {
 
 // ─── 删除模式 ───
 function toggleDeleteMode() {
-  if (!editMode.value) return
   deleteMode.value = !deleteMode.value
   if (deleteMode.value) {
     drawMode.value = null
@@ -1307,7 +1311,7 @@ function toggleDeleteMode() {
 }
 
 function onEdgeClick(edge: RoadEdge) {
-  if (editMode.value && deleteMode.value) {
+  if (deleteMode.value) {
     // 找到关联的路段并从中移除此边
     segments.value.forEach(s => {
       s.edgeIds = s.edgeIds.filter(eid => eid !== edge.id)
@@ -1404,7 +1408,6 @@ function createNavPoint() {
 
 // ─── 绘制模式 ───
 function toggleDrawMode(mode: 'segment' | 'polygon') {
-  if (!editMode.value) return
   if (drawMode.value === mode) {
     clearDrawing()
   } else {
@@ -1599,25 +1602,23 @@ function onMapClick(e: MouseEvent) {
   const x = ((e.clientX - rect.left) / rect.width) * mapWidth / scale.value + panX.value
   const y = ((e.clientY - rect.top) / rect.height) * mapHeight / scale.value + panY.value
 
-  // 编辑模式下才允许绘制
-  if (!editMode.value) return
+  // 绘制模式下才允许绘制
   if (drawMode.value === 'segment') addDrawNode(x, y)
   else if (drawMode.value === 'polygon') addPolygonPoint(x, y)
 }
 
 function onDoubleClick() {
-  if (!editMode.value) return
   if (drawMode.value === 'segment') finishSegmentDrawing()
   else if (drawMode.value === 'polygon') finishPolygonDrawing()
 }
 
 function onNodeClick(node: RoadNode) {
-  if (editMode.value && deleteMode.value) {
+  if (deleteMode.value) {
     deleteEntityLocally('node', node.id)
     message.success('节点已删除（未持久化）')
     return
   }
-  if (editMode.value && drawMode.value === 'segment') {
+  if (drawMode.value === 'segment') {
     const lastId = drawingNodes.value[drawingNodes.value.length - 1]
     // 避免重复点击同一个节点
     if (lastId === node.id) return
@@ -1703,7 +1704,7 @@ function onMapMouseMove(e: MouseEvent) {
 function onMapMouseUp() { isPanning.value = false }
 
 function onRightClick() {
-  if (editMode.value && drawMode.value === 'segment') finishSegmentDrawing()
+  if (drawMode.value === 'segment') finishSegmentDrawing()
 }
 
 function onMapChange() {
