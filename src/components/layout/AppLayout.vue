@@ -86,6 +86,22 @@
           </a-menu-item>
         </a-sub-menu>
 
+        <!-- AI 智能平台 -->
+        <a-sub-menu key="ai-platform">
+          <template #title>
+            <span>
+              <a-icon type="robot" />
+              AI 配置
+            </span>
+          </template>
+          <a-menu-item key="knowledge-base">
+            <router-link to="/implementation/ai/knowledge-base">知识库管理</router-link>
+          </a-menu-item>
+          <a-menu-item key="ai-chat">
+            <router-link to="/implementation/ai/chat">AI 智库问答</router-link>
+          </a-menu-item>
+        </a-sub-menu>
+
         <!-- 5. 规划与执行 -->
         <a-sub-menu key="plan-execution">
           <template #title>
@@ -226,6 +242,7 @@ const openKeys = computed(() => {
   if (path.startsWith('/implementation/map')) keys.push('map-space')
   if (path.startsWith('/implementation/device') || path.startsWith('/implementation/robot')) keys.push('facility-device')
   if (path.startsWith('/implementation/detection-item-config') || path.startsWith('/implementation/safety-strategy')) keys.push('detection-rules')
+  if (path.startsWith('/implementation/ai')) keys.push('ai-platform')
   if (path.startsWith('/management/dispatch')) keys.push('dispatch-center')
   if (path.startsWith('/management/plan') || path.startsWith('/management/task')) keys.push('plan-execution')
   if (path.startsWith('/management/exception')) keys.push('exception-center')
@@ -265,6 +282,10 @@ const currentKey = computed(() => {
 
   // 检测规则
   if (path.startsWith('/implementation/detection-item-config')) return 'detection-item-config'
+
+  // AI 配置
+  if (path.startsWith('/implementation/ai/knowledge-base')) return 'knowledge-base'
+  if (path.startsWith('/implementation/ai/chat')) return 'ai-chat'
 
   // 总调度台
   if (path.startsWith('/management/dispatch/center')) return 'dispatch-center-main'

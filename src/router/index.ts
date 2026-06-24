@@ -486,6 +486,26 @@ const routes: RouteRecordRaw[] = [
           }
         ]
       },
+      // AI 智能平台
+      {
+        path: 'ai',
+        name: 'ImplementationAI',
+        meta: { title: 'AI 配置' },
+        children: [
+          {
+            path: 'knowledge-base',
+            name: 'ImplementationAIKnowledgeBase',
+            component: () => import('../views/implementation/KnowledgeBase.vue'),
+            meta: { title: '知识库管理' }
+          },
+          {
+            path: 'chat',
+            name: 'ImplementationAIChat',
+            component: () => import('../views/implementation/AIChat.vue'),
+            meta: { title: 'AI 智库问答' }
+          }
+        ]
+      },
       {
         path: 'safety-strategy',
         name: 'ImplementationSafetyStrategy',
