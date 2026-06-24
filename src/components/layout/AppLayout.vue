@@ -1,19 +1,21 @@
 <template>
   <a-layout style="min-height: 100vh">
-    <a-layout-sider width="200" style="background: #fff">
-      <div class="logo" />
+    <a-layout-sider width="220" style="background: #fff">
+      <div class="logo">
+        <span class="logo-text">安全生产巡检系统</span>
+      </div>
       <a-menu
         mode="inline"
         :selected-keys="[currentKey]"
         :open-keys="openKeys"
-        style="height: 100%; border-right: 0"
+        style="height: calc(100% - 48px); border-right: 0; overflow-y: auto"
       >
-        <!-- 1. 总调度台 -->
+        <!-- 1. 控制台（原总调度台首页/控制台合并） -->
         <a-sub-menu key="dispatch-center">
           <template #title>
             <span>
               <a-icon type="control" />
-              总调度台
+              控制台
             </span>
           </template>
           <a-menu-item key="dispatch-center-main">
@@ -24,7 +26,7 @@
           </a-menu-item>
         </a-sub-menu>
 
-        <!-- 2. 地图与路网 -->
+        <!-- 2. 地图与路网（排序：地图→路网→区域→点位） -->
         <a-sub-menu key="map-space">
           <template #title>
             <span>
@@ -33,16 +35,16 @@
             </span>
           </template>
           <a-menu-item key="map-list">
-            <router-link to="/implementation/map/list">地图管理</router-link>
+            <router-link to="/implementation/map/list">地图</router-link>
           </a-menu-item>
           <a-menu-item key="map-road-network">
-            <router-link to="/implementation/map/road-network">路网管理</router-link>
+            <router-link to="/implementation/map/road-network">路网</router-link>
           </a-menu-item>
           <a-menu-item key="map-area-manage">
-            <router-link to="/implementation/map/area-manage">区域管理</router-link>
+            <router-link to="/implementation/map/area-manage">区域</router-link>
           </a-menu-item>
           <a-menu-item key="map-point-manage">
-            <router-link to="/implementation/map/point-manage">点位管理</router-link>
+            <router-link to="/implementation/map/point-manage">点位</router-link>
           </a-menu-item>
         </a-sub-menu>
 
@@ -141,12 +143,12 @@
           </a-menu-item>
         </a-sub-menu>
 
-        <!-- 8. 系统配置 -->
-        <a-sub-menu key="system-config">
+        <!-- 8. 系统设置（合并系统配置与系统设置） -->
+        <a-sub-menu key="system-settings">
           <template #title>
             <span>
               <a-icon type="setting" />
-              系统配置
+              系统设置
             </span>
           </template>
           <a-menu-item key="config-iot-list">
@@ -167,14 +169,6 @@
           <a-menu-item key="config-edge-inspection">
             <router-link to="/implementation/dispatch/edge-inspection">边巡边检</router-link>
           </a-menu-item>
-        </a-sub-menu>
-        <a-sub-menu key="system-settings">
-          <template #title>
-            <span>
-              <a-icon type="setting" />
-              系统设置
-            </span>
-          </template>
           <a-menu-item key="third-party-simulator">
             <router-link to="/management/system/third-party-simulator">第三方系统模拟</router-link>
           </a-menu-item>
@@ -182,13 +176,8 @@
       </a-menu>
     </a-layout-sider>
     <a-layout>
-      <a-layout-header style="background: #fff; padding: 0 24px; border-bottom: 1px solid #f0f0f0">
-        <div class="header-content">
-          <h1 class="title">安全生产巡检任务管理系统</h1>
-        </div>
-      </a-layout-header>
       <a-layout-content
-        style="margin: 24px; padding: 24px; background: #fff; min-height: 280px"
+        style="margin: 16px; padding: 24px; background: #fff; min-height: 280px; border-radius: 8px"
         @click.capture="handleContentClick"
       >
         <router-view />
@@ -241,7 +230,8 @@ const openKeys = computed(() => {
   if (path.startsWith('/management/plan') || path.startsWith('/management/task')) keys.push('plan-execution')
   if (path.startsWith('/management/exception')) keys.push('exception-center')
   if (path.startsWith('/management/report')) keys.push('report-stats')
-  if (path.startsWith('/implementation/device/iot') || path.startsWith('/implementation/device/component-types') || path.startsWith('/implementation/dispatch')) keys.push('system-config')
+  if (path.startsWith('/implementation/device/iot') || path.startsWith('/implementation/device/component-types') || path.startsWith('/implementation/dispatch')) keys.push('system-settings')
+  if (path.startsWith('/management/system')) keys.push('system-settings')
 
   return keys
 })
@@ -311,23 +301,17 @@ const currentKey = computed(() => {
 </script>
 
 <style scoped lang="css">.logo {
-  height: 32px;
-  margin: 16px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 64px;
-}
-.header-content .title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 500;
-  color: rgba(0, 0, 0, 0.85);
+.logo-text {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 .preview-modal-body {
   display: flex;
