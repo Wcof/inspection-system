@@ -127,13 +127,13 @@
               :type="drawing ? 'primary' : 'default'"
               @click="startPolygon"
               :disabled="drawing"
-            >✏️ 绘制区域</a-button>
-            <a-button v-if="drawing" @click="undoLastPoint">↩ 撤销</a-button>
-            <a-button v-if="drawing" type="primary" @click="finishPolygon">✅ 完成绘制</a-button>
-            <a-button v-if="drawing" danger @click="cancelDrawing">❌ 取消</a-button>
+            >绘制区域</a-button>
+            <a-button v-if="drawing" @click="undoLastPoint">撤销</a-button>
+            <a-button v-if="drawing" type="primary" @click="finishPolygon">完成绘制</a-button>
+            <a-button v-if="drawing" danger @click="cancelDrawing">取消</a-button>
             <a-divider v-if="drawing || hasUnsavedChanges" type="vertical" />
-            <a-button size="small" :disabled="!canUndo" @click="handleUndo">↩ 撤销</a-button>
-            <a-button size="small" :disabled="!canRedo" @click="handleRedo">↪ 重做</a-button>
+            <a-button size="small" :disabled="!canUndo" @click="handleUndo">撤销</a-button>
+            <a-button size="small" :disabled="!canRedo" @click="handleRedo">重做</a-button>
             <!-- 选中后整体保存 -->
             <a-button v-if="hasUnsavedChanges" type="primary" @click="saveAll">保存</a-button>
             <a-button v-if="hasUnsavedChanges" @click="discardChanges">放弃修改</a-button>
@@ -177,7 +177,7 @@
               text-anchor="middle"
               dominant-baseline="middle"
             >{{ region.name }}</text>
-            <!-- 选中区域的移动手柄 ✋ -->
+            <!-- 选中区域的移动手柄 -->
             <text
               v-if="selectedRegionId && !drawing"
               :x="getPolygonCenter(getSelectedRegionPoints()).x"
@@ -186,8 +186,8 @@
               text-anchor="middle"
               dominant-baseline="middle"
               @mousedown.stop="startWholeMove($event)"
-            >✋</text>
-            <!-- 选中区域的顶点手柄 ●（用于改形状） -->
+            >移</text>
+            <!-- 选中区域的顶点手柄（用于改形状） -->
             <circle
               v-if="selectedRegionId && !drawing"
               v-for="(pt, idx) in (selectedRegionVertexHandles)"
@@ -867,7 +867,7 @@ function discardChanges() {
 
 function startPolygonDrag(regionId: string, event: MouseEvent) {
   if (drawing.value) return
-  // 仅当点击的是 polygon 本身时才触发整体移动；手柄 ✋ 有独立 mousedown
+  // 仅当点击的是 polygon 本身时才触发整体移动；移动手柄有独立 mousedown
   draggingRegionId.value = regionId
   dragStartPoint.value = { x: event.clientX, y: event.clientY }
 }

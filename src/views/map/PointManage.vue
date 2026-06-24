@@ -331,8 +331,8 @@
             >
               <span class="marker-dot">{{ getShortType(point.bizType) }}</span>
               <span class="marker-text">{{ point.name }}</span>
-              <!-- 选中点位时显示移动手柄 ✋ -->
-              <span v-if="point.id === selectedPointId && mode === 'normal'" class="move-handle" @mousedown.stop="startPointDrag(point, $event)">✋</span>
+              <!-- 选中点位时显示移动手柄 -->
+              <span v-if="point.id === selectedPointId && mode === 'normal'" class="move-handle" @mousedown.stop="startPointDrag(point, $event)">移</span>
             </div>
           </div>
         </a-card>

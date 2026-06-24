@@ -102,8 +102,8 @@
               <DeleteOutlined /> {{ deleteMode ? '删除中...' : '删除' }}
             </a-button>
             <a-divider type="vertical" />
-            <a-button size="small" :disabled="!rnCanUndo" @click="handleRnUndo">↩ 撤销</a-button>
-            <a-button size="small" :disabled="!rnCanRedo" @click="handleRnRedo">↪ 重做</a-button>
+            <a-button size="small" :disabled="!rnCanUndo" @click="handleRnUndo">撤销</a-button>
+            <a-button size="small" :disabled="!rnCanRedo" @click="handleRnRedo">重做</a-button>
           </a-space>
           <div class="rn-layer-toggles">
             <a-checkbox v-model:checked="showSegments">路段</a-checkbox>
@@ -1530,7 +1530,7 @@ function autoDetectJunction(nodeId: string) {
     const jCode = `J${String(junctions.value.length + 1).padStart(3, '0')}`
     const selectedJunctionType = ref<'t_junction' | 'cross' | 'normal'>('normal')
     Modal.confirm({
-      title: '🔍 检测到路口',
+      title: '检测到路口',
       content: (() => { return '' })(), // 用 footer 插入选择器
       okText: '确认',
       cancelText: '这不是路口',
