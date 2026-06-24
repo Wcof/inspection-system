@@ -105,29 +105,12 @@
           <div class="rn-layer-toggles">
             <a-checkbox v-model:checked="showSegments">路段</a-checkbox>
             <a-checkbox v-model:checked="showNoGoZones">区域</a-checkbox>
-            <div class="layer-tree">
-              <div class="layer-tree-header" @click="nodeTreeExpanded = !nodeTreeExpanded">
-                <a-checkbox v-model:checked="showAllNodes" @click.stop @change="onToggleAllNodes">点位</a-checkbox>
-                <span class="layer-tree-arrow">{{ nodeTreeExpanded ? '▼' : '▶' }}</span>
-              </div>
-              <div v-if="nodeTreeExpanded" class="layer-tree-body">
-                <a-checkbox v-model:checked="showWaypointNodes" @change="onSubNodeChange">途经点</a-checkbox>
-                <div class="layer-tree-group">
-                  <div class="layer-tree-group-header" @click="junctionTreeExpanded = !junctionTreeExpanded">
-                    <a-checkbox v-model:checked="showJunctionNodes" @click.stop @change="onToggleJunctionNodes">路口</a-checkbox>
-                    <span class="layer-tree-arrow">{{ junctionTreeExpanded ? '▼' : '▶' }}</span>
-                  </div>
-                  <div v-if="junctionTreeExpanded" class="layer-tree-items">
-                    <a-checkbox v-model:checked="showJunctionT" @change="onSubJunctionChange">T字形</a-checkbox>
-                    <a-checkbox v-model:checked="showJunctionCross" @change="onSubJunctionChange">十字形</a-checkbox>
-                    <a-checkbox v-model:checked="showJunctionNormal" @change="onSubJunctionChange">其他</a-checkbox>
-                  </div>
-                </div>
-                <a-checkbox v-model:checked="showNavInspection" @change="onSubNavChange">巡检点</a-checkbox>
-                <a-checkbox v-model:checked="showNavParking" @change="onSubNavChange">停车点</a-checkbox>
-                <a-checkbox v-model:checked="showNavCharging" @change="onSubNavChange">充电点</a-checkbox>
-              </div>
-            </div>
+            <a-checkbox v-model:checked="showAllNodes">点位</a-checkbox>
+            <a-checkbox v-model:checked="showWaypointNodes">途经点</a-checkbox>
+            <a-checkbox v-model:checked="showJunctionNodes">路口</a-checkbox>
+            <a-checkbox v-model:checked="showNavInspection">巡检点</a-checkbox>
+            <a-checkbox v-model:checked="showNavParking">停车点</a-checkbox>
+            <a-checkbox v-model:checked="showNavCharging">充电点</a-checkbox>
           </div>
         </div>
 
@@ -730,49 +713,16 @@ const sidebarTab = ref('segment')
 const showSegments = ref(true)
 const showNoGoZones = ref(true)
 
-// 节点图层树
+// 节点图层（扁平化）
 const showAllNodes = ref(true)
-const nodeTreeExpanded = ref(false)
 const showWaypointNodes = ref(true)
 const showJunctionNodes = ref(true)
-const junctionTreeExpanded = ref(false)
 const showJunctionNormal = ref(true)
 const showJunctionT = ref(true)
 const showJunctionCross = ref(true)
 const showNavInspection = ref(true)
 const showNavParking = ref(true)
 const showNavCharging = ref(true)
-
-// 点位图层联动
-function onToggleAllNodes(val: boolean) {
-  showWaypointNodes.value = val
-  showJunctionNodes.value = val
-  showJunctionNormal.value = val
-  showJunctionT.value = val
-  showJunctionCross.value = val
-  showNavInspection.value = val
-  showNavParking.value = val
-  showNavCharging.value = val
-}
-function onToggleJunctionNodes(val: boolean) {
-  showJunctionNormal.value = val
-  showJunctionT.value = val
-  showJunctionCross.value = val
-  syncAllNodes()
-}
-function onSubNodeChange() {
-  syncAllNodes()
-}
-function onSubJunctionChange() {
-  showJunctionNodes.value = showJunctionNormal.value || showJunctionT.value || showJunctionCross.value
-  syncAllNodes()
-}
-function onSubNavChange() {
-  syncAllNodes()
-}
-function syncAllNodes() {
-  showAllNodes.value = showWaypointNodes.value || showJunctionNodes.value || showNavInspection.value || showNavParking.value || showNavCharging.value
-}
 
 // ─── 面板折叠 ───
 const sidebarCollapsed = ref(false)
@@ -1153,6 +1103,45 @@ function selectEntity(type: string, id: string) {
     editingNodeJunction.value = found ? { ...found } : null
   } else {
     editingNodeJunction.value = null
+  }
+  // 列表联动：选中时地图定位到该实体
+  centerOnEntity(type, id)
+}
+
+// ─── 列表联动：地图定位 ───
+function centerOnEntity(type: string, id: string) {
+  let x = 0, y = 0, found = false
+  if (type === 'node' || type === 'junction') {
+    const node = nodes.value.find(n => n.id === id)
+    if (node) { x = node.position.x; y = node.position.y; found = true }
+  } else if (type === 'navpoint') {
+    const np = navPoints.value.find(p => p.id === id)
+    if (np) {
+      const node = nodes.value.find(n => n.id === np.nodeId)
+      if (node) { x = node.position.x; y = node.position.y; found = true }
+    }
+  } else if (type === 'segment') {
+    const seg = segments.value.find(s => s.id === id)
+    if (seg && seg.edgeIds.length > 0) {
+      const edge = edges.value.find(e => e.id === seg.edgeIds[0])
+      if (edge) {
+        const from = nodes.value.find(n => n.id === edge.fromNodeId)
+        const to = nodes.value.find(n => n.id === edge.toNodeId)
+        if (from && to) { x = (from.position.x + to.position.x) / 2; y = (from.position.y + to.position.y) / 2; found = true }
+      }
+    }
+  } else if (type === 'nogozone') {
+    const zone = noGoZones.value.find(z => z.id === id)
+    if (zone && zone.polygonPoints.length > 0) {
+      const pts = zone.polygonPoints
+      x = pts.reduce((s, p) => s + p.x, 0) / pts.length
+      y = pts.reduce((s, p) => s + p.y, 0) / pts.length
+      found = true
+    }
+  }
+  if (found) {
+    panX.value = mapWidth / 2 - x * scale.value
+    panY.value = mapHeight / 2 - y * scale.value
   }
 }
 
