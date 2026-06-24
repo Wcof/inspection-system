@@ -131,9 +131,9 @@
             <a-button v-if="drawing" @click="undoLastPoint">撤销</a-button>
             <a-button v-if="drawing" type="primary" @click="finishPolygon">完成绘制</a-button>
             <a-button v-if="drawing" danger @click="cancelDrawing">取消</a-button>
-            <a-divider v-if="drawing || hasUnsavedChanges" type="vertical" />
-            <a-button size="small" :disabled="!canUndo" @click="handleUndo">撤销</a-button>
-            <a-button size="small" :disabled="!canRedo" @click="handleRedo">重做</a-button>
+            <a-divider v-if="!drawing && (canUndo || canRedo || hasUnsavedChanges)" type="vertical" />
+            <a-button v-if="!drawing" size="small" :disabled="!canUndo" @click="handleUndo">撤销</a-button>
+            <a-button v-if="!drawing" size="small" :disabled="!canRedo" @click="handleRedo">重做</a-button>
             <!-- 选中后整体保存 -->
             <a-button v-if="hasUnsavedChanges" type="primary" @click="saveAll">保存</a-button>
             <a-button v-if="hasUnsavedChanges" @click="discardChanges">放弃修改</a-button>
