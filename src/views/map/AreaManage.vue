@@ -147,6 +147,7 @@
           class="map-stage"
           :class="{ 'is-drawing': drawing }"
           @click="handleStageClick($event)"
+          @contextmenu.prevent="onRightClick"
           @mousemove="handleStageMouseMove($event)"
           @mouseup="stopPolygonDrag"
           @mouseleave="stopPolygonDrag"
@@ -215,7 +216,7 @@
             <line v-if="drawing && draftPoints.length && mousePreviewPoint" :x1="draftPoints[draftPoints.length - 1].x" :y1="draftPoints[draftPoints.length - 1].y" :x2="mousePreviewPoint.x" :y2="mousePreviewPoint.y" stroke="#faad14" stroke-width="2" stroke-dasharray="4 4" />
             <line v-if="drawing && draftPoints.length >= 2 && mousePreviewPoint" :x1="mousePreviewPoint.x" :y1="mousePreviewPoint.y" :x2="draftPoints[0].x" :y2="draftPoints[0].y" stroke="#faad14" stroke-width="1" stroke-dasharray="2 4" opacity="0.5" />
           </svg>
-          <div v-if="drawing" class="draw-hint">在地图上点击落点绘制区域（点击靠近起点或「完成绘制」闭合）</div>
+          <div v-if="drawing" class="draw-hint">在地图上点击落点绘制区域，右键或「完成绘制」闭合，靠近起点点击也可闭合</div>
         </div>
       </a-card>
 
@@ -709,7 +710,7 @@ function startPolygon() {
   draftPoints.value = []
   mousePreviewPoint.value = null
   hasUnsavedChanges.value = true
-  message.info('请在地图上点击落点形成区域，点击靠近起点或「完成绘制」闭合')
+  message.info('请在地图上点击落点形成区域，右键或「完成绘制」闭合')
 }
 
 function undoLastPoint() {
@@ -721,6 +722,10 @@ function cancelDrawing() {
   drawing.value = false
   draftPoints.value = []
   mousePreviewPoint.value = null
+}
+
+function onRightClick() {
+  if (drawing.value) finishPolygon()
 }
 
 function handleStageClick(event: MouseEvent) {
