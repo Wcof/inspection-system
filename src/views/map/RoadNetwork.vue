@@ -95,7 +95,7 @@
             <a-button size="small" :type="drawMode === 'polygon' ? 'primary' : 'default'" @click="toggleDrawMode('polygon')">
               <StopOutlined /> {{ drawMode === 'polygon' ? '绘制中...' : '绘制区域' }}
             </a-button>
-            <a-button v-if="drawMode === 'segment'" size="small" type="primary" @click="finishSegmentDrawing">完成绘制</a-button>
+            <a-button v-if="drawMode" size="small" type="primary" @click="drawMode === 'segment' ? finishSegmentDrawing() : finishPolygonDrawing()">完成绘制</a-button>
             <a-button v-if="drawMode" size="small" danger @click="clearDrawing">取消绘制</a-button>
             <a-divider type="vertical" />
             <a-button size="small" :type="deleteMode ? 'primary' : 'default'" :danger="deleteMode" @click="toggleDeleteMode">
@@ -865,8 +865,8 @@ const propertyTitle = computed(() => {
 })
 
 const drawHint = computed(() => {
-  if (drawMode.value === 'segment') return '左键点击空白添加新节点，点击已有节点连接（可折返），点击「完成绘制」或右键/双击结束'
-  if (drawMode.value === 'polygon') return '左键点击添加顶点，双击完成多边形'
+  if (drawMode.value === 'segment') return '左键点击空白添加新节点，点击已有节点连接（可折返），点击「完成绘制」/右键/双击结束'
+  if (drawMode.value === 'polygon') return '左键点击添加顶点，点击「完成绘制」/右键/双击完成多边形'
   return ''
 })
 
@@ -1718,6 +1718,7 @@ function onMapMouseUp() { isPanning.value = false }
 
 function onRightClick() {
   if (drawMode.value === 'segment') finishSegmentDrawing()
+  else if (drawMode.value === 'polygon') finishPolygonDrawing()
 }
 
 function onMapChange() {
