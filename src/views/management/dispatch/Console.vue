@@ -20,6 +20,10 @@
           <span class="status-text">系统正常</span>
           <span class="divider">|</span>
           <span class="time-text">{{ formattedTime }}</span>
+          <span class="divider">|</span>
+          <a-button size="small" type="link" style="color: #1677ff" @click="openAIChat">
+            <RobotOutlined /> AI 智库
+          </a-button>
         </div>
       </div>
 
@@ -63,6 +67,10 @@
             <span class="status-text">系统正常</span>
             <span class="divider">|</span>
             <span class="time-text">{{ formattedTime }}</span>
+            <span class="divider">|</span>
+            <a-button size="small" type="link" style="color: #1677ff" @click="openAIChat">
+              <RobotOutlined /> AI 智库
+            </a-button>
           </div>
         </div>
         <div class="config-content">
@@ -84,9 +92,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { MockService } from '@/mock/mockService'
+import { RobotOutlined } from '@ant-design/icons-vue'
 import ControlPanel from './console/ControlPanel.vue'
 import configImage from '@/pz.png'
+
+const router = useRouter()
 
 // Tab 定义
 type TabKey = 'monitor' | 'control' | 'config' | 'ipad'
@@ -128,6 +140,14 @@ onMounted(() => {
 onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
+
+function openAIChat() {
+  const session = MockService.saveAIChatSession({
+    title: `控制台对话-${new Date().toLocaleString('zh-CN', { hour12: false })}`,
+    carrier: { device: 'robot', time: new Date().toISOString() }
+  })
+  router.push(`/implementation/ai/chat#session-${session.id}`)
+}
 </script>
 
 <style scoped lang="less">
