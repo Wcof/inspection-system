@@ -331,6 +331,8 @@
             >
               <span class="marker-dot">{{ getShortType(point.bizType) }}</span>
               <span class="marker-text">{{ point.name }}</span>
+              <!-- 选中点位时显示移动手柄 ✋ -->
+              <span v-if="point.id === selectedPointId && mode === 'normal'" class="move-handle" @mousedown.stop="startPointDrag(point, $event)">✋</span>
             </div>
           </div>
         </a-card>
@@ -645,6 +647,8 @@ const robotCoordinates = ref({
 
 const editingId = ref('')
 const inlineEdit = reactive({ name: '', type: 'inspection' as BizPointType })
+const isDraggingPoint = ref(false)
+const dragPointStartPos = ref<{ x: number; y: number } | null>(null)
 
 const addModalVisible = ref(false)
 const pendingAddPreview = ref<{ mapX: number; mapY: number; name?: string } | null>(null)
@@ -1501,9 +1505,64 @@ function onKeyDown(e: KeyboardEvent) {
     }
   }
 }
+
+// ─── 点位拖拽移动 ───
+function startPointDrag(point: PointRow, event: MouseEvent) {
+  isDraggingPoint.value = true
+  activeMovePointId.value = point.id
+  dragPointStartPos.value = { x: event.clientX, y: event.clientY }
+  const onMove = (e: MouseEvent) => {
+    if (!isDraggingPoint.value) return
+    const stage = document.querySelector('.map-stage') as HTMLElement
+    if (!stage) return
+    const rect = stage.getBoundingClientRect()
+    const newMapX = ((e.clientX - rect.left) / rect.width) * 100
+    const newMapY = ((e.clientY - rect.top) / rect.height) * 100
+    const pt = points.value.find((p: any) => p.id === point.id)
+    if (pt) {
+      pt.mapX = Math.max(0, Math.min(100, newMapX))
+      pt.mapY = Math.max(0, Math.min(100, newMapY))
+    }
+  }
+  const onUp = () => {
+    isDraggingPoint.value = false
+    activeMovePointId.value = ''
+    dragPointStartPos.value = null
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+    // 保存移动后的位置
+    const pt = points.value.find((p: any) => p.id === point.id)
+    if (pt) {
+      const original = inspectionStore.inspectionPoints.find((p: any) => p.id === point.id)
+      if (original) {
+        inspectionStore.saveInspectionPoint({
+          ...original,
+          mapPosition: { x: pt.mapX, y: pt.mapY },
+          updatedAt: new Date()
+        })
+        message.success('点位已移动')
+      }
+    }
+  }
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
+}
+
+// ─── 属性面板三态（点位列表已有行内编辑，此处保留接口供未来右侧面板使用） ───
+// enterPropertyEdit / savePropertyEdit / cancelPropertyEdit 已在行内编辑中实现
 </script>
 
 <style scoped lang="css">
+.move-handle {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  cursor: move;
+  user-select: none;
+  z-index: 10;
+}
 .point-manage {
   width: 100%;
 }
