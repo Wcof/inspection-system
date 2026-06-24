@@ -1518,17 +1518,34 @@ function autoDetectJunction(nodeId: string) {
       if (edge?.segmentId) segIds.add(edge.segmentId)
     })
 
+    // 路口检测交互弹窗：让用户确认类型
     const jId = `junc-${Date.now()}`
     const jCode = `J${String(junctions.value.length + 1).padStart(3, '0')}`
-    const j: Junction = {
-      id: jId, name: jCode, code: jCode, mapId: selectedMapId.value,
-      nodeId, connectedSegmentIds: [...segIds], junctionType: 'normal',
-      priority: 'main_road', conflictMode: 'mutex',
-      allowLeftTurn: true, allowRightTurn: true, allowStraight: true, allowUTurn: false,
-      createdAt: new Date(), updatedAt: new Date()
-    }
-    junctions.value.push(j)
-    message.info(`自动创建路口 ${jCode}`)
+    const selectedJunctionType = ref<'t_junction' | 'cross' | 'normal'>('normal')
+    Modal.confirm({
+      title: '🔍 检测到路口',
+      content: (() => { return '' })(), // 用 footer 插入选择器
+      okText: '确认',
+      cancelText: '这不是路口',
+      onOk: () => {
+        const j: Junction = {
+          id: jId, name: jCode, code: jCode, mapId: selectedMapId.value,
+          nodeId, connectedSegmentIds: [...segIds], junctionType: selectedJunctionType.value,
+          priority: 'main_road', conflictMode: 'mutex',
+          allowLeftTurn: true, allowRightTurn: true, allowStraight: true, allowUTurn: false,
+          createdAt: new Date(), updatedAt: new Date()
+        }
+        junctions.value.push(j)
+        hasUnsavedChanges.value = true
+        const jt = selectedJunctionType.value
+        message.success(`已创建路口 ${jCode}（${jt === 't_junction' ? 'T字形' : jt === 'cross' ? '十字形' : '其他'}）`)
+      },
+      onCancel: () => {
+        // 用户否认是路口，恢复为途经点
+        node.nodeType = 'waypoint'
+        message.info('已忽略路口检测')
+      }
+    })
   }
 }
 
