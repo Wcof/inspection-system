@@ -117,7 +117,7 @@
           </div>
         </div>
 
-        <div class="rn-map-container" :class="{ 'delete-mode': deleteMode }" ref="mapContainerRef" @contextmenu.prevent="onRightClick" @dblclick.prevent="onDoubleClick">
+        <div class="rn-map-container" :class="{ 'delete-mode': deleteMode }" ref="mapContainerRef" @contextmenu.prevent="onRightClick" @click="onMapClick" @mousedown="onMapMouseDown" @mousemove="onMapMouseMove" @mouseup="onMapMouseUp">
           <svg class="rn-map-svg" :viewBox="viewBox" @click="onMapClick" @mousedown="onMapMouseDown" @mousemove="onMapMouseMove" @mouseup="onMapMouseUp">
             <!-- 背景 -->
             <image v-if="currentMapImageUrl" :href="currentMapImageUrl" x="0" y="0" :width="mapWidth" :height="mapHeight" preserveAspectRatio="xMidYMid slice" />
@@ -865,8 +865,8 @@ const propertyTitle = computed(() => {
 })
 
 const drawHint = computed(() => {
-  if (drawMode.value === 'segment') return '左键点击空白添加新节点，点击已有节点连接（可折返），点击「完成绘制」/右键/双击结束'
-  if (drawMode.value === 'polygon') return '左键点击添加顶点，点击「完成绘制」/右键/双击完成多边形'
+  if (drawMode.value === 'segment') return '左键点击空白添加新节点，点击已有节点连接（可折返），右键或「完成绘制」结束'
+  if (drawMode.value === 'polygon') return '左键点击添加顶点，右键或「完成绘制」完成多边形'
   return ''
 })
 
@@ -1618,11 +1618,6 @@ function onMapClick(e: MouseEvent) {
   // 绘制模式下才允许绘制
   if (drawMode.value === 'segment') addDrawNode(x, y)
   else if (drawMode.value === 'polygon') addPolygonPoint(x, y)
-}
-
-function onDoubleClick() {
-  if (drawMode.value === 'segment') finishSegmentDrawing()
-  else if (drawMode.value === 'polygon') finishPolygonDrawing()
 }
 
 function onNodeClick(node: RoadNode) {
