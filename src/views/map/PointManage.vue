@@ -585,7 +585,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
@@ -1486,7 +1486,21 @@ onMounted(() => {
   initializeBase()
   loadPoints()
   handleRouteIntent()
+  window.addEventListener('keydown', onKeyDown)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeyDown)
+})
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Delete' && selectedPointId.value) {
+    const point = points.value.find((p: any) => p.id === selectedPointId.value)
+    if (point) {
+      deletePoint(point)
+    }
+  }
+}
 </script>
 
 <style scoped lang="css">

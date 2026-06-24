@@ -284,7 +284,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { message, Modal, Empty } from 'ant-design-vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -761,7 +761,32 @@ onMounted(() => {
   initializeBase()
   loadRegions()
   handleRouteIntent()
+  window.addEventListener('keydown', onKeyDown)
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeyDown)
+})
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Delete' && selectedRegionId.value) {
+    const region = regions.value.find(r => r.id === selectedRegionId.value)
+    if (region) {
+      Modal.confirm({
+        title: '确认删除区域',
+        content: `确定删除区域「${region.name}」吗？`,
+        okText: '确认删除',
+        cancelText: '取消',
+        okButtonProps: { danger: true },
+        onOk: () => {
+          regions.value = regions.value.filter(r => r.id !== region.id)
+          selectedRegionId.value = ''
+          message.success('区域已删除')
+        }
+      })
+    }
+  }
+}
 </script>
 
 <style scoped lang="css">

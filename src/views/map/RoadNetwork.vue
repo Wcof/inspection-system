@@ -2007,6 +2007,21 @@ function onKeyDown(e: KeyboardEvent) {
       message.info('已取消点位放置')
     }
   }
+  if (e.key === 'Delete' && selectedEntity.value && !deleteMode.value) {
+    Modal.confirm({
+      title: '确认删除',
+      content: `确定删除该${propertyTitle.value}吗？`,
+      okText: '确认删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        deleteEntityLocally(selectedEntity.value!.type, selectedEntity.value!.id)
+        selectedEntity.value = null
+        hasUnsavedChanges.value = true
+        message.success('已删除')
+      }
+    })
+  }
 }
 
 onMounted(() => {
