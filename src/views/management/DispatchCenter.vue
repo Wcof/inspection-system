@@ -24,6 +24,19 @@
       <a-button v-if="activeSummaryFilter" type="link" size="small" @click="activeSummaryFilter = ''">清除列表过滤</a-button>
     </div>
 
+    <!-- 机器人状态与故障接管 -->
+    <a-card size="small" title="机器人状态" style="margin-bottom: 12px">
+      <a-space wrap>
+        <div v-for="bot in takevoerRobots" :key="bot.id" class="robot-status-badge"
+          :class="bot.status" style="padding: 4px 12px; border: 1px solid #d9d9d9; border-radius: 6px; display: inline-flex; align-items: center; gap: 8px">
+          <a-tag :color="statusColor(bot.status)" style="margin-right: 0">{{ statusLabel(bot.status) }}</a-tag>
+          <span>{{ bot.name }}</span>
+          <a-button v-if="bot.status === 'fault' || bot.status === 'low_battery'" size="small" type="link" danger @click="openTakeover(bot)">无线接管</a-button>
+          <a-button v-else-if="bot.status === 'idle'" size="small" type="link" @click="openTakeover(bot)">发起接管</a-button>
+        </div>
+      </a-space>
+    </a-card>
+
     <div class="content-layout">
       <div class="map-panel">
         <DispatchMapPanel :markers="visibleMapMarkers" @map-context-create="openTemporaryFromMap" />
@@ -243,6 +256,54 @@
         系统按“空闲优先、负载优先”推荐，默认选择推荐机器人。
       </div>
     </a-modal>
+
+    <!-- 故障/低电接管弹窗 -->
+    <a-modal
+      v-model:open="takeoverVisible"
+      title="无线全量接管"
+      width="600"
+      @ok="confirmTakeover"
+      :ok-button-props="{ disabled: !takeoverTargetRobotId }"
+      ok-text="执行接管"
+    >
+      <a-alert v-if="takeoverSourceBot?.status === 'fault' || takeoverSourceBot?.status === 'low_battery'" type="warning" show-icon style="margin-bottom: 12px">
+        <template #message>
+          <div>{{ takeoverSourceBot?.name }} 状态异常（{{ takeoverSourceBot?.status === 'fault' ? '故障' : '低电量' }}）<br/>建议立即执行无线接管，将 DAG 断点+知识库迁移至空闲机器人续巡。</div>
+        </template>
+      </a-alert>
+
+      <a-descriptions :column="2" bordered size="small" style="margin-bottom: 16px">
+        <a-descriptions-item label="源机器人">{{ takeoverSourceBot?.name || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="源状态"><a-tag :color="statusColor(takeoverSourceBot?.status || 'idle')">{{ statusLabel(takeoverSourceBot?.status || 'idle') }}</a-tag></a-descriptions-item>
+        <a-descriptions-item label="当前任务数" :span="2">{{ takeoverSourceTasks.length }}</a-descriptions-item>
+      </a-descriptions>
+
+      <a-form layout="vertical">
+        <a-form-item label="目标机器人（接管后续巡）" required>
+          <a-select v-model:value="takeoverTargetRobotId" placeholder="请选择空闲机器人接管">
+            <a-select-option v-for="bot in idleRobotOptions" :key="bot.id" :value="bot.id">
+              <a-space>
+                <a-tag :color="statusColor(bot.status)">{{ statusLabel(bot.status) }}</a-tag>
+                <span>{{ bot.name }}</span>
+                <small style="color: #999">{{ bot.dailyCapacity }}次/日</small>
+              </a-space>
+            </a-select-option>
+          </a-select>
+        </a-form-item>
+      </a-form>
+
+      <a-collapse ghost>
+        <a-collapse-panel key="trace" header="断点位置与迁移记录">
+          <div v-if="takeoverRecords.length === 0" style="color: #999; padding: 8px">暂无迁移记录</div>
+          <a-timeline v-else>
+            <a-timeline-item v-for="r in takeoverRecords" :key="r.time" :color="r.success ? 'green' : 'red'">
+              <div><strong>{{ r.sourceBot }}</strong> → <strong>{{ r.targetBot }}</strong></div>
+              <div style="font-size: 12px; color: #999">{{ r.time }} — {{ r.reason }}</div>
+            </a-timeline-item>
+          </a-timeline>
+        </a-collapse-panel>
+      </a-collapse>
+    </a-modal>
   </div>
 </template>
 
@@ -261,7 +322,7 @@ import type { DispatchTask } from './dispatch-center/DispatchBoardColumns.vue'
 import type { MapMarker } from './dispatch-center/DispatchMapPanel.vue'
 import type { TemporaryDispatchForm, ConflictTaskItem } from './dispatch-center/TemporaryDispatchModal.vue'
 
-interface RobotState { id: string; name: string; status: 'idle' | 'running' | 'charging'; dailyCapacity: number }
+interface RobotState { id: string; name: string; status: 'idle' | 'running' | 'charging' | 'fault' | 'low_battery'; dailyCapacity: number }
 interface DispatchRecordItem {
   id: string
   time: string
@@ -367,12 +428,68 @@ const replaceRobotVisible = ref(false)
 const replaceTarget = ref<PendingManualItem | null>(null)
 const selectedRobotId = ref<string>()
 
+// ── 故障接管 ──
+const takeoverVisible = ref(false)
+const takeoverSourceBot = ref<RobotState | null>(null)
+const takeoverTargetRobotId = ref<string>()
+const takeoverRecords = ref<{ sourceBot: string; targetBot: string; time: string; reason: string; success: boolean }[]>([])
+
+function statusColor(status: RobotState['status']) {
+  const map = { idle: 'green', running: 'blue', charging: 'orange', fault: 'red', low_battery: 'gold' }
+  return map[status] || 'default'
+}
+function statusLabel(status: RobotState['status']) {
+  const map = { idle: '空闲', running: '执行中', charging: '充电中', fault: '故障', low_battery: '低电量' }
+  return map[status] || status
+}
+
+const takevoerRobots = computed(() => robots.value)
+
+const takeoverSourceTasks = computed(() => {
+  if (!takeoverSourceBot.value) return []
+  return tasks.value.filter(t => t.robotName === takeoverSourceBot.value?.name)
+})
+
+const idleRobotOptions = computed(() => {
+  const sourceId = takeoverSourceBot.value?.id
+  return robots.value.filter(b => b.id !== sourceId && (b.status === 'idle' || b.status === 'charging'))
+})
+
+function openTakeover(bot: RobotState) {
+  takeoverSourceBot.value = bot
+  takeoverTargetRobotId.value = ''
+  takeoverVisible.value = true
+}
+
+function confirmTakeover() {
+  if (!takeoverSourceBot.value || !takeoverTargetRobotId.value) {
+    message.warning('请选择目标机器人')
+    return
+  }
+  const targetBot = robots.value.find(b => b.id === takeoverTargetRobotId.value)
+  if (!targetBot) return
+  const time = new Date().toLocaleString('zh-CN', { hour12: false })
+  takeoverRecords.value.unshift({
+    sourceBot: takeoverSourceBot.value.name,
+    targetBot: targetBot.name,
+    time,
+    reason: `${takeoverSourceBot.value.status === 'fault' ? '故障' : '低电量'} — DAG 断点+知识库已迁移`,
+    success: true
+  })
+  takeoverSourceBot.value.status = 'charging'
+  targetBot.status = 'running'
+  message.success(`已执行无线接管：${takeoverSourceBot.value.name} → ${targetBot.name}`)
+  takeoverVisible.value = false
+  takeoverSourceBot.value = null
+  takeoverTargetRobotId.value = ''
+}
+
 const robots = ref<RobotState[]>([
   { id: 'robot-001', name: '巡检机器人-01', status: 'running', dailyCapacity: 8 },
   { id: 'robot-002', name: '巡检机器人-02', status: 'charging', dailyCapacity: 7 },
-  { id: 'robot-003', name: '巡检机器人-03', status: 'running', dailyCapacity: 6 },
+  { id: 'robot-003', name: '巡检机器人-03', status: 'fault', dailyCapacity: 6 },
   { id: 'robot-004', name: '巡检机器人-04', status: 'idle', dailyCapacity: 8 },
-  { id: 'robot-005', name: '系统调度分配', status: 'running', dailyCapacity: 10 }
+  { id: 'robot-005', name: '巡检机器人-05', status: 'idle', dailyCapacity: 10 }
 ])
 
 const tasks = ref<DispatchTask[]>([
