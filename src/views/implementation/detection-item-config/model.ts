@@ -17,7 +17,7 @@ export interface RuleItem {
 export interface ResultDef {
   id: string
   name: string
-  code: string
+  code?: string
   group: '业务结果' | '采集质量结果'
   riskLevel: string
   needReview: boolean
@@ -72,6 +72,25 @@ export const detectionAlgorithmOptions: Record<DetectionType, string[]> = {
   其他: ['通用检测']
 }
 
+// 结果定义统一下拉选项
+export const resultNameOptions = ['正常', '预警', '告警', '异常', '无法识别']
+
+export const indicatorOptions = ['识别结果', '仪表读数', '最高温', '气体浓度', '压力值', '温度值', '状态识别', '开关状态', '其他']
+
+export const unitOptions = ['℃', 'ppm', 'kPa', '%', 'mm', 'm/s', 'mV', 'A', '—']
+
+/** 根据结果名称自动生成结果编码 */
+export function codeByName(name: string): string {
+  const map: Record<string, string> = {
+    '正常': 'NORMAL',
+    '预警': 'WARNING',
+    '告警': 'ALARM',
+    '异常': 'ABNORMAL',
+    '无法识别': 'UNREADABLE'
+  }
+  return map[name] || ''
+}
+
 const now = () => new Date().toISOString()
 
 function createResult(base: Partial<ResultDef> = {}): ResultDef {
@@ -95,31 +114,12 @@ function createResult(base: Partial<ResultDef> = {}): ResultDef {
   }
 }
 
-export function defaultResultsByDetectionType(type: DetectionType): ResultDef[] {
-  if (type === '热成像') {
-    return [
-      createResult({ name: '正常', code: 'NORMAL', indicator: '最高温', unit: '℃', normalRange: '<=60', judgmentBasis: '温度在正常范围内' }),
-      createResult({ name: '预警', code: 'WARNING', indicator: '最高温', unit: '℃', warningThreshold: '>60', needReview: true, generateException: true, judgmentBasis: '温度超过预警阈值' }),
-      createResult({ name: '告警', code: 'ALARM', indicator: '最高温', unit: '℃', alarmThreshold: '>80', needReview: true, generateException: true, judgmentBasis: '温度超过告警阈值' })
-    ]
-  }
-  if (type === '气体检测') {
-    return [
-      createResult({ name: '正常', code: 'NORMAL', indicator: '气体浓度', unit: 'ppm', normalRange: '<=10', judgmentBasis: '浓度在正常范围内' }),
-      createResult({ name: '预警', code: 'WARNING', indicator: '气体浓度', unit: 'ppm', warningThreshold: '>10', needReview: true, generateException: true, judgmentBasis: '浓度超过预警阈值' }),
-      createResult({ name: '告警', code: 'ALARM', indicator: '气体浓度', unit: 'ppm', alarmThreshold: '>25', needReview: true, generateException: true, judgmentBasis: '浓度超过告警阈值' })
-    ]
-  }
-  if (type === '图像识别' || type === '安全行为') {
-    return [
-      createResult({ name: '正常', code: 'NORMAL', indicator: '识别结果', judgmentBasis: '未识别到异常特征' }),
-      createResult({ name: '异常', code: 'ABNORMAL', indicator: '识别结果', riskLevel: '告警', needReview: true, generateException: true, judgmentBasis: '识别到异常特征' }),
-      createResult({ name: '无法识别', code: 'UNREADABLE', group: '采集质量结果', indicator: '识别结果', riskLevel: '预警', needReview: true, generateException: true, judgmentBasis: '目标模糊、反光或遮挡' })
-    ]
-  }
+export function defaultResultsByDetectionType(_type: DetectionType): ResultDef[] {
   return [
-    createResult({ name: '正常', code: 'NORMAL', judgmentBasis: '结果符合正常口径' }),
-    createResult({ name: '异常', code: 'ABNORMAL', riskLevel: '告警', needReview: true, generateException: true, judgmentBasis: '结果符合异常口径' })
+    createResult({ name: '正常', code: 'NORMAL', indicator: '识别结果', judgmentBasis: '结果符合正常口径' }),
+    createResult({ name: '预警', code: 'WARNING', indicator: '识别结果', riskLevel: '预警', needReview: true, generateException: true, judgmentBasis: '结果符合预警口径' }),
+    createResult({ name: '告警', code: 'ALARM', indicator: '识别结果', riskLevel: '告警', needReview: true, generateException: true, judgmentBasis: '结果符合告警口径' }),
+    createResult({ name: '无法识别', code: 'UNREADABLE', indicator: '识别结果', group: '采集质量结果', riskLevel: '预警', needReview: true, generateException: true, judgmentBasis: '目标模糊、反光或遮挡' })
   ]
 }
 

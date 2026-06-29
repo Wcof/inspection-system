@@ -57,37 +57,42 @@
         />
 
         <a-divider orientation="left">结果定义</a-divider>
-        <a-alert :message="resultDefinitionTip" type="info" show-icon style="margin-bottom: 12px" />
+        <a-alert message="所有检测类型的结果定义字段统一，非必填项留空即可。" type="info" show-icon style="margin-bottom: 12px" />
 
-        <a-table :data-source="form.results" row-key="id" :pagination="false" size="small" :scroll="{ x: 1700 }" style="margin-bottom: 8px">
-          <a-table-column title="结果名称" width="120">
-            <template #default="{ record }"><a-input v-model:value="record.name" /></template>
+        <a-table :data-source="form.results" row-key="id" :pagination="false" size="small" :scroll="{ x: 1200 }" style="margin-bottom: 8px">
+          <a-table-column title="结果名称" width="130">
+            <template #default="{ record }">
+              <a-select v-model:value="record.name" style="width: 100%" placeholder="选择结果名称" @change="(val: string) => onResultNameChange(record, val)">
+                <a-select-option v-for="item in resultNameOptions" :key="item" :value="item">{{ item }}</a-select-option>
+              </a-select>
+            </template>
           </a-table-column>
-          <a-table-column title="结果编码" width="140">
-            <template #default="{ record }"><a-input v-model:value="record.code" /></template>
+          <a-table-column title="判定指标" width="150">
+            <template #default="{ record }">
+              <a-select v-model:value="record.indicator" style="width: 100%" placeholder="选择判定指标" allow-clear>
+                <a-select-option v-for="item in indicatorOptions" :key="item" :value="item">{{ item }}</a-select-option>
+              </a-select>
+            </template>
           </a-table-column>
-          <a-table-column title="判定指标" width="160">
-            <template #default="{ record }"><a-input v-model:value="record.indicator" :placeholder="indicatorPlaceholder" /></template>
-          </a-table-column>
-          <a-table-column v-if="showUnit" title="单位" width="100">
-            <template #default="{ record }"><a-input v-model:value="record.unit" :placeholder="unitPlaceholder" /></template>
-          </a-table-column>
-          <a-table-column v-if="showThresholds" title="正常范围" width="160">
-            <template #default="{ record }"><a-input v-model:value="record.normalRange" placeholder="如 <=60" /></template>
-          </a-table-column>
-          <a-table-column v-if="showThresholds" title="预警阈值" width="130">
-            <template #default="{ record }"><a-input v-model:value="record.warningThreshold" placeholder="如 >60" /></template>
-          </a-table-column>
-          <a-table-column v-if="showThresholds" title="告警阈值" width="130">
-            <template #default="{ record }"><a-input v-model:value="record.alarmThreshold" placeholder="如 >80" /></template>
-          </a-table-column>
-          <a-table-column v-if="showSevereThreshold" title="严重阈值" width="130">
-            <template #default="{ record }"><a-input v-model:value="record.severeThreshold" placeholder="如 >100" /></template>
-          </a-table-column>
-          <a-table-column title="判断口径" width="220">
+          <a-table-column title="判断口径" width="240">
             <template #default="{ record }"><a-input v-model:value="record.judgmentBasis" placeholder="说明结果如何判定" /></template>
           </a-table-column>
-          <a-table-column title="语音播报" width="300">
+          <a-table-column title="单位" width="90">
+            <template #default="{ record }">
+              <a-select v-model:value="record.unit" style="width: 100%" placeholder="选填" allow-clear>
+                <a-select-option v-for="item in unitOptions" :key="item" :value="item">{{ item }}</a-select-option>
+              </a-select>
+            </template>
+          </a-table-column>
+          <a-table-column title="是否报警" width="110">
+            <template #default="{ record }">
+              <a-radio-group v-model:value="record.generateException" :button-style="'solid'" size="small">
+                <a-radio-button :value="true">是</a-radio-button>
+                <a-radio-button :value="false">否</a-radio-button>
+              </a-radio-group>
+            </template>
+          </a-table-column>
+          <a-table-column title="语音播放" width="300">
             <template #default="{ record }">
               <a-space style="width: 100%" align="start">
                 <a-input v-model:value="record.voiceBroadcastText" placeholder="为空则不播放" />
@@ -97,7 +102,7 @@
               </a-space>
             </template>
           </a-table-column>
-          <a-table-column title="操作" width="80">
+          <a-table-column title="操作" width="70">
             <template #default="{ index }">
               <a-button danger type="link" size="small" @click="removeResult(index)">删除</a-button>
             </template>
@@ -124,11 +129,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   collectMethodByDetectionType,
+  codeByName,
   defaultResultsByDetectionType,
   detectionAlgorithmOptions,
   detectionTypeOptions,
   getDetectionItemConfigs,
+  indicatorOptions,
+  resultNameOptions,
   resultTypeByDetectionType,
+  unitOptions,
   upsertDetectionItemConfig,
   type DetectionItemConfig,
   type PublishStatus,
@@ -167,12 +176,6 @@ const form = reactive<DetectionItemConfig>(source.value ? JSON.parse(JSON.string
 })
 
 const algorithmOptions = computed(() => detectionAlgorithmOptions[form.detectionType])
-const showUnit = computed(() => ['热成像', '气体检测', '环境监测'].includes(form.detectionType))
-const showThresholds = computed(() => ['热成像', '气体检测', '远传对比', '环境监测'].includes(form.detectionType))
-const showSevereThreshold = computed(() => ['热成像', '气体检测'].includes(form.detectionType))
-const indicatorPlaceholder = computed(() => form.detectionType === '热成像' ? '如 最高温' : form.detectionType === '气体检测' ? '如 气体浓度' : '如 识别结果')
-const unitPlaceholder = computed(() => form.detectionType === '热成像' ? '℃' : 'ppm')
-const resultDefinitionTip = computed(() => `当前类型为${form.detectionType}，算法为${form.detectionAlgorithm}。结果定义支持配置语音播报，空值不播放。`)
 const hasLlmEnabled = computed(() => form.rules.some(r => r.llmEnabled))
 
 function goBack() {
@@ -204,6 +207,10 @@ function syncRulesFromAlgorithm() {
   ensureRules()
 }
 
+function onResultNameChange(record: ResultDef, name: string) {
+  record.code = codeByName(name)
+}
+
 function addResult() {
   form.results.push({
     id: `result-${Date.now()}`,
@@ -215,10 +222,6 @@ function addResult() {
     generateException: false,
     indicator: '',
     unit: '',
-    normalRange: '',
-    warningThreshold: '',
-    alarmThreshold: '',
-    severeThreshold: '',
     judgmentBasis: '',
     voiceBroadcastText: ''
   })
@@ -245,10 +248,7 @@ function playVoice(text?: string) {
 }
 
 function isResultComplete(result: ResultDef) {
-  if (!result.name || !result.code || !result.indicator || !result.judgmentBasis) return false
-  if (showUnit.value && !result.unit) return false
-  if (showThresholds.value && !(result.normalRange || result.warningThreshold || result.alarmThreshold)) return false
-  if (showSevereThreshold.value && !result.severeThreshold) return false
+  if (!result.name || !result.indicator || !result.judgmentBasis) return false
   return true
 }
 

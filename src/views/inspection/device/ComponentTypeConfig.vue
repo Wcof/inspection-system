@@ -40,6 +40,8 @@
       <a-table :columns="columns" :data-source="filteredTypes" row-key="id" :pagination="false">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'updatedAt'">{{ formatDate(record.updatedAt) }}</template>
+          <template v-else-if="column.key === 'minValue'">{{ record.minValue || '-' }}</template>
+          <template v-else-if="column.key === 'maxValue'">{{ record.maxValue || '-' }}</template>
           <template v-else-if="column.key === 'actions'">
             <a-space>
               <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
@@ -63,6 +65,18 @@
         <a-form-item label="类型名称" required>
           <a-input v-model:value="form.name" placeholder="例如 阀门" />
         </a-form-item>
+        <a-row :gutter="16">
+          <a-col :span="12">
+            <a-form-item label="最小值">
+              <a-input v-model:value="form.minValue" placeholder="非必填" />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="最大值">
+              <a-input v-model:value="form.maxValue" placeholder="非必填" />
+            </a-form-item>
+          </a-col>
+        </a-row>
         <a-form-item label="描述">
           <a-input v-model:value="form.description" placeholder="可选" />
         </a-form-item>
@@ -80,6 +94,8 @@ interface ComponentTypeRow {
   code: string
   name: string
   description: string
+  minValue?: string
+  maxValue?: string
   updatedAt: string
 }
 
@@ -92,7 +108,9 @@ const types = ref<ComponentTypeRow[]>(loadInitial())
 const form = reactive({
   code: '',
   name: '',
-  description: ''
+  description: '',
+  minValue: '',
+  maxValue: ''
 })
 const searchForm = reactive({
   code: '',
@@ -101,8 +119,10 @@ const searchForm = reactive({
 })
 
 const columns = [
-  { title: '类型编码', dataIndex: 'code', key: 'code', width: 180 },
-  { title: '类型名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: '类型编码', dataIndex: 'code', key: 'code', width: 140 },
+  { title: '类型名称', dataIndex: 'name', key: 'name', width: 140 },
+  { title: '最小值', dataIndex: 'minValue', key: 'minValue', width: 100 },
+  { title: '最大值', dataIndex: 'maxValue', key: 'maxValue', width: 100 },
   { title: '描述', dataIndex: 'description', key: 'description' },
   { title: '更新时间', key: 'updatedAt', width: 180 },
   { title: '操作', key: 'actions', width: 140 }
@@ -130,8 +150,8 @@ function loadInitial() {
     }
   }
   const defaults: ComponentTypeRow[] = [
-    { id: 'ct-1', code: 'valve', name: '阀门', description: '阀门类巡检对象', updatedAt: new Date().toISOString() },
-    { id: 'ct-2', code: 'pressure_gauge', name: '压力表', description: '压力监测表计', updatedAt: new Date().toISOString() }
+    { id: 'ct-1', code: 'valve', name: '阀门', minValue: '0', maxValue: '100', description: '阀门类巡检对象', updatedAt: new Date().toISOString() },
+    { id: 'ct-2', code: 'pressure_gauge', name: '压力表', minValue: '0', maxValue: '1.6', description: '压力监测表计', updatedAt: new Date().toISOString() }
   ]
   localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults))
   return defaults
@@ -145,6 +165,8 @@ function resetForm() {
   form.code = ''
   form.name = ''
   form.description = ''
+  form.minValue = ''
+  form.maxValue = ''
 }
 
 function openCreate() {
@@ -158,6 +180,8 @@ function openEdit(record: ComponentTypeRow) {
   form.code = record.code
   form.name = record.name
   form.description = record.description
+  form.minValue = record.minValue || ''
+  form.maxValue = record.maxValue || ''
   modalOpen.value = true
 }
 
@@ -177,12 +201,12 @@ function save() {
   if (editingId.value) {
     types.value = types.value.map((item) =>
       item.id === editingId.value
-        ? { ...item, code: form.code.trim(), name: form.name.trim(), description: form.description.trim(), updatedAt: now }
+        ? { ...item, code: form.code.trim(), name: form.name.trim(), description: form.description.trim(), minValue: form.minValue.trim() || undefined, maxValue: form.maxValue.trim() || undefined, updatedAt: now }
         : item
     )
     message.success('巡检对象类型已更新')
   } else {
-    types.value.push({ id: `ct-${Date.now()}`, code: form.code.trim(), name: form.name.trim(), description: form.description.trim(), updatedAt: now })
+    types.value.push({ id: `ct-${Date.now()}`, code: form.code.trim(), name: form.name.trim(), description: form.description.trim(), minValue: form.minValue.trim() || undefined, maxValue: form.maxValue.trim() || undefined, updatedAt: now })
     message.success('巡检对象类型已新增')
   }
 
