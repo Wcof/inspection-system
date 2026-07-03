@@ -876,6 +876,34 @@ export class MockService {
     storage.set(STORAGE_KEYS.WORK_TICKETS, tickets)
   }
 
+  // ── 检测算法配置（字典/CRD） ──
+
+  static getDetectionAlgorithmConfigs(): import('@/types/ai').DetectionAlgorithmConfig[] {
+    const list = storage.get<import('@/types/ai').DetectionAlgorithmConfig[]>(STORAGE_KEYS.DETECTION_ALGORITHM_CONFIGS)
+    if (list) return list
+    const initial: import('@/types/ai').DetectionAlgorithmConfig[] = [
+      { id: 'dac-001', detectionType: '图像识别', name: '外观识别', modelType: 'small', remark: '识别设备外观是否完好', createdAt: new Date().toISOString() },
+      { id: 'dac-002', detectionType: '图像识别', name: '仪表读数识别', modelType: 'small', remark: 'OCR+表盘定位，读取仪表数值', createdAt: new Date().toISOString() },
+      { id: 'dac-003', detectionType: '热成像', name: '温度异常识别', modelType: 'small', remark: '热成像检测温度异常点', createdAt: new Date().toISOString() },
+      { id: 'dac-004', detectionType: '气体检测', name: 'CH4 浓度检测', modelType: 'large', remark: '甲烷气体浓度检测', createdAt: new Date().toISOString() }
+    ]
+    storage.set(STORAGE_KEYS.DETECTION_ALGORITHM_CONFIGS, initial)
+    return initial
+  }
+
+  static saveDetectionAlgorithmConfig(config: import('@/types/ai').DetectionAlgorithmConfig): void {
+    const list = this.getDetectionAlgorithmConfigs()
+    const idx = list.findIndex(c => c.id === config.id)
+    if (idx >= 0) list[idx] = config
+    else list.push(config)
+    storage.set(STORAGE_KEYS.DETECTION_ALGORITHM_CONFIGS, list)
+  }
+
+  static deleteDetectionAlgorithmConfig(id: string): void {
+    const list = this.getDetectionAlgorithmConfigs().filter(c => c.id !== id)
+    storage.set(STORAGE_KEYS.DETECTION_ALGORITHM_CONFIGS, list)
+  }
+
   static restoreFromSnapshot(snapshot: import('@/types/road-network').RoadNetworkSnapshot): void {
     storage.set(STORAGE_KEYS.ROAD_NODES, snapshot.nodes)
     storage.set(STORAGE_KEYS.ROAD_EDGES, snapshot.edges)

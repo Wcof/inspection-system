@@ -38,3 +38,22 @@ export interface ChatMessage {
   createdAt: string
   references?: string[]
 }
+
+/** 检测算法配置 — 检测类型下可引用的算法列表（字典/CRD） */
+export interface DetectionAlgorithmConfig {
+  id: string
+  /** 所属检测类型（如图像识别、热成像等） */
+  detectionType: string
+  /** 算法名称 */
+  name: string
+  /** 算法类型：small=小模型, large=大模型 */
+  modelType: 'small' | 'large'
+  /** 备注 */
+  remark?: string
+  createdAt: string
+}
+
+/** 检测类型选项 */
+export const algorithmDetectionTypeOptions = [
+  '图形', '图像识别', '热成像', '气体检测', '远传对比', '安全行为', '设备状态', '环境监测', '其他'
+]

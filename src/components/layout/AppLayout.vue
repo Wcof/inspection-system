@@ -179,6 +179,9 @@
           <a-menu-item key="config-component-types">
             <router-link to="/implementation/device/component-types">巡检对象类型配置</router-link>
           </a-menu-item>
+          <a-menu-item key="config-algorithm">
+            <router-link to="/management/system/algorithm">算法管理</router-link>
+          </a-menu-item>
           <a-menu-item key="config-notify">
             <router-link to="/implementation/dispatch/notify-config">通知配置</router-link>
           </a-menu-item>
@@ -310,6 +313,8 @@ const currentKey = computed(() => {
   // 系统配置
   if (path.startsWith('/implementation/device/iot-list')) return 'config-iot-list'
   if (path.startsWith('/implementation/device/component-types')) return 'config-component-types'
+  if (path.startsWith('/management/system/algorithm')) return 'config-algorithm'
+  if (path.startsWith('/management/system/third-party-simulator')) return 'third-party-simulator'
   if (path.startsWith('/implementation/dispatch/rule-config')) return 'config-dispatch-rule'
   if (path.startsWith('/implementation/dispatch/resource-config')) return 'config-resource'
   if (path.startsWith('/implementation/dispatch/notify-config')) return 'config-notify'

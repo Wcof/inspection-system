@@ -236,6 +236,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '系统设置' },
         children: [
           {
+            path: 'algorithm',
+            name: 'ManagementSystemAlgorithm',
+            component: () => import('../views/management/system/AlgorithmList.vue'),
+            meta: { title: '算法管理' }
+          },
+          {
             path: 'third-party-simulator',
             name: 'ManagementThirdPartySimulator',
             component: () => import('../views/management/system/ThirdPartySimulator.vue'),
