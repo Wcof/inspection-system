@@ -1401,6 +1401,12 @@ function handleRouteIntent() {
   if (route.query.action === 'create') {
     enterAddMode()
     router.replace({ path: '/implementation/map/point-manage', query: { mapId: selectedMapId.value } })
+  } else if (route.query.action === 'calibrate' && route.query.pointId) {
+    const targetPoint = points.value.find((p: any) => p.id === route.query.pointId)
+    if (targetPoint) {
+      handleCalibrate(targetPoint.raw)
+    }
+    router.replace({ path: '/implementation/map/point-manage', query: { mapId: selectedMapId.value } })
   }
 }
 

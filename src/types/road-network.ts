@@ -22,6 +22,11 @@ export type JunctionConflictMode = 'mutex' | 'reservation' | 'time_window'
 /** 导航点类型 — 机器人可导航/可停靠的业务空间点 */
 export type NavigationPointType = 'inspection' | 'parking' | 'charging'
 
+export type RoadCalibrationStatus = 'calibrated' | 'pending'
+export type CalibrationSource = 'manual' | 'robot_pose' | 'map_drag'
+
+export type ZoneClass = 'Z0' | 'Z1' | 'Z2'
+
 /** 区域通行类型 */
 export type ZoneType = 'normal' | 'forbidden'
 
@@ -239,6 +244,14 @@ export interface NavigationPoint {
   // ── 通用扩展 ──
   gateAccess?: boolean
   elevatorAccess?: boolean
+  /** 校准状态 — 拖拽点位后自动变为 pending */
+  calibrationStatus?: RoadCalibrationStatus
+  /** 最后校准时间 */
+  calibratedAt?: Date | string
+  /** 最后移动时间 */
+  lastMovedAt?: Date | string
+  /** 校准来源 */
+  calibrationSource?: CalibrationSource
   createdAt: Date
   updatedAt: Date
 }
@@ -248,7 +261,26 @@ export type NavPoint = NavigationPoint
 /** @deprecated 使用 NavigationPointType 替代 */
 export type NavPointType = NavigationPointType
 
-/** 绘制区域 — 多边形区域（正常通行 / 禁止通行） */
+export interface HazardPolicyConfig {
+  /** 是否启用危区策略 */
+  enabled?: boolean
+  /** 高温等待阈值 (°C) */
+  waitThreshold?: number | null
+  /** 禁入阈值 (°C) */
+  blockThreshold?: number | null
+  /** 撤离阈值 (°C) */
+  evacuateThreshold?: number | null
+  /** 冷却保持时间 (秒) */
+  cooldownHoldSec?: number | null
+  /** 等待超时 (秒) */
+  waitTimeoutSec?: number | null
+  /** 边界缓冲 (米) */
+  boundaryBufferM?: number | null
+  /** 撤离点 ID 列表 */
+  safeExitPointIds?: string[]
+}
+
+/** 绘制区域 — 多边形区域（正常通行 / 禁止通行 / 危区 Z1 / 禁入区 Z2） */
 export interface NoGoZone {
   id: string
   name: string
@@ -256,6 +288,10 @@ export interface NoGoZone {
   mapId: string
   zoneType: ZoneType
   level: NoGoZoneLevel
+  /** 危区分类: Z0 普通区 / Z1 危区 / Z2 禁止自主Nav2 */
+  zoneClass?: ZoneClass
+  /** 危区策略配置 */
+  hazardPolicy?: HazardPolicyConfig
   polygonPoints: { x: number; y: number }[]
   /** 区域描述 */
   description?: string

@@ -1,165 +1,83 @@
 <template>
   <div class="road-network">
     <!-- 顶部工具栏 -->
-    <div class="rn-toolbar">
-      <div class="rn-toolbar-left">
-        <h2 class="rn-title">路网管理</h2>
-        <a-select v-model:value="selectedMapId" placeholder="选择地图" style="width: 180px" size="small" @change="onMapChange">
-          <a-select-option v-for="m in inspectionStore.inspectionMaps" :key="m.id" :value="m.id">{{ m.name }}</a-select-option>
-        </a-select>
-      </div>
-      <div class="rn-toolbar-right">
-        <a-button v-if="hasUnsavedChanges" size="small" @click="discardAllChanges">放弃修改</a-button>
-        <a-button size="small" @click="runTopologyCheck" :loading="checkingTopology"><BugOutlined /> 检查</a-button>
-        <a-button size="small" @click="pathSimVisible = true"><BranchesOutlined /> 模拟</a-button>
-      </div>
+    <RoadNetworkToolbar
+      :maps="inspectionStore.inspectionMaps"
+      :selected-map-id="selectedMapId"
+      :checking-topology="checkingTopology"
+      @update:selected-map-id="selectedMapId = $event"
+      @map-change="onMapChange"
+      @topology-check="runTopologyCheck"
+      @path-sim="pathSimVisible = true"
+      @split-change="splitLayout.setLayout($event as any)"
+    >
+      <template #tools>
+        <!-- 工具调色板集成在中间 -->
+      </template>
+      <template #saveBtn>
+        <a-button v-if="data.hasUnsavedChanges.value" size="small" type="primary" ghost @click="saveAll" class="save-btn-unsaved">
+          <SaveOutlined /> 保存路网
+        </a-button>
+        <a-button v-else size="small" type="primary" @click="saveAll">
+          <SaveOutlined /> 保存
+        </a-button>
+      </template>
+    </RoadNetworkToolbar>
+
+    <!-- 工具调色板 -->
+    <RoadToolPalette
+      :active-tool="editorTool.activeTool.value"
+      :place-node-type="placeNodeType"
+      @select-tool="switchTool"
+      @update:place-node-type="placeNodeType = $event"
+      @finish-draw="finishCurrentDraw"
+      @cancel-draw="cancelCurrentDraw"
+    />
+
+    <!-- 地图图层切换 -->
+    <div class="rn-layer-bar">
+      <RoadLayerToggleGroup
+        :show-segments="showSegments" :show-junctions="showJunctionNodes"
+        :show-inspection="showNavInspection" :show-parking="showNavParking"
+        :show-charging="showNavCharging" :show-zones="showNoGoZones"
+        :show-waypoints="showWaypointNodes"
+        @toggle="toggleLayer"
+      />
     </div>
 
     <!-- 主体三栏布局 -->
     <div class="rn-body">
       <!-- 左侧资源树 -->
-      <div class="rn-sidebar" :class="{ collapsed: sidebarCollapsed }">
-        <div class="panel-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
-          <MenuFoldOutlined v-if="!sidebarCollapsed" />
-          <MenuUnfoldOutlined v-else />
-        </div>
-        <template v-if="!sidebarCollapsed">
-          <div class="rn-sidebar-search">
-            <a-input-search v-model:value="searchText" placeholder="搜索路段/点位/区域" size="small" allow-clear />
-          </div>
-          <a-tabs v-model:activeKey="sidebarTab" size="small" class="rn-sidebar-tabs">
-            <a-tab-pane key="segment" tab="路段">
-              <div class="sidebar-list">
-                <div v-for="seg in filteredSegments" :key="seg.id"
-                  class="sidebar-item" :class="{ active: selectedEntity?.type === 'segment' && selectedEntity?.id === seg.id }"
-                  @click="selectEntity('segment', seg.id)"
-                  @mouseenter="hoverEntity = { type: 'segment', id: seg.id }"
-                  @mouseleave="hoverEntity = null">
-                  <div class="sidebar-item-name">{{ seg.name }}</div>
-                  <div class="sidebar-item-meta">
-                    <a-tag size="small" style="font-size:10px;line-height:16px">{{ seg.code }}</a-tag>
-                    <a-tag :color="segmentStatusColor(seg.status)" size="small">{{ segmentStatusLabel(seg.status) }}</a-tag>
-                    <span class="meta-text">{{ segmentTypeLabel(seg.segmentType) }}</span>
-                    <span class="meta-text">{{ Math.round(seg.length) }}m</span>
-                  </div>
-                </div>
-                <a-empty v-if="filteredSegments.length === 0" :image-style="{ height: '32px' }" description="暂无路段" />
-              </div>
-            </a-tab-pane>
-            <a-tab-pane key="navpoint" tab="点位">
-              <div class="sidebar-list">
-                <div v-for="p in filteredNavPoints" :key="p.id"
-                  class="sidebar-item" :class="{ active: selectedEntity?.type === 'navpoint' && selectedEntity?.id === p.id }"
-                  @click="selectEntity('navpoint', p.id)"
-                  @mouseenter="hoverEntity = { type: 'navpoint', id: p.id }"
-                  @mouseleave="hoverEntity = null">
-                  <div class="sidebar-item-name">{{ p.name }}</div>
-                  <div class="sidebar-item-meta">
-                    <span class="meta-text">{{ p.code }}</span>
-                    <a-tag size="small" :color="navPointTypeColor(p.navType)">{{ navPointTypeLabel(p.navType) }}</a-tag>
-                  </div>
-                </div>
-                <a-empty v-if="filteredNavPoints.length === 0" :image-style="{ height: '32px' }" description="暂无点位" />
-              </div>
-            </a-tab-pane>
-            <a-tab-pane key="nogozone" tab="区域">
-              <div class="sidebar-list">
-                <div v-for="z in filteredNoGoZones" :key="z.id"
-                  class="sidebar-item" :class="{ active: selectedEntity?.type === 'nogozone' && selectedEntity?.id === z.id }"
-                  @click="selectEntity('nogozone', z.id)"
-                  @mouseenter="hoverEntity = { type: 'nogozone', id: z.id }"
-                  @mouseleave="hoverEntity = null">
-                  <div class="sidebar-item-name">{{ z.name }}</div>
-                  <div class="sidebar-item-meta">
-                    <a-tag :color="z.zoneType === 'forbidden' ? noGoLevelColor(z.level) : 'green'" size="small">
-                      {{ z.zoneType === 'forbidden' ? noGoLevelLabel(z.level) : '正常通行' }}
-                    </a-tag>
-                  </div>
-                </div>
-                <a-empty v-if="filteredNoGoZones.length === 0" :image-style="{ height: '32px' }" description="暂无区域" />
-              </div>
-            </a-tab-pane>
-          </a-tabs>
-        </template>
-      </div>
+      <RoadResourceTree
+        :collapsed="sidebarCollapsed"
+        :segments="mapSegments"
+        :nav-points="mapNavPoints"
+        :zones="mapNoGoZones"
+        :selected-entity="selection.selectedEntity.value"
+        @toggle="sidebarCollapsed = !sidebarCollapsed"
+        @select="onTreeSelect"
+        @hover="selection.hoverEntity.value = $event as any"
+      />
 
-      <!-- 中间GIS地图编辑区 -->
-      <div class="rn-map-area">
-        <div class="rn-map-toolbar">
-          <a-space>
-            <a-button-group size="small">
-              <a-button @click="zoomIn"><ZoomInOutlined /></a-button>
-              <a-button @click="zoomOut"><ZoomOutOutlined /></a-button>
-              <a-button @click="resetView">重置</a-button>
-              <a-button @click="fitContent">适配</a-button>
-            </a-button-group>
-            <a-divider type="vertical" />
-            <a-button size="small" :type="drawMode === 'segment' ? 'primary' : 'default'" @click="toggleDrawMode('segment')">
-              <EditOutlined /> {{ drawMode === 'segment' ? '绘制中...' : '绘制路段' }}
-            </a-button>
-            <a-button size="small" :type="navPointPlacementMode ? 'primary' : 'default'" @click="toggleNavPointPlacement">
-              <AimOutlined /> {{ navPointPlacementMode ? '放置中...' : '放置点位' }}
-            </a-button>
-            <a-select v-model:value="navPointPlacementType" size="small" style="width:90px" :disabled="navPointPlacementMode">
-              <a-select-option value="inspection">巡检点</a-select-option>
-              <a-select-option value="parking">停车点</a-select-option>
-              <a-select-option value="charging">充电点</a-select-option>
-            </a-select>
-            <a-button size="small" :type="drawMode === 'polygon' ? 'primary' : 'default'" @click="toggleDrawMode('polygon')">
-              <StopOutlined /> {{ drawMode === 'polygon' ? '绘制中...' : '绘制区域' }}
-            </a-button>
-            <a-button v-if="drawMode" size="small" type="primary" @click="drawMode === 'segment' ? finishSegmentDrawing() : finishPolygonDrawing()">完成绘制</a-button>
-            <a-button v-if="drawMode" size="small" danger @click="clearDrawing">取消</a-button>
-            <a-divider type="vertical" />
-            <a-button size="small" :disabled="!rnCanUndo" @click="handleRnUndo">撤销</a-button>
-            <a-button size="small" :disabled="!rnCanRedo" @click="handleRnRedo">重做</a-button>
-            <a-divider type="vertical" />
-            <a-button v-if="hasUnsavedChanges" size="small" type="primary" ghost @click="saveAll" class="save-btn-unsaved"><SaveOutlined /> 保存路网</a-button>
-            <a-button v-else size="small" type="primary" @click="saveAll"><SaveOutlined /> 保存路网</a-button>
-          </a-space>
-          <div class="rn-layer-toggles">
-            <a-tooltip title="显示/隐藏路段">
-              <a-button size="small" :type="showSegments ? 'primary' : 'default'" @click="showSegments = !showSegments" class="layer-btn">
-                <span class="layer-dot" style="background:#1677ff"></span> 路段
-              </a-button>
-            </a-tooltip>
-            <a-tooltip title="显示/隐藏路口">
-              <a-button size="small" :type="showJunctionNodes ? 'primary' : 'default'" @click="showJunctionNodes = !showJunctionNodes" class="layer-btn">
-                <span class="layer-dot" style="background:#faad14"></span> 路口
-              </a-button>
-            </a-tooltip>
-            <a-tooltip title="显示/隐藏巡检点">
-              <a-button size="small" :type="showNavInspection ? 'primary' : 'default'" @click="showNavInspection = !showNavInspection" class="layer-btn">
-                <span class="layer-dot" style="background:#1677ff"></span> 巡检点
-              </a-button>
-            </a-tooltip>
-            <a-tooltip title="显示/隐藏停车点">
-              <a-button size="small" :type="showNavParking ? 'primary' : 'default'" @click="showNavParking = !showNavParking" class="layer-btn">
-                <span class="layer-dot" style="background:#52c41a"></span> 停车点
-              </a-button>
-            </a-tooltip>
-            <a-tooltip title="显示/隐藏充电点">
-              <a-button size="small" :type="showNavCharging ? 'primary' : 'default'" @click="showNavCharging = !showNavCharging" class="layer-btn">
-                <span class="layer-dot" style="background:#7cb305"></span> 充电点
-              </a-button>
-            </a-tooltip>
-            <a-tooltip title="显示/隐藏区域">
-              <a-button size="small" :type="showNoGoZones ? 'primary' : 'default'" @click="showNoGoZones = !showNoGoZones" class="layer-btn">
-                <span class="layer-dot" style="background:#ff4d4f"></span> 区域
-              </a-button>
-            </a-tooltip>
-            <a-divider type="vertical" />
-            <a-tooltip title="途经点(默认隐藏)">
-              <a-button size="small" :type="showWaypointNodes ? 'primary' : 'default'" @click="showWaypointNodes = !showWaypointNodes" class="layer-btn">
-                <span class="layer-dot" style="background:#8c8c8c"></span> 途经点
-              </a-button>
-            </a-tooltip>
-          </div>
-        </div>
-
-        <div class="rn-map-container" ref="mapContainerRef" @contextmenu.prevent="onRightClick">
-          <svg class="rn-map-svg" :viewBox="viewBox" @click="onMapClick" @mousedown="onMapMouseDown" @mousemove="onMapMouseMove" @mouseup="onMapMouseUp">
-            <!-- 背景 -->
+      <!-- 中间地图编辑区 -->
+      <SplitViewContainer
+        :layout="splitLayout.splitLayout.value"
+        :cloud-available="splitLayout.pointCloudAvailable.value"
+        :cloud-disabled-reason="splitLayout.pointCloudDisabledReason.value"
+      >
+        <template #map2d>
+          <Map2DViewport
+            :view-box="viewBox"
+            @map-click="onMapClick"
+            @mouse-down="onMapMouseDown"
+            @mouse-move="onMapMouseMove"
+            @mouse-up="onMapMouseUp"
+            @right-click="onRightClick"
+            @zoom-in="zoomIn"
+            @zoom-out="zoomOut"
+            @fit-content="fitContent"
+          >
+            <!-- SVG 地图内容 -->
             <image v-if="currentMapImageUrl" :href="currentMapImageUrl" x="0" y="0" :width="mapWidth" :height="mapHeight" preserveAspectRatio="xMidYMid slice" />
             <rect v-else x="0" y="0" :width="mapWidth" :height="mapHeight" fill="#f0f2f5" />
             <g opacity="0.15">
@@ -167,89 +85,100 @@
               <line v-for="i in 12" :key="'gy'+i" x1="0" :y1="i * 50" :x2="mapWidth" :y2="i * 50" stroke="#999" stroke-width="0.5" />
             </g>
 
-            <!-- 绘制区域 -->
-            <g v-if="showNoGoZones">
-              <g v-for="zone in mapNoGoZones" :key="zone.id"
-                :class="{ 'entity-dimmed': selectedEntity && !(selectedEntity.type === 'nogozone' && selectedEntity.id === zone.id) }">
-                <polygon
-                  :points="zone.polygonPoints.map(p => `${p.x},${p.y}`).join(' ')"
-                  :fill="noGoZoneFill(zone)" fill-opacity="0.25" :stroke="noGoZoneStroke(zone)" stroke-width="1.5"
-                  :class="{ 'entity-highlight': selectedEntity?.type === 'nogozone' && selectedEntity?.id === zone.id, 'entity-hover': hoverEntity?.type === 'nogozone' && hoverEntity?.id === zone.id }"
-                  @click.stop="selectEntity('nogozone', zone.id)" class="clickable" />
-                <text :x="zonePolygonCenter(zone).x" :y="zonePolygonCenter(zone).y"
-                  text-anchor="middle" class="zone-label">{{ zone.name }}</text>
-              </g>
+            <!-- 区域绘制草稿 -->
+            <g v-if="areaDrawing.hasDraft() && areaDrawing.areaDraft.value">
+              <polyline
+                :points="getDraftAreaPoints()"
+                fill="rgba(255,77,79,0.1)" stroke="#ff4d4f" stroke-width="1.5" stroke-dasharray="6 4" />
+              <circle v-for="(pt, idx) in areaDrawing.areaDraft.value!.points" :key="'adp'+idx"
+                :cx="pt.x" :cy="pt.y" r="4" fill="#ff4d4f" stroke="#fff" stroke-width="1" />
+              <!-- 可闭合提示 -->
+              <circle v-if="areaDrawing.areaDraft.value!.closeReady && areaDrawing.areaDraft.value!.points.length >= 2"
+                :cx="areaDrawing.areaDraft.value!.points[0].x"
+                :cy="areaDrawing.areaDraft.value!.points[0].y" r="8" fill="none" stroke="#ff4d4f" stroke-width="2" class="close-pulse" />
             </g>
 
-            <!-- 绘制中的区域 polygon -->
-            <g v-if="drawMode === 'polygon' && polygonDrawingPoints.length > 0">
-              <polyline
-                :points="[...polygonDrawingPoints, mousePos].map(p => `${p.x},${p.y}`).join(' ')"
-                fill="rgba(255,77,79,0.1)" stroke="#ff4d4f" stroke-width="1.5" stroke-dasharray="6 4" />
-              <circle v-for="(pt, idx) in polygonDrawingPoints" :key="'pdp'+idx"
-                :cx="pt.x" :cy="pt.y" r="4" fill="#ff4d4f" stroke="#fff" stroke-width="1" />
+            <!-- 已保存区域 -->
+            <g v-if="showNoGoZones">
+              <g v-for="zone in mapNoGoZones" :key="zone.id"
+                :class="{ 'entity-dimmed': selection.selectedEntity.value && !(selection.selectedEntity.value.type === 'nogozone' && selection.selectedEntity.value.id === zone.id) }">
+                <polygon
+                  :points="zone.polygonPoints.map(p => `${p.x},${p.y}`).join(' ')"
+                  :fill="noGoZoneFill(zone)" fill-opacity="0.25"
+                  :stroke="noGoZoneStroke(zone)" stroke-width="1.5"
+                  :class="getZoneHighlightClass(zone)"
+                  @click.stop="onZoneClick(zone)" class="clickable" />
+                <text :x="calcPolygonCenter(zone).x" :y="calcPolygonCenter(zone).y" text-anchor="middle" class="zone-label">{{ zone.name }}</text>
+              </g>
             </g>
 
             <!-- 路段边 -->
             <g v-if="showSegments">
               <g v-for="edge in mapEdges" :key="edge.id"
-                :class="{ 'entity-dimmed': selectedEntity && !(selectedEntity.type === 'segment' && selectedEntity.id === edge.segmentId) }">
-                <path
-                  :d="getEdgePath(edge)"
-                  fill="none"
+                :class="{ 'entity-dimmed': selection.selectedEntity.value && !(selection.selectedEntity.value.type === 'segment' && selection.selectedEntity.value.id === edge.segmentId) }">
+                <path :d="getEdgePath(edge)" fill="none"
                   :stroke="getEdgeColor(edge)" stroke-width="3"
                   :stroke-dasharray="!edge.bidirectional ? '8 4' : 'none'"
-                  :class="{ 'edge-highlight': isPathEdge(edge.id), 'edge-hover': hoverEntity?.type === 'segment' && hoverEntity?.id === edge.segmentId }"
-                  @click.stop="onEdgeClick(edge)" style="cursor: pointer;" />
+                  :class="{ 'edge-highlight': isPathEdge(edge.id), 'edge-hover': selection.isEntityHovered('segment', edge.segmentId || '') }"
+                  @click.stop="selectSegmentByEdge(edge)" style="cursor: pointer;" />
                 <text v-if="getEdgeSegment(edge)"
-                  :x="(getNodePos(edge.fromNodeId).x + getNodePos(edge.toNodeId).x) / 2"
-                  :y="(getNodePos(edge.fromNodeId).y + getNodePos(edge.toNodeId).y) / 2 - 8"
+                  :x="((getNode(edge.fromNodeId)?.position.x || 0) + (getNode(edge.toNodeId)?.position.x || 0)) / 2"
+                  :y="((getNode(edge.fromNodeId)?.position.y || 0) + (getNode(edge.toNodeId)?.position.y || 0)) / 2 - 8"
                   text-anchor="middle" class="edge-label">{{ getEdgeSegment(edge)?.name }}</text>
-                <polygon v-if="!edge.bidirectional"
-                  :points="getArrowPoints(edge)"
-                  :fill="getEdgeColor(edge)" opacity="0.8" />
               </g>
             </g>
 
-            <!-- 绘制中的临时线 -->
-            <line v-if="drawMode === 'segment' && drawingNodes.length > 0"
-              :x1="getLastDrawNodePos().x" :y1="getLastDrawNodePos().y"
-              :x2="mousePos.x" :y2="mousePos.y"
-              stroke="#1677ff" stroke-width="2" stroke-dasharray="6 4" />
+            <!-- 路段绘制草稿 -->
+            <g v-if="segmentDrawing.hasDraft() && segmentDrawing.segmentDraft.value">
+              <!-- 草稿节点 -->
+              <circle v-for="n in segmentDrawing.segmentDraft.value.tempNodes" :key="n.id"
+                :cx="n.position.x" :cy="n.position.y" r="6" fill="#1677ff" stroke="#fff" stroke-width="2" />
+              <!-- 草稿边 -->
+              <line v-for="e in segmentDrawing.segmentDraft.value.tempEdges" :key="e.id"
+                :x1="getNode(e.fromNodeId)?.position.x || getTempNodePos(e.fromNodeId).x"
+                :y1="getNode(e.fromNodeId)?.position.y || getTempNodePos(e.fromNodeId).y"
+                :x2="getNode(e.toNodeId)?.position.x || getTempNodePos(e.toNodeId).x"
+                :y2="getNode(e.toNodeId)?.position.y || getTempNodePos(e.toNodeId).y"
+                stroke="#1677ff" stroke-width="2" />
+              <!-- 鼠标跟随虚线 -->
+              <line v-if="segmentDrawing.segmentDraft.value.nodeIds.length > 0"
+                :x1="getLastDraftNodePos().x" :y1="getLastDraftNodePos().y"
+                :x2="mousePos.x" :y2="mousePos.y"
+                stroke="#1677ff" stroke-width="2" stroke-dasharray="6 4" />
+            </g>
 
             <!-- 路口标记 -->
             <g v-for="j in mapJunctions" :key="'jg'+j.id"
-              :class="{ 'entity-dimmed': selectedEntity && !(selectedEntity.type === 'junction' && selectedEntity.id === j.id) }"
-              @click.stop="selectEntity('junction', j.id)" class="clickable">
-              <rect :x="getJunctionPos(j).x - 12" :y="getJunctionPos(j).y - 12" width="24" height="24" rx="4"
-                :fill="selectedEntity?.type === 'junction' && selectedEntity?.id === j.id ? '#1677ff' : '#faad14'"
-                stroke="#fff" stroke-width="2"
-                :class="{ 'entity-hover': hoverEntity?.type === 'junction' && hoverEntity?.id === j.id }" />
-              <text :x="getJunctionPos(j).x" :y="getJunctionPos(j).y + 4" text-anchor="middle" class="junction-icon">J</text>
+              :class="{ 'entity-dimmed': selection.selectedEntity.value && !(selection.selectedEntity.value.type === 'junction' && selection.selectedEntity.value.id === j.id) }"
+              @click.stop="selection.selectEntity('junction', j.id)" class="clickable">
+              <rect :x="getJunctionNodePos(j).x - 12" :y="getJunctionNodePos(j).y - 12" width="24" height="24" rx="4"
+                :fill="selection.selectedEntity.value?.type === 'junction' && selection.selectedEntity.value?.id === j.id ? '#1677ff' : '#faad14'"
+                stroke="#fff" stroke-width="2" />
+              <text :x="getJunctionNodePos(j).x" :y="getJunctionNodePos(j).y + 4" text-anchor="middle" class="junction-icon">J</text>
             </g>
 
             <!-- 节点 -->
             <g>
               <g v-for="node in mapNodes" :key="node.id"
-                :class="{ 'entity-dimmed': selectedEntity && !(selectedEntity.type === 'node' && selectedEntity.id === node.id) }"
-                @click.stop="onNodeClick(node)" class="clickable">
+                :class="{ 'entity-dimmed': selection.selectedEntity.value && !(selection.selectedEntity.value.type === 'node' && selection.selectedEntity.value.id === node.id) }"
+                @mousedown.stop="onNodeMouseDown(node, $event)" class="clickable">
                 <circle :cx="node.position.x" :cy="node.position.y" :r="getNodeRadius(node)"
                   :fill="getNodeColor(node)" :stroke="getNodeStroke(node)" stroke-width="2"
-                  :class="{ 'node-selected': selectedEntity?.type === 'node' && selectedEntity?.id === node.id, 'entity-hover': hoverEntity?.type === 'node' && hoverEntity?.id === node.id }" />
-                <text v-if="node.nodeType !== 'waypoint'" :x="node.position.x" :y="node.position.y + 3.5" text-anchor="middle" class="nav-icon">{{ nodeTypeIcon(node.nodeType) }}</text>
+                  :class="{ 'node-selected': selection.selectedEntity.value?.type === 'node' && selection.selectedEntity.value?.id === node.id, 'entity-hover': selection.isEntityHovered('node', node.id) }" />
+                <text v-if="node.nodeType !== 'waypoint'" :x="node.position.x" :y="node.position.y + 3.5" text-anchor="middle" class="nav-icon">{{ nodeIcon(node.nodeType) }}</text>
                 <text v-if="node.name && !navNodeIds.has(node.id)" :x="node.position.x" :y="node.position.y - 10" text-anchor="middle" class="node-label">{{ node.name }}</text>
               </g>
             </g>
 
-            <!-- 点位 -->
+            <!-- 导航点位 -->
             <g>
               <g v-for="p in mapNavPoints" :key="'np'+p.id"
-                :class="{ 'entity-dimmed': selectedEntity && !(selectedEntity.type === 'navpoint' && selectedEntity.id === p.id) }"
-                @click.stop="selectEntity('navpoint', p.id)" class="clickable">
+                :class="{ 'entity-dimmed': selection.selectedEntity.value && !(selection.selectedEntity.value.type === 'navpoint' && selection.selectedEntity.value.id === p.id) }"
+                @mousedown.stop="onNavPointMouseDown(p, $event)" class="clickable">
                 <circle :cx="p.position.x" :cy="p.position.y" r="8"
-                  :fill="selectedEntity?.type === 'navpoint' && selectedEntity?.id === p.id ? '#1677ff' : navPointColor(p.navType)"
+                  :fill="selection.selectedEntity.value?.type === 'navpoint' && selection.selectedEntity.value?.id === p.id ? '#1677ff' : navPointColor(p.navType)"
                   stroke="#fff" stroke-width="2"
-                  :class="{ 'entity-hover': hoverEntity?.type === 'navpoint' && hoverEntity?.id === p.id }" />
+                  :class="{ 'entity-hover': selection.isEntityHovered('navpoint', p.id) }" />
                 <text :x="p.position.x" :y="p.position.y + 3.5" text-anchor="middle" class="nav-icon">{{ navPointIcon(p.navType) }}</text>
                 <text :x="p.position.x" :y="p.position.y - 14" text-anchor="middle" class="node-label">{{ p.name }}</text>
               </g>
@@ -261,326 +190,77 @@
                 :x1="seg.x1" :y1="seg.y1" :x2="seg.x2" :y2="seg.y2"
                 stroke="#ff4d4f" stroke-width="4" stroke-linecap="round" opacity="0.8" />
             </g>
-          </svg>
+          </Map2DViewport>
+        </template>
 
-          <!-- 绘制提示 -->
-          <div v-if="drawMode" class="draw-overlay-hint">
-            {{ drawHint }}
-          </div>
-          <!-- 点位放置模式提示 -->
-          <div v-if="navPointPlacementMode" class="draw-overlay-hint placement-hint">
-            <AimOutlined /> 点击地图放置{{ navPointPlacementType === 'inspection' ? '巡检点' : navPointPlacementType === 'parking' ? '停车点' : '充电点' }}，连续放置；按 Esc 退出
-          </div>
-        </div>
-      </div>
+        <template #pointcloud>
+          <PointCloudViewport
+            :available="splitLayout.pointCloudAvailable.value"
+            :disabled-reason="splitLayout.pointCloudDisabledReason.value"
+            :selected-entity-name="selectedEntityLabel"
+          />
+        </template>
+      </SplitViewContainer>
 
       <!-- 右侧属性面板 -->
-      <div class="rn-property-panel" :class="{ collapsed: propertyCollapsed }">
-        <div class="panel-collapse-btn right" @click="propertyCollapsed = !propertyCollapsed">
-          <MenuUnfoldOutlined v-if="!propertyCollapsed" />
-          <MenuFoldOutlined v-else />
-        </div>
-        <template v-if="!propertyCollapsed && selectedEntity">
-          <div class="prop-header">
-            <span class="prop-title">{{ propertyTitle }}</span>
-            <a-space size="small">
-              <a-button v-if="!propertyEditing" size="small" type="link" @click="enterPropertyEdit">编辑</a-button>
-              <template v-else>
-                <a-button size="small" type="primary" @click="savePropertyEdit">应用</a-button>
-                <a-button size="small" @click="cancelPropertyEdit">取消</a-button>
-              </template>
-              <a-button size="small" danger @click="deleteSelectedEntity">删除</a-button>
-            </a-space>
-          </div>
-
-          <!-- 路段属性 -->
-          <template v-if="selectedEntity.type === 'segment' && editingSegment">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
-              <a-divider orientation="left">基础信息</a-divider>
-              <a-form-item label="路段名称" required><a-input v-model:value="editingSegment.name" /></a-form-item>
-              <a-form-item label="路段编码" required><a-input v-model:value="editingSegment.code" /></a-form-item>
-              <a-form-item label="所属区域"><a-input v-model:value="editingSegment.area" /></a-form-item>
-              <a-form-item label="路段类型">
-                <a-select v-model:value="editingSegment.segmentType">
-                  <a-select-option value="trunk">主干路</a-select-option>
-                  <a-select-option value="branch">次干路</a-select-option>
-                  <a-select-option value="patrol">巡检通道</a-select-option>
-                  <a-select-option value="service">服务通道</a-select-option>
-                </a-select>
-              </a-form-item>
-              <a-form-item label="状态">
-                <a-select v-model:value="editingSegment.status">
-                  <a-select-option value="active">启用</a-select-option>
-                  <a-select-option value="inactive">停用</a-select-option>
-                  <a-select-option value="construction">施工中</a-select-option>
-                  <a-select-option value="blocked">禁行</a-select-option>
-                  <a-select-option value="maintenance">维护中</a-select-option>
-                </a-select>
-              </a-form-item>
-              <a-divider orientation="left">通行属性</a-divider>
-              <a-form-item label="通行方向">
-                <a-radio-group v-model:value="editingSegment.bidirectional">
-                  <a-radio :value="true">双向通行</a-radio>
-                  <a-radio :value="false">单向通行</a-radio>
-                </a-radio-group>
-              </a-form-item>
-              <a-row :gutter="8">
-                <a-col :span="12"><a-form-item label="限速(km/h)"><a-input-number v-model:value="editingSegment.speedLimit" :min="0" style="width:100%" /></a-form-item></a-col>
-                <a-col :span="12"><a-form-item label="路宽(m)"><a-input-number v-model:value="editingSegment.width" :min="0" style="width:100%" /></a-form-item></a-col>
-              </a-row>
-              <a-form-item label="安全等级">
-                <a-radio-group v-model:value="editingSegment.safetyLevel">
-                  <a-radio value="normal">正常</a-radio>
-                  <a-radio value="warning">预警</a-radio>
-                  <a-radio value="danger">高危</a-radio>
-                </a-radio-group>
-              </a-form-item>
-              <a-row :gutter="8">
-                <a-col :span="12"><a-form-item label="限高(m)"><a-input-number v-model:value="editingSegment.heightLimit" :min="0" style="width:100%" /></a-form-item></a-col>
-                <a-col :span="12"><a-form-item label="最大载重(t)"><a-input-number v-model:value="editingSegment.maxLoad" :min="0" style="width:100%" /></a-form-item></a-col>
-              </a-row>
-              <a-form-item label="允许操作">
-                <a-space direction="vertical">
-                  <a-checkbox v-model:checked="editingSegment.allowReverse">允许倒车</a-checkbox>
-                  <a-checkbox v-model:checked="editingSegment.allowUTurn">允许掉头</a-checkbox>
-                  <a-checkbox v-model:checked="editingSegment.allowSpin">允许原地旋转</a-checkbox>
-                </a-space>
-              </a-form-item>
-              <a-divider orientation="left">几何信息</a-divider>
-              <a-form-item label="长度"> {{ Math.round(editingSegment.length) }} m（自动计算）</a-form-item>
-              <a-form-item label="节点数"> {{ editingSegment.nodeIds.length }} 个</a-form-item>
-              <a-form-item label="颜色"><a-input v-model:value="editingSegment.color" placeholder="#1677ff" /></a-form-item>
-            </a-form>
-          </template>
-
-          <!-- 路口属性 -->
-          <template v-if="selectedEntity.type === 'junction' && editingJunction">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
-              <a-divider orientation="left">基础信息</a-divider>
-              <a-form-item label="路口名称" required><a-input v-model:value="editingJunction.name" /></a-form-item>
-              <a-form-item label="路口编码" required><a-input v-model:value="editingJunction.code" /></a-form-item>
-              <a-form-item label="路口类型">
-                <a-select v-model:value="editingJunction.junctionType">
-                  <a-select-option value="normal">其他</a-select-option>
-                  <a-select-option value="t_junction">T字形</a-select-option>
-                  <a-select-option value="cross">十字形</a-select-option>
-                </a-select>
-              </a-form-item>
-              <a-divider orientation="left">通行规则</a-divider>
-              <a-space direction="vertical">
-                <a-checkbox v-model:checked="editingJunction.allowStraight">允许直行</a-checkbox>
-                <a-checkbox v-model:checked="editingJunction.allowLeftTurn">允许左转</a-checkbox>
-                <a-checkbox v-model:checked="editingJunction.allowRightTurn">允许右转</a-checkbox>
-                <a-checkbox v-model:checked="editingJunction.allowUTurn">允许掉头</a-checkbox>
-              </a-space>
-              <a-divider orientation="left">优先级与冲突</a-divider>
-              <a-form-item label="优先级">
-                <a-select v-model:value="editingJunction.priority">
-                  <a-select-option value="main_road">主路优先</a-select-option>
-                  <a-select-option value="side_road">支路让行</a-select-option>
-                  <a-select-option value="robot_priority">机器人优先</a-select-option>
-                </a-select>
-              </a-form-item>
-              <a-form-item label="冲突控制">
-                <a-select v-model:value="editingJunction.conflictMode">
-                  <a-select-option value="mutex">互斥通行</a-select-option>
-                  <a-select-option value="reservation">预约通行</a-select-option>
-                  <a-select-option value="time_window">时间窗通行</a-select-option>
-                </a-select>
-              </a-form-item>
-
-              <a-form-item label="关联路段" style="margin-top:8px">{{ editingJunction.connectedSegmentIds.length }} 条</a-form-item>
-            </a-form>
-          </template>
-
-          <!-- 点位属性 -->
-          <template v-if="selectedEntity.type === 'navpoint' && editingNavPoint">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
-              <a-divider orientation="left">基础信息</a-divider>
-              <a-form-item label="点位名称" required><a-input v-model:value="editingNavPoint.name" /></a-form-item>
-              <a-form-item label="点位编码" required><a-input v-model:value="editingNavPoint.code" /></a-form-item>
-              <a-form-item label="所属区域"><a-input v-model:value="editingNavPoint.area" /></a-form-item>
-              <a-form-item label="点位类型">
-                <a-select v-model:value="editingNavPoint.navType">
-                  <a-select-option value="inspection">巡检点</a-select-option>
-                  <a-select-option value="parking">停车点</a-select-option>
-                  <a-select-option value="charging">充电点</a-select-option>
-                </a-select>
-              </a-form-item>
-              <a-form-item label="描述"><a-textarea v-model:value="editingNavPoint.description" :rows="2" placeholder="点位描述信息" /></a-form-item>
-              <a-row :gutter="8">
-                <a-col :span="12"><a-form-item label="工作区域"><a-input v-model:value="editingNavPoint.workAreaName" placeholder="如：A区" /></a-form-item></a-col>
-                <a-col :span="12"><a-form-item label="朝向角(°)"><a-input-number v-model:value="editingNavPoint.yaw" :min="0" :max="360" style="width:100%" /></a-form-item></a-col>
-              </a-row>
-
-              <!-- 充电点专属属性 -->
-              <template v-if="editingNavPoint.navType === 'charging'">
-                <a-divider orientation="left">充电属性</a-divider>
-                <a-form-item label="充电方式">
-                  <a-select v-model:value="editingNavPoint.chargingMethod">
-                    <a-select-option value="auto">自动对接</a-select-option>
-                    <a-select-option value="manual">手动连接</a-select-option>
-                    <a-select-option value="wireless">无线充电</a-select-option>
-                  </a-select>
-                </a-form-item>
-                <a-row :gutter="8">
-                  <a-col :span="12"><a-form-item label="充电功率(kW)"><a-input-number v-model:value="editingNavPoint.chargingPower" :min="0" style="width:100%" /></a-form-item></a-col>
-                  <a-col :span="12"><a-form-item label="预计时长(min)"><a-input-number v-model:value="editingNavPoint.estimatedChargingTime" :min="0" style="width:100%" /></a-form-item></a-col>
-                </a-row>
-              </template>
-
-              <!-- 停车点专属属性 -->
-              <template v-if="editingNavPoint.navType === 'parking'">
-                <a-divider orientation="left">停车属性</a-divider>
-                <a-row :gutter="8">
-                  <a-col :span="12"><a-form-item label="停车优先级"><a-input-number v-model:value="editingNavPoint.parkingPriority" :min="1" :max="10" style="width:100%" /></a-form-item></a-col>
-                  <a-col :span="12"><a-form-item label="允许等待(秒)"><a-input-number v-model:value="editingNavPoint.maxWaitingTime" :min="0" style="width:100%" /></a-form-item></a-col>
-                </a-row>
-                <a-divider orientation="left">停车约束</a-divider>
-                <a-space direction="vertical">
-                  <a-checkbox v-model:checked="editingNavPoint.reverseRequired">需要倒车</a-checkbox>
-                  <a-checkbox v-model:checked="editingNavPoint.turnAroundRequired">需要掉头</a-checkbox>
-                  <a-checkbox v-model:checked="editingNavPoint.narrowRoad">窄路</a-checkbox>
-                  <a-checkbox v-model:checked="editingNavPoint.slope">有坡道</a-checkbox>
-                </a-space>
-              </template>
-
-              <a-form-item label="备注"><a-textarea v-model:value="editingNavPoint.remark" :rows="2" /></a-form-item>
-            </a-form>
-          </template>
-
-          <!-- 区域属性 -->
-          <template v-if="selectedEntity.type === 'nogozone' && editingNoGoZone">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
-              <a-divider orientation="left">基础信息</a-divider>
-              <a-form-item label="区域名称" required><a-input v-model:value="editingNoGoZone.name" /></a-form-item>
-              <a-form-item label="区域编码" required><a-input v-model:value="editingNoGoZone.code" /></a-form-item>
-              <a-form-item label="区域类型">
-                <a-select v-model:value="editingNoGoZone.zoneType">
-                  <a-select-option value="normal">正常通行</a-select-option>
-                  <a-select-option value="forbidden">禁止通行</a-select-option>
-                </a-select>
-              </a-form-item>
-              <a-form-item label="描述"><a-textarea v-model:value="editingNoGoZone.description" :rows="2" placeholder="区域描述信息" /></a-form-item>
-              <template v-if="editingNoGoZone.zoneType === 'forbidden'">
-                <a-form-item label="禁行等级">
-                  <a-select v-model:value="editingNoGoZone.level">
-                    <a-select-option value="permanent">永久禁行</a-select-option>
-                    <a-select-option value="temporary">临时禁行</a-select-option>
-                    <a-select-option value="high_risk">高风险区域</a-select-option>
-                    <a-select-option value="maintenance">维修区域</a-select-option>
-                  </a-select>
-                </a-form-item>
-                <a-divider orientation="left">时间范围</a-divider>
-                <a-form-item label="开始时间"><a-input v-model:value="editingNoGoZone.startTime" placeholder="YYYY-MM-DD HH:mm" /></a-form-item>
-                <a-form-item label="结束时间"><a-input v-model:value="editingNoGoZone.endTime" placeholder="YYYY-MM-DD HH:mm" /></a-form-item>
-                <a-form-item label="禁行原因"><a-textarea v-model:value="editingNoGoZone.reason" :rows="2" /></a-form-item>
-              </template>
-              <a-divider orientation="left">管理信息</a-divider>
-              <a-row :gutter="8">
-                <a-col :span="12"><a-form-item label="进入限制"><a-input-number v-model:value="editingNoGoZone.entryLimit" :min="0" style="width:100%" placeholder="人数" /></a-form-item></a-col>
-                <a-col :span="12"><a-form-item label="容量限制"><a-input-number v-model:value="editingNoGoZone.capacityLimit" :min="0" style="width:100%" placeholder="人数" /></a-form-item></a-col>
-              </a-row>
-              <a-form-item label="责任人"><a-input v-model:value="editingNoGoZone.responsiblePerson" placeholder="责任人姓名" /></a-form-item>
-              <a-form-item label="联系电话"><a-input v-model:value="editingNoGoZone.contactPhone" placeholder="联系电话" /></a-form-item>
-              <a-form-item label="顶点数">{{ editingNoGoZone.polygonPoints.length }} 个</a-form-item>
-            </a-form>
-          </template>
-
-          <!-- 节点属性 -->
-          <template v-if="selectedEntity.type === 'node' && editingNode">
-            <a-form layout="vertical" size="small" class="prop-form" :class="{ 'form-readonly': !propertyEditing }">
-              <a-form-item label="节点ID"><a-input :value="editingNode.id" disabled /></a-form-item>
-              <a-form-item label="名称"><a-input v-model:value="editingNode.name" placeholder="输入节点名称" /></a-form-item>
-              <a-form-item label="类型">
-                <a-select v-model:value="editingNode.nodeType" @change="onNodeTypeChange">
-                  <a-select-option value="waypoint">途经点</a-select-option>
-                  <a-select-option value="junction">路口节点</a-select-option>
-                  <a-select-option value="inspection">巡检点</a-select-option>
-                  <a-select-option value="parking">停车点</a-select-option>
-                  <a-select-option value="charging">充电点</a-select-option>
-                </a-select>
-              </a-form-item>
-              <a-form-item label="坐标">
-                <a-row :gutter="8">
-                  <a-col :span="12"><a-input-number v-model:value="editingNode.position.x" :precision="1" style="width:100%" addon-before="X" /></a-col>
-                  <a-col :span="12"><a-input-number v-model:value="editingNode.position.y" :precision="1" style="width:100%" addon-before="Y" /></a-col>
-                </a-row>
-              </a-form-item>
-              <a-form-item label="连接边数">{{ editingNode.edgeIds.length }} 条</a-form-item>
-
-              <!-- 业务节点属性（巡检点/停车点/充电点） -->
-              <template v-if="editingNode.nodeType === 'inspection' || editingNode.nodeType === 'parking' || editingNode.nodeType === 'charging'">
-                <a-divider orientation="left">业务属性</a-divider>
-                <a-form-item label="所属区域"><a-input v-model:value="editingNode.area" placeholder="如：储罐区" /></a-form-item>
-                <a-form-item label="关联设施"><a-input v-model:value="editingNode.relatedFacilityId" placeholder="设施ID" /></a-form-item>
-                <a-form-item label="关联设备"><a-input v-model:value="editingNode.relatedDeviceId" placeholder="设备ID" /></a-form-item>
-                <a-form-item label="备注"><a-textarea v-model:value="editingNode.remark" :rows="3" /></a-form-item>
-              </template>
-
-              <!-- 路口节点属性 -->
-              <template v-if="editingNode.nodeType === 'junction' && editingNodeJunction">
-                <a-divider orientation="left">路口属性</a-divider>
-                <a-form-item label="路口编码" required><a-input v-model:value="editingNodeJunction.code" /></a-form-item>
-                <a-form-item label="路口类型">
-                  <a-select v-model:value="editingNodeJunction.junctionType">
-                    <a-select-option value="normal">其他</a-select-option>
-                    <a-select-option value="t_junction">T字形</a-select-option>
-                    <a-select-option value="cross">十字形</a-select-option>
-                  </a-select>
-                </a-form-item>
-                <a-divider orientation="left">通行规则</a-divider>
-                <a-space direction="vertical">
-                  <a-checkbox v-model:checked="editingNodeJunction.allowStraight">允许直行</a-checkbox>
-                  <a-checkbox v-model:checked="editingNodeJunction.allowLeftTurn">允许左转</a-checkbox>
-                  <a-checkbox v-model:checked="editingNodeJunction.allowRightTurn">允许右转</a-checkbox>
-                  <a-checkbox v-model:checked="editingNodeJunction.allowUTurn">允许掉头</a-checkbox>
-                </a-space>
-                <a-divider orientation="left">优先级与冲突</a-divider>
-                <a-form-item label="优先级">
-                  <a-select v-model:value="editingNodeJunction.priority">
-                    <a-select-option value="main_road">主路优先</a-select-option>
-                    <a-select-option value="side_road">支路让行</a-select-option>
-                    <a-select-option value="robot_priority">机器人优先</a-select-option>
-                  </a-select>
-                </a-form-item>
-                <a-form-item label="冲突控制">
-                  <a-select v-model:value="editingNodeJunction.conflictMode">
-                    <a-select-option value="mutex">互斥通行</a-select-option>
-                    <a-select-option value="reservation">预约通行</a-select-option>
-                    <a-select-option value="time_window">时间窗通行</a-select-option>
-                  </a-select>
-                </a-form-item>
-                <a-form-item label="关联路段">{{ editingNodeJunction.connectedSegmentIds.length }} 条</a-form-item>
-              </template>
-            </a-form>
-          </template>
-        </template>
-
-        <template v-else-if="!propertyCollapsed">
-          <div class="prop-empty">
-            <a-empty :image-style="{ height: '48px' }">
-              <template #description>
-                <span style="color: #999">点击地图元素或左侧列表<br/>查看和编辑属性</span>
-              </template>
-            </a-empty>
-          </div>
-        </template>
-      </div>
+      <RoadPropertyPanel
+        :collapsed="propertyCollapsed"
+        :selected-entity="selection.selectedEntity.value"
+        :property-editing="selection.propertyEditing.value"
+        :edit-segment="selection.editingSegment.value"
+        :edit-junction="selection.editingJunction.value"
+        :edit-nav-point="selection.editingNavPoint.value"
+        :edit-no-go-zone="selection.editingNoGoZone.value"
+        @toggle="propertyCollapsed = !propertyCollapsed"
+        @edit="selection.enterPropertyEdit()"
+        @save="savePropertyEdit"
+        @cancel="selection.cancelPropertyEdit()"
+        @delete="deleteSelectedEntity"
+        @color-change="() => {}"
+      />
     </div>
 
-    <!-- 底部状态栏 -->
-    <div class="rn-statusbar">
-      <span>路段: <b>{{ mapSegments.length }}</b></span>
-      <span>节点: <b>{{ mapNodes.length }}</b></span>
-      <span>路口: <b>{{ mapJunctions.length }}</b></span>
-      <span>点位: <b>{{ mapNavPoints.length }}</b></span>
-      <span>区域: <b>{{ mapNoGoZones.length }}</b></span>
-      <span v-if="lastTopologyCheck" :class="{ 'status-error': lastTopologyCheck.totalCritical > 0 }">
-        拓扑错误: <b>{{ lastTopologyCheck.totalCritical }}</b>
-      </span>
-      <span class="status-coord" v-if="selectedMapId">X: {{ Math.round(mousePos.x) }} Y: {{ Math.round(mousePos.y) }}</span>
+    <!-- 右上状态摘要 -->
+    <div class="rn-status-overlay">
+      <RoadStatusSummary
+        :counts="{
+          segments: mapSegments.length,
+          nodes: mapNodes.length,
+          junctions: mapJunctions.length,
+          navPoints: mapNavPoints.length,
+          zones: mapNoGoZones.length
+        }"
+        :mouse-pos="mousePos"
+        :topology-errors="lastTopologyCheck?.totalCritical"
+      />
     </div>
+
+    <!-- 绘制提示 -->
+    <div v-if="editorTool.activeTool.value === 'drawSegment'" class="draw-hint">
+      {{ segmentDrawing.hasDraft() ? '继续点击添加路径点，双击/完成结束' : '在地图上点击放置起点' }}
+    </div>
+    <div v-else-if="editorTool.activeTool.value === 'drawArea'" class="draw-hint">
+      {{ areaDrawing.hasDraft() ? '继续点击添加顶点，点击起点闭合' : '在地图上点击落点绘制区域' }}
+    </div>
+    <div v-else-if="editorTool.activeTool.value === 'placeNode'" class="draw-hint placement-hint">
+      <AimOutlined /> 点击地图放置{{ placeNodeLabel }}，连续放置；切换工具退出
+    </div>
+
+    <!-- 模态框 -->
+    <CalibrationNoticeModal
+      :open="calibration.showCalibrationModal.value"
+      :point-name="calibration.calibratingPoint.value?.name"
+      @close="calibration.closeCalibrationModal()"
+      @calibrate="calibration.goToCalibration()"
+    />
+
+    <JunctionTypeModal
+      :open="segmentDrawing.junctionModalVisible.value"
+      :model-value="segmentDrawing.junctionTypeForPending.value"
+      @update:model-value="segmentDrawing.junctionTypeForPending.value = $event as any"
+      @confirm="segmentDrawing.confirmJunction()"
+      @cancel="segmentDrawing.cancelJunction()"
+    />
 
     <!-- 路径模拟弹窗 -->
     <a-modal v-model:open="pathSimVisible" title="路径模拟" @ok="runPathSimulation" @cancel="pathSimVisible = false" width="420px">
@@ -628,38 +308,12 @@
                     <span>{{ item.message }}</span>
                   </a-space>
                 </template>
-                <template #description>
-                  <a-space>
-                    <span>{{ topologyTypeLabel(item.type) }}</span>
-                    <a-button v-if="item.relatedEntityId" type="link" size="small" @click="locateTopologyIssue(item)">
-                      <AimOutlined /> 定位
-                    </a-button>
-                  </a-space>
-                </template>
               </a-list-item-meta>
             </a-list-item>
           </template>
         </a-list>
       </template>
     </a-modal>
-
-    <!-- 新建点位弹窗（已移除，改用连续放置模式）-->
-    <a-modal v-model:open="junctionModalVisible" title="检测到路口" @ok="confirmJunctionType" @cancel="cancelJunctionType">
-      <a-form layout="vertical">
-        <a-form-item label="路口类型">
-          <a-select v-model:value="junctionTypeForPending">
-            <a-select-option value="t_junction">T字形（三岔路）</a-select-option>
-            <a-select-option value="cross">十字形（四岔路）</a-select-option>
-            <a-select-option value="normal">其他</a-select-option>
-          </a-select>
-        </a-form-item>
-        <p style="color: #86909c; font-size: 12px; margin: 0;">
-          该节点连接了多条路段，是否将其标记为路口？
-        </p>
-      </a-form>
-    </a-modal>
-
-    <!-- 区域属性填写弹窗（已移除，改用属性面板直接编辑）-->
   </div>
 </template>
 
@@ -667,32 +321,84 @@
 import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
 import { message, Modal } from 'ant-design-vue'
 import { useRoute } from 'vue-router'
-import {
-  EditOutlined, ZoomInOutlined, ZoomOutOutlined,
-  BugOutlined, BranchesOutlined, SaveOutlined,
-  AimOutlined, StopOutlined,
-  MenuFoldOutlined, MenuUnfoldOutlined
-} from '@ant-design/icons-vue'
+import { SaveOutlined } from '@ant-design/icons-vue'
 import { useInspectionStore } from '@/stores/inspection'
 import { MockService } from '@/mock/mockService'
 import type {
-  RoadNode, RoadEdge, RoadSegment, Junction, NavigationPoint,
-  NoGoZone, TopologyCheckResult, TopologyIssue,
-  RoadNodeType, RoadSegmentStatus, NavigationPointType, NoGoZoneLevel,
-  TopologyIssueType, PathAlgorithm, PathResult
+  RoadNode, RoadEdge, NavigationPoint, NoGoZone,
+  RoadNodeType, NavigationPointType,
+  TopologyIssue,
+  PathAlgorithm, PathResult
 } from '@/types/road-network'
-import { useUndoRedo } from '@/utils/undo-redo'
+import type { EditorTool, PlaceNodeType } from '@/types/road-editor'
+
+// ─── 子组件 ───
+import RoadNetworkToolbar from './components/RoadNetworkToolbar.vue'
+import RoadToolPalette from './components/RoadToolPalette.vue'
+import RoadResourceTree from './components/RoadResourceTree.vue'
+import RoadPropertyPanel from './components/RoadPropertyPanel.vue'
+import RoadStatusSummary from './components/RoadStatusSummary.vue'
+import CalibrationNoticeModal from './components/CalibrationNoticeModal.vue'
+import JunctionTypeModal from './components/JunctionTypeModal.vue'
+import SplitViewContainer from './components/SplitViewContainer.vue'
+import Map2DViewport from './components/Map2DViewport.vue'
+import PointCloudViewport from './components/PointCloudViewport.vue'
+import RoadLayerToggleGroup from './components/RoadLayerToggleGroup.vue'
+
+// ─── Composables ───
+import { useRoadEditorTool } from './composables/useRoadEditorTool'
+import { useRoadNetworkData } from './composables/useRoadNetworkData'
+import { useRoadSelection } from './composables/useRoadSelection'
+import { useRoadSegmentDrawing } from './composables/useRoadSegmentDrawing'
+import { useRoadAreaDrawing } from './composables/useRoadAreaDrawing'
+import { useRoadDragging } from './composables/useRoadDragging'
+import { useRoadKeyboardShortcuts } from './composables/useRoadKeyboardShortcuts'
+import { useRoadSplitLayout } from './composables/useRoadSplitLayout'
+import { useRoadCalibration } from './composables/useRoadCalibration'
+import { useRoadHazardPolicy } from './composables/useRoadHazardPolicy'
 
 const route = useRoute()
 const inspectionStore = useInspectionStore()
 
-// ─── 撤销/重做 ───
-const { canUndo: rnCanUndo, canRedo: rnCanRedo, pushSnapshot: rnPushSnapshot, undo: rnUndo, redo: rnRedo, clear: rnClearUndoRedo } = useUndoRedo<string>()
+// ─── 数据层 ───
+const data = useRoadNetworkData()
+const { nodes, edges, segments, junctions, navPoints, noGoZones,
+  lastTopologyCheck, hasUnsavedChanges, selectedMapId,
+  saveAll: persistAll, pushSnapshotBeforeChange } = data
+
+// ─── 工具状态 ───
+const editorTool = useRoadEditorTool()
+const placeNodeType = ref<PlaceNodeType>('inspection')
+
+// ─── 选取 ───
+const selection = useRoadSelection(nodes, segments, junctions, navPoints, noGoZones)
+
+// ─── 绘制 ───
+const segmentDrawing = useRoadSegmentDrawing(nodes, edges, segments, junctions, selectedMapId, pushSnapshotBeforeChange, hasUnsavedChanges)
+const areaDrawing = useRoadAreaDrawing(noGoZones, selectedMapId, pushSnapshotBeforeChange, hasUnsavedChanges)
+
+// ─── 校准 ───
+const calibration = useRoadCalibration(navPoints, selectedMapId)
+
+// ─── 拖拽 ───
+const dragging = useRoadDragging(nodes, navPoints, noGoZones, editorTool.activeTool, selection.selectedEntity, pushSnapshotBeforeChange, hasUnsavedChanges, calibration.markPending)
+
+// ─── 分屏 ───
+const splitLayout = useRoadSplitLayout()
+
+// ─── 危区策略 ───
+const hazardPolicy = useRoadHazardPolicy(noGoZones, navPoints)
+
+// ─── 快捷键 ───
+useRoadKeyboardShortcuts(
+  editorTool.activeTool, selection.selectedEntity,
+  () => segmentDrawing.hasDraft(), () => areaDrawing.hasDraft(),
+  () => segmentDrawing.discardDraft(), () => areaDrawing.discardDraft(),
+  () => selection.clearSelection(), () => deleteSelectedEntity(),
+  () => data.handleUndo(), () => data.handleRedo()
+)
 
 // ─── 地图状态 ───
-const selectedMapId = ref('')
-const searchText = ref('')
-const mapContainerRef = ref<HTMLElement | null>(null)
 const mapWidth = 800
 const mapHeight = 600
 const viewBox = ref(`0 0 ${mapWidth} ${mapHeight}`)
@@ -704,22 +410,10 @@ const mouseMovedDuringDrag = ref(false)
 const panStart = reactive({ x: 0, y: 0 })
 const mousePos = reactive({ x: 0, y: 0 })
 
-// ─── 数据（统一拓扑模型） ───
-const nodes = ref<RoadNode[]>([])
-const edges = ref<RoadEdge[]>([])
-const segments = ref<RoadSegment[]>([])
-const junctions = ref<Junction[]>([])
-const navPoints = ref<NavigationPoint[]>([])
-const noGoZones = ref<NoGoZone[]>([])
-const lastTopologyCheck = ref<TopologyCheckResult | null>(null)
-
-// ─── 侧栏 ───
-const sidebarTab = ref('segment')
-
-// ─── 图层（扁平化，去掉嵌套子类型） ───
+// ─── 图层 ───
 const showSegments = ref(true)
 const showNoGoZones = ref(true)
-const showWaypointNodes = ref(false) // 途经点默认隐藏（普通用户不需要看）
+const showWaypointNodes = ref(false)
 const showJunctionNodes = ref(true)
 const showNavInspection = ref(true)
 const showNavParking = ref(true)
@@ -729,41 +423,8 @@ const showNavCharging = ref(true)
 const sidebarCollapsed = ref(false)
 const propertyCollapsed = ref(false)
 
-// ─── 选中实体 ───
-const selectedEntity = ref<{ type: string; id: string } | null>(null)
-/** 悬停高亮（列表悬停 → 地图对应实体闪烁） */
-const hoverEntity = ref<{ type: string; id: string } | null>(null)
-const editingSegment = ref<RoadSegment | null>(null)
-const editingJunction = ref<Junction | null>(null)
-const editingNavPoint = ref<NavigationPoint | null>(null)
-const editingNoGoZone = ref<NoGoZone | null>(null)
-const editingNode = ref<RoadNode | null>(null)
-const editingNodeJunction = ref<Junction | null>(null)
-
-// ─── 绘制模式 ───
-const drawMode = ref<'segment' | 'polygon' | null>(null)
-const drawingNodes = ref<string[]>([])
-const polygonDrawingPoints = ref<{ x: number; y: number }[]>([])
-const hasUnsavedChanges = ref(false)
-const propertyEditing = ref(false)
-// editMode 已移除：工具栏直接可用，属性面板由 propertyEditing 三态控制
-// deleteMode 已移除：选中元素 → 属性面板「删除」按钮 / Delete 键
-
-// ─── 点位放置模式（连续放置，无弹窗） ───
-const navPointPlacementMode = ref(false)
-/** 连续放置点位时的默认类型 */
-const navPointPlacementType = ref<'inspection' | 'parking' | 'charging'>('inspection')
-
-// ─── 弹窗 ───
-const junctionModalVisible = ref(false)
-const junctionPendingNodeId = ref('')
-const junctionTypeForPending = ref<'t_junction' | 'cross' | 'normal'>('normal')
-/** 暂存路口关联路段 ID 集合 */
-const junctionSegIds = ref<string[]>([])
-const pathSimVisible = ref(false)
-const topologyVisible = ref(false)
-
 // ─── 路径模拟 ───
+const pathSimVisible = ref(false)
 const simStartId = ref<string | null>(null)
 const simEndId = ref<string | null>(null)
 const simAlgorithm = ref<PathAlgorithm>('shortest')
@@ -772,6 +433,7 @@ const simulationPath = ref<{ x1: number; y1: number; x2: number; y2: number }[] 
 
 // ─── 拓扑检查 ───
 const checkingTopology = ref(false)
+const topologyVisible = ref(false)
 
 // ─── 计算属性 ───
 const currentMap = computed(() => inspectionStore.inspectionMaps.find(m => m.id === selectedMapId.value))
@@ -790,8 +452,6 @@ const mapNodes = computed(() => {
 })
 const mapEdges = computed(() => {
   if (!showSegments.value) return []
-  // 只要边所属的路段在当前地图，且边编号在路段的 edgeIds 内，就显示
-  // 不依赖端点节点是否可见——路段和节点是两个独立图层
   const currentSegIds = new Set(segments.value.filter(s => s.mapId === selectedMapId.value).map(s => s.id))
   return edges.value.filter(e => e.mapId === selectedMapId.value && e.segmentId && currentSegIds.has(e.segmentId))
 })
@@ -810,99 +470,424 @@ const mapNavPoints = computed(() => {
   })
 })
 const mapNoGoZones = computed(() => noGoZones.value.filter(z => z.mapId === selectedMapId.value))
-
-const filteredSegments = computed(() => {
-  let list = selectedMapId.value ? segments.value.filter(s => s.mapId === selectedMapId.value) : segments.value
-  if (searchText.value) {
-    const q = searchText.value.toLowerCase()
-    list = list.filter(s => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
-  }
-  return list
-})
-const filteredNavPoints = computed(() => {
-  let list = selectedMapId.value ? navPoints.value.filter(p => p.mapId === selectedMapId.value) : navPoints.value
-  if (searchText.value) {
-    const q = searchText.value.toLowerCase()
-    list = list.filter(p => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
-  }
-  return list
-})
-const filteredNoGoZones = computed(() => {
-  let list = selectedMapId.value ? noGoZones.value.filter(z => z.mapId === selectedMapId.value) : noGoZones.value
-  if (searchText.value) {
-    const q = searchText.value.toLowerCase()
-    list = list.filter(z => z.name.toLowerCase().includes(q) || z.code.toLowerCase().includes(q))
-  }
-  return list
-})
-
-/** 有点位绑定的节点 ID 集合（用于隐藏重叠的节点标签） */
 const navNodeIds = computed(() => new Set(mapNavPoints.value.map(p => p.nodeId)))
-
 const allNavNodes = computed(() => {
   const nodeItems = mapNodes.value.filter(n => n.name).map(n => ({ id: n.id, label: n.name || n.id }))
   const navItems = mapNavPoints.value.map(p => ({ id: p.nodeId, label: `${p.name} (${navPointTypeLabel(p.navType)})` }))
   return [...nodeItems, ...navItems]
 })
-
-const propertyTitle = computed(() => {
-  if (!selectedEntity.value) return ''
-  if (selectedEntity.value.type === 'node' && editingNode.value) return nodeTypeLabel(editingNode.value.nodeType) + '属性'
-  const map: Record<string, string> = { segment: '路段属性', junction: '路口属性', navpoint: '点位属性', nogozone: '区域属性', node: '节点属性' }
-  return map[selectedEntity.value.type] || '属性'
-})
-
-const drawHint = computed(() => {
-  if (drawMode.value === 'segment') {
-    if (drawingNodes.value.length === 0) return '在地图上点击放置起点'
-    return '继续点击添加路径点，点击已有节点可连接；点击「完成绘制」结束'
+const selectedEntityLabel = computed(() => {
+  const s = selection.selectedEntity.value
+  if (!s) return ''
+  if (s.type === 'navpoint') {
+    const p = navPoints.value.find(n => n.id === s.id)
+    return p?.name || ''
   }
-  if (drawMode.value === 'polygon') return '在地图上点击落点绘制区域，点击起点闭合或点「完成绘制」'
-  return ''
+  return s.id
+})
+const placeNodeLabel = computed(() => {
+  const map: Record<string, string> = { inspection: '巡检点', parking: '停车点', charging: '充电点' }
+  return map[placeNodeType.value] || '点位'
 })
 
-// ─── 图形辅助 ───
-function getNodePos(nodeId: string) {
-  const node = nodes.value.find(n => n.id === nodeId)
+// ─── 工具切换 ───
+async function switchTool(nextTool: EditorTool) {
+  if (editorTool.activeTool.value === nextTool) return
+
+  // 检查是否有未完成草稿
+  if (segmentDrawing.hasDraft() || areaDrawing.hasDraft()) {
+    const ok = await new Promise<boolean>(resolve => {
+      Modal.confirm({
+        title: '确认切换',
+        content: '当前绘制尚未完成，切换工具将丢弃未保存内容，确认？',
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false)
+      })
+    })
+    if (!ok) return
+    segmentDrawing.discardDraft()
+    areaDrawing.discardDraft()
+  }
+
+  // 退出编辑态
+  if (selection.propertyEditing.value) {
+    selection.cancelPropertyEdit()
+  }
+
+  editorTool.setActiveTool(nextTool)
+  selection.clearSelection()
+
+  if (nextTool === 'drawSegment') {
+    segmentDrawing.startDrawing()
+  } else if (nextTool === 'drawArea') {
+    areaDrawing.startDrawing()
+  }
+}
+
+function finishCurrentDraw() {
+  if (editorTool.isTool('drawSegment')) {
+    if (!segmentDrawing.hasDraft()) return
+    const result = segmentDrawing.commitDraft()
+    if (result) {
+      selection.selectEntity('segment', result.segmentId)
+      selection.enterPropertyEdit()
+    }
+  } else if (editorTool.isTool('drawArea')) {
+    const result = areaDrawing.finishDrawing()
+    if (result) {
+      selection.selectEntity('nogozone', result.zoneId)
+      selection.enterPropertyEdit()
+    }
+  }
+  editorTool.setActiveTool('select')
+}
+
+function cancelCurrentDraw() {
+  segmentDrawing.discardDraft()
+  areaDrawing.discardDraft()
+  editorTool.setActiveTool('select')
+}
+
+// ─── 保存 ───
+function saveAll() {
+  if (!selectedMapId.value) { message.warning('请先选择地图'); return }
+  if (selection.propertyEditing.value) {
+    savePropertyEdit()
+  }
+  persistAll()
+  message.success('路网已保存')
+}
+
+function savePropertyEdit() {
+  if (!selection.selectedEntity.value) return
+  const { type, id } = selection.selectedEntity.value
+  const now = new Date()
+
+  if (type === 'segment' && selection.editingSegment.value) {
+    const es = selection.editingSegment.value
+    es.edgeIds.forEach(eid => {
+      const edge = edges.value.find(e => e.id === eid)
+      if (edge) { edge.bidirectional = es.bidirectional; edge.speedLimit = es.speedLimit; edge.width = es.width }
+    })
+    es.updatedAt = now
+    const idx = segments.value.findIndex(s => s.id === id)
+    if (idx >= 0) segments.value[idx] = { ...es }
+  } else if (type === 'junction' && selection.editingJunction.value) {
+    selection.editingJunction.value.updatedAt = now
+    const idx = junctions.value.findIndex(j => j.id === id)
+    if (idx >= 0) junctions.value[idx] = { ...selection.editingJunction.value }
+  } else if (type === 'navpoint' && selection.editingNavPoint.value) {
+    selection.editingNavPoint.value.updatedAt = now
+    const idx = navPoints.value.findIndex(p => p.id === id)
+    if (idx >= 0) navPoints.value[idx] = { ...selection.editingNavPoint.value }
+  } else if (type === 'nogozone' && selection.editingNoGoZone.value) {
+    // 危区策略校验
+    const ez = selection.editingNoGoZone.value
+    hazardPolicy.clearErrors()
+    hazardPolicy.validateZ1SafeExit(ez)
+    if (hazardPolicy.hazardPolicyErrors.value.length > 0) {
+      message.warning(hazardPolicy.hazardPolicyErrors.value[0])
+      return
+    }
+    ez.updatedAt = now
+    const idx = noGoZones.value.findIndex(z => z.id === id)
+    if (idx >= 0) noGoZones.value[idx] = { ...ez }
+  }
+
+  hasUnsavedChanges.value = true
+  selection.propertyEditing.value = false
+  message.success('属性已保存')
+}
+
+// ─── 删除选中实体 ───
+function deleteSelectedEntity() {
+  if (!selection.selectedEntity.value) return
+  const { type, id } = selection.selectedEntity.value
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除吗？保存后才会持久化。`,
+    okButtonProps: { danger: true },
+    onOk() {
+      pushSnapshotBeforeChange()
+      deleteEntityLocally(type, id)
+      hasUnsavedChanges.value = true
+      message.success('已删除（未持久化）')
+    }
+  })
+}
+
+function deleteEntityLocally(type: string, id: string) {
+  if (type === 'segment') {
+    const seg = segments.value.find(s => s.id === id)
+    if (seg) {
+      const edgeIdsToRemove = new Set(seg.edgeIds)
+      edges.value = edges.value.filter(e => !edgeIdsToRemove.has(e.id))
+      nodes.value.forEach(n => { n.edgeIds = n.edgeIds.filter(eid => !edgeIdsToRemove.has(eid)) })
+      segments.value = segments.value.filter(s => s.id !== id)
+    }
+  } else if (type === 'junction') {
+    junctions.value = junctions.value.filter(j => j.id !== id)
+  } else if (type === 'navpoint') {
+    navPoints.value = navPoints.value.filter(p => p.id !== id)
+  } else if (type === 'nogozone') {
+    noGoZones.value = noGoZones.value.filter(z => z.id !== id)
+  }
+  selection.clearSelection()
+}
+
+// ─── 地图事件 ───
+function onMapClick(e: MouseEvent) {
+  if (!selectedMapId.value) return
+
+  const svg = e.currentTarget as SVGSVGElement
+  const rect = svg.getBoundingClientRect()
+  const x = ((e.clientX - rect.left) / rect.width) * mapWidth / scale.value + panX.value
+  const y = ((e.clientY - rect.top) / rect.height) * mapHeight / scale.value + panY.value
+
+  if (isPanning.value) return
+
+  if (editorTool.isTool('drawSegment')) {
+    segmentDrawing.addNode(x, y)
+  } else if (editorTool.isTool('drawArea')) {
+    areaDrawing.addPoint(x, y)
+  } else if (editorTool.isTool('placeNode')) {
+    createNavPointAtPosition(x, y)
+  } else if (editorTool.isTool('select')) {
+    // 点击空白取消选中
+    selection.clearSelection()
+  }
+}
+
+function onNodeClick(node: RoadNode) {
+  if (editorTool.isTool('drawSegment')) {
+    segmentDrawing.connectToExistingNode(node.id)
+    return
+  }
+  selection.selectEntity('node', node.id)
+  calibration.checkSelectionForCalibration('navpoint', node.id)
+}
+
+function onNodeMouseDown(node: RoadNode, e: MouseEvent) {
+  onNodeClick(node)
+  const rect = (e.currentTarget as SVGSVGElement)?.closest('svg')?.getBoundingClientRect()
+  if (!rect) return
+  dragging.startDrag(
+    { type: 'node', id: node.id },
+    { x: ((e.clientX - rect.left) / rect.width) * mapWidth / scale.value + panX.value,
+      y: ((e.clientY - rect.top) / rect.height) * mapHeight / scale.value + panY.value }
+  )
+}
+
+function onNavPointMouseDown(p: NavigationPoint, e: MouseEvent) {
+  selection.selectEntity('navpoint', p.id)
+  const svg = (e.currentTarget as HTMLElement).closest('svg')
+  const rect = svg?.getBoundingClientRect()
+  if (!rect) return
+  dragging.startDrag(
+    { type: 'navpoint', id: p.id },
+    { x: ((e.clientX - rect.left) / rect.width) * mapWidth / scale.value + panX.value,
+      y: ((e.clientY - rect.top) / rect.height) * mapHeight / scale.value + panY.value }
+  )
+}
+
+function onZoneClick(zone: NoGoZone) {
+  selection.selectEntity('nogozone', zone.id)
+}
+
+function selectSegmentByEdge(edge: RoadEdge) {
+  if (edge.segmentId) selection.selectEntity('segment', edge.segmentId)
+}
+
+function onTreeSelect(type: string, id: string) {
+  selection.selectEntity(type, id)
+  calibration.checkSelectionForCalibration(type, id)
+}
+
+function onMapMouseDown(e: MouseEvent) {
+  if (e.button === 1 || (e.button === 0 && editorTool.isTool('select'))) {
+    isPanning.value = true; panStart.x = e.clientX; panStart.y = e.clientY; mouseMovedDuringDrag.value = false
+  }
+}
+
+function onMapMouseMove(e: MouseEvent) {
+  const svg = (e.currentTarget as SVGSVGElement)
+  if (!svg) return
+  const rect = svg.getBoundingClientRect()
+  const mx = ((e.clientX - rect.left) / rect.width) * mapWidth / scale.value + panX.value
+  const my = ((e.clientY - rect.top) / rect.height) * mapHeight / scale.value + panY.value
+  mousePos.x = mx; mousePos.y = my
+
+  segmentDrawing.setPreviewPoint({ x: mx, y: my })
+  areaDrawing.setPreviewPoint({ x: mx, y: my })
+
+  if (isPanning.value) {
+    const moved = Math.hypot(e.clientX - panStart.x, e.clientY - panStart.y)
+    if (moved > 5) mouseMovedDuringDrag.value = true
+    if (!mouseMovedDuringDrag.value) return
+    const dx = (e.clientX - panStart.x) / rect.width * mapWidth / scale.value
+    const dy = (e.clientY - panStart.y) / rect.height * mapHeight / scale.value
+    panX.value -= dx; panY.value -= dy; panStart.x = e.clientX; panStart.y = e.clientY
+    updateViewBox()
+  }
+
+  if (dragging.isDragging()) {
+    dragging.moveDrag({ x: mx, y: my })
+  }
+}
+
+function onMapMouseUp() {
+  if (dragging.isDragging()) {
+    dragging.endDrag()
+  }
+  isPanning.value = false
+  mouseMovedDuringDrag.value = false
+}
+
+function onRightClick() {
+  if (editorTool.isTool('drawArea')) {
+    finishCurrentDraw()
+  }
+}
+
+// ─── 新建点位 ───
+function createNavPointAtPosition(x: number, y: number) {
+  const now = new Date()
+  const id = `nav-${Date.now()}`
+  const code = `P${String(navPoints.value.length + 1).padStart(3, '0')}`
+  const nodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+
+  const newNode: RoadNode = {
+    id: nodeId, nodeType: 'waypoint', position: { x, y },
+    edgeIds: [], mapId: selectedMapId.value,
+    createdAt: now, updatedAt: now
+  }
+  nodes.value.push(newNode)
+
+  const name = `${placeNodeLabel.value} ${code}`
+  const p: NavigationPoint = {
+    id, name, code, mapId: selectedMapId.value, area: '',
+    navType: placeNodeType.value as NavigationPointType,
+    position: { x, y }, nodeId,
+    createdAt: now, updatedAt: now
+  }
+  navPoints.value.push(p)
+  hasUnsavedChanges.value = true
+  selection.selectEntity('navpoint', id)
+  selection.enterPropertyEdit()
+  message.success(`已放置${placeNodeLabel.value}，继续点击放置下一个`)
+}
+
+// ─── 图层切换 ───
+function toggleLayer(layer: string) {
+  const toggleMap: Record<string, () => void> = {
+    segments: () => { showSegments.value = !showSegments.value },
+    junctions: () => { showJunctionNodes.value = !showJunctionNodes.value },
+    inspection: () => { showNavInspection.value = !showNavInspection.value },
+    parking: () => { showNavParking.value = !showNavParking.value },
+    charging: () => { showNavCharging.value = !showNavCharging.value },
+    zones: () => { showNoGoZones.value = !showNoGoZones.value },
+    waypoints: () => { showWaypointNodes.value = !showWaypointNodes.value }
+  }
+  toggleMap[layer]?.()
+}
+
+// ─── 地图控制 ───
+function zoomIn() { scale.value = Math.min(scale.value * 1.2, 5); updateViewBox() }
+function zoomOut() { scale.value = Math.max(scale.value / 1.2, 0.3); updateViewBox() }
+function updateViewBox() {
+  const w = mapWidth / scale.value; const h = mapHeight / scale.value
+  viewBox.value = `${panX.value} ${panY.value} ${w} ${h}`
+}
+function resetView() { scale.value = 1; panX.value = 0; panY.value = 0; updateViewBox() }
+
+function fitContent() {
+  const currentNodes = nodes.value.filter(n => n.mapId === selectedMapId.value && n.position)
+  if (currentNodes.length === 0) { resetView(); return }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  currentNodes.forEach(n => {
+    if (n.position.x < minX) minX = n.position.x
+    if (n.position.y < minY) minY = n.position.y
+    if (n.position.x > maxX) maxX = n.position.x
+    if (n.position.y > maxY) maxY = n.position.y
+  })
+  noGoZones.value.filter(z => z.mapId === selectedMapId.value).forEach(z => {
+    z.polygonPoints.forEach(p => {
+      if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y
+      if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y
+    })
+  })
+  const padding = 60
+  minX = Math.max(0, minX - padding); minY = Math.max(0, minY - padding)
+  maxX = Math.min(mapWidth, maxX + padding); maxY = Math.min(mapHeight, maxY + padding)
+  const contentW = maxX - minX; const contentH = maxY - minY
+  if (contentW <= 0 || contentH <= 0) { resetView(); return }
+  const scaleX = mapWidth / contentW; const scaleY = mapHeight / contentH
+  scale.value = Math.min(scaleX, scaleY, 2)
+  panX.value = minX - (mapWidth / scale.value - contentW) / 2
+  panY.value = minY - (mapHeight / scale.value - contentH) / 2
+  updateViewBox()
+}
+
+function onMapChange() {
+  selection.clearSelection()
+  segmentDrawing.discardDraft()
+  areaDrawing.discardDraft()
+  simulationPath.value = null; simResult.value = null
+  data.clearUndoRedo()
+  setTimeout(() => fitContent(), 100)
+}
+
+function filterNodeOption(input: string, option: any) {
+  const item = allNavNodes.value.find(n => n.id === option.value)
+  return (item?.label || '').toLowerCase().includes(input.toLowerCase())
+}
+
+// ─── SVG 辅助 ───
+function getNode(nodeId: string) { return nodes.value.find(n => n.id === nodeId) }
+function getTempNodePos(nodeId: string) {
+  const node = segmentDrawing.segmentDraft.value?.tempNodes.find(n => n.id === nodeId)
+  return node?.position || { x: 0, y: 0 }
+}
+function getLastDraftNodePos() {
+  if (!segmentDrawing.segmentDraft.value) return { x: 0, y: 0 }
+  const ids = segmentDrawing.segmentDraft.value.nodeIds
+  const lastId = ids[ids.length - 1]
+  const node = segmentDrawing.segmentDraft.value.tempNodes.find(n => n.id === lastId) || nodes.value.find(n => n.id === lastId)
+  return node?.position || { x: 0, y: 0 }
+}
+function getDraftAreaPoints() {
+  if (!areaDrawing.areaDraft.value) return ''
+  return [...areaDrawing.areaDraft.value.points, mousePos].map(p => `${p.x},${p.y}`).join(' ')
+}
+function getJunctionNodePos(j: any) {
+  const node = nodes.value.find(n => n.id === j.nodeId)
   return node ? node.position : { x: 0, y: 0 }
 }
-
-function getJunctionPos(j: Junction) {
-  return getNodePos(j.nodeId)
-}
-
 function getNodeRadius(node: RoadNode) {
   if (node.nodeType === 'junction') return 8
-  if (node.nodeType === 'inspection' || node.nodeType === 'parking' || node.nodeType === 'charging') return 7
+  if (['inspection', 'parking', 'charging'].includes(node.nodeType)) return 7
   return 5
 }
-
 function getNodeColor(node: RoadNode) {
-  if (selectedEntity.value?.type === 'node' && selectedEntity.value?.id === node.id) return '#1677ff'
-  if (node.nodeType === 'junction') return '#faad14'
-  if (node.nodeType === 'inspection') return '#1677ff'
-  if (node.nodeType === 'parking') return '#52c41a'
-  if (node.nodeType === 'charging') return '#7cb305'
-  return '#8c8c8c'
+  if (selection.selectedEntity.value?.type === 'node' && selection.selectedEntity.value?.id === node.id) return '#1677ff'
+  const map: Record<string, string> = { junction: '#faad14', inspection: '#1677ff', parking: '#52c41a', charging: '#7cb305' }
+  return map[node.nodeType] || '#8c8c8c'
 }
-
-function nodeTypeLabel(t: RoadNodeType) {
-  const map: Record<string, string> = { waypoint: '途经点', junction: '路口节点', inspection: '巡检点', parking: '停车点', charging: '充电点' }
-  return map[t] || t
+function getNodeStroke(node: RoadNode) {
+  if (selection.selectedEntity.value?.type === 'node' && selection.selectedEntity.value?.id === node.id) return '#0958d9'
+  return '#fff'
 }
-
-function nodeTypeIcon(t: RoadNodeType) {
+function nodeIcon(t: RoadNodeType) {
   const map: Record<string, string> = { junction: 'J', inspection: '巡', parking: '停', charging: '充' }
   return map[t] || ''
 }
 
-function getNodeStroke(node: RoadNode) {
-  if (selectedEntity.value?.type === 'node' && selectedEntity.value?.id === node.id) return '#0958d9'
-  return '#fff'
-}
-
 function getEdgeColor(edge: RoadEdge) {
   if (isPathEdge(edge.id)) return '#ff4d4f'
+  // 颜色实时预览：如果正在编辑该路段且修改了颜色，使用编辑副本的颜色
+  if (selection.selectedEntity.value?.type === 'segment' && selection.selectedEntity.value?.id === edge.segmentId && selection.editingSegment.value?.color && selection.propertyEditing.value) {
+    return selection.editingSegment.value.color
+  }
   const seg = edge.segmentId ? segments.value.find(s => s.id === edge.segmentId) : null
   return seg?.color || '#1677ff'
 }
@@ -912,21 +897,15 @@ function hasReverseEdge(edge: RoadEdge): boolean {
 }
 
 function getEdgePath(edge: RoadEdge): string {
-  const p1 = getNodePos(edge.fromNodeId)
-  const p2 = getNodePos(edge.toNodeId)
-  if (!hasReverseEdge(edge)) {
-    return `M${p1.x},${p1.y} L${p2.x},${p2.y}`
-  }
-  const mx = (p1.x + p2.x) / 2
-  const my = (p1.y + p2.y) / 2
-  const dx = p2.x - p1.x
-  const dy = p2.y - p1.y
+  const p1 = getNode(edge.fromNodeId)?.position || { x: 0, y: 0 }
+  const p2 = getNode(edge.toNodeId)?.position || { x: 0, y: 0 }
+  if (!hasReverseEdge(edge)) return `M${p1.x},${p1.y} L${p2.x},${p2.y}`
+  const mx = (p1.x + p2.x) / 2; const my = (p1.y + p2.y) / 2
+  const dx = p2.x - p1.x; const dy = p2.y - p1.y
   const len = Math.hypot(dx, dy) || 1
   const offset = Math.min(20, len * 0.25)
   const dir = edge.fromNodeId < edge.toNodeId ? 1 : -1
-  const cx = mx + (-dy / len) * offset * dir
-  const cy = my + (dx / len) * offset * dir
-  return `M${p1.x},${p1.y} Q${cx},${cy} ${p2.x},${p2.y}`
+  return `M${p1.x},${p1.y} Q${mx + (-dy / len) * offset * dir},${my + (dx / len) * offset * dir} ${p2.x},${p2.y}`
 }
 
 function getEdgeSegment(edge: RoadEdge) {
@@ -937,31 +916,9 @@ function isPathEdge(edgeId: string) {
   return simResult.value?.pathEdgeIds.includes(edgeId) || false
 }
 
-function getLastDrawNodePos() {
-  const lastId = drawingNodes.value[drawingNodes.value.length - 1]
-  return getNodePos(lastId)
-}
-
-function getArrowPoints(edge: RoadEdge) {
-  const p1 = getNodePos(edge.fromNodeId)
-  const p2 = getNodePos(edge.toNodeId)
-  const mx = (p1.x + p2.x) / 2
-  const my = (p1.y + p2.y) / 2
-  const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x)
-  const size = 6
-  return [
-    `${mx + Math.cos(angle) * size},${my + Math.sin(angle) * size}`,
-    `${mx + Math.cos(angle + 2.5) * size * 0.6},${my + Math.sin(angle + 2.5) * size * 0.6}`,
-    `${mx + Math.cos(angle - 2.5) * size * 0.6},${my + Math.sin(angle - 2.5) * size * 0.6}`
-  ].join(' ')
-}
-
-function zonePolygonCenter(zone: NoGoZone) {
+function calcPolygonCenter(zone: NoGoZone) {
   if (!zone.polygonPoints.length) return { x: 0, y: 0 }
-  return {
-    x: zone.polygonPoints.reduce((s, p) => s + p.x, 0) / zone.polygonPoints.length,
-    y: zone.polygonPoints.reduce((s, p) => s + p.y, 0) / zone.polygonPoints.length
-  }
+  return { x: zone.polygonPoints.reduce((s, p) => s + p.x, 0) / zone.polygonPoints.length, y: zone.polygonPoints.reduce((s, p) => s + p.y, 0) / zone.polygonPoints.length }
 }
 
 function noGoZoneFill(zone: NoGoZone) {
@@ -969,34 +926,19 @@ function noGoZoneFill(zone: NoGoZone) {
   const map: Record<string, string> = { permanent: '#ff4d4f', temporary: '#faad14', high_risk: '#ff7a45', maintenance: '#1677ff' }
   return map[zone.level] || '#d9d9d9'
 }
-
 function noGoZoneStroke(zone: NoGoZone) {
   if (zone.zoneType !== 'forbidden') return '#389e0d'
   const map: Record<string, string> = { permanent: '#cf1322', temporary: '#d48806', high_risk: '#d4380d', maintenance: '#0958d9' }
   return map[zone.level] || '#8c8c8c'
 }
 
-// ─── 标签/颜色辅助 ───
-function segmentStatusColor(s: RoadSegmentStatus) {
-  const map: Record<string, string> = { active: 'green', inactive: 'default', construction: 'orange', blocked: 'red', maintenance: 'blue' }
-  return map[s] || 'default'
+function getZoneHighlightClass(zone: NoGoZone) {
+  const s = selection
+  if (s.isEntitySelected('nogozone', zone.id)) return 'entity-highlight'
+  if (s.isEntityHovered('nogozone', zone.id)) return 'entity-hover'
+  return ''
 }
-function segmentStatusLabel(s: RoadSegmentStatus) {
-  const map: Record<string, string> = { active: '启用', inactive: '停用', construction: '施工中', blocked: '禁行', maintenance: '维护中' }
-  return map[s] || s
-}
-function segmentTypeLabel(t: string) {
-  const map: Record<string, string> = { trunk: '主干路', branch: '次干路', patrol: '巡检通道', service: '服务通道' }
-  return map[t] || t
-}
-function navPointTypeLabel(t: NavigationPointType) {
-  const map: Record<string, string> = { inspection: '巡检点', parking: '停车点', charging: '充电点' }
-  return map[t] || t
-}
-function navPointTypeColor(t: NavigationPointType) {
-  const map: Record<string, string> = { inspection: 'blue', parking: 'green', charging: 'lime' }
-  return map[t] || 'default'
-}
+
 function navPointColor(t: NavigationPointType) {
   const map: Record<string, string> = { inspection: '#1677ff', parking: '#52c41a', charging: '#7cb305' }
   return map[t] || '#8c8c8c'
@@ -1005,891 +947,67 @@ function navPointIcon(t: NavigationPointType) {
   const map: Record<string, string> = { inspection: '巡', parking: '停', charging: '充' }
   return map[t] || 'N'
 }
-function noGoLevelLabel(l: NoGoZoneLevel) {
-  const map: Record<string, string> = { permanent: '永久禁行', temporary: '临时禁行', high_risk: '高风险', maintenance: '维修区域' }
-  return map[l] || l
-}
-function noGoLevelColor(l: NoGoZoneLevel) {
-  const map: Record<string, string> = { permanent: 'red', temporary: 'orange', high_risk: 'volcano', maintenance: 'blue' }
-  return map[l] || 'default'
-}
-function topologyTypeLabel(t: TopologyIssueType) {
-  const map: Record<string, string> = {
-    isolated_node: '孤立节点', isolated_edge: '孤立边', dead_end: '死胡同',
-    disconnected_component: '断路', overlapping_edge: '重叠边',
-    self_intersecting: '自交', width_insufficient: '宽度不足', radius_insufficient: '转弯半径不足',
-    charging_unreachable: '充电点不可达'
-  }
+function navPointTypeLabel(t: NavigationPointType) {
+  const map: Record<string, string> = { inspection: '巡检点', parking: '停车点', charging: '充电点' }
   return map[t] || t
 }
 
-function locateTopologyIssue(issue: TopologyIssue) {
-  if (!issue.relatedEntityId) return
-  const typeMap: Record<string, string> = { node: 'node', edge: 'segment', segment: 'segment', junction: 'junction' }
-  const entityType = typeMap[issue.relatedEntityType || 'node'] || 'node'
-  selectEntity(entityType, issue.relatedEntityId)
-  // 平移到实体位置
-  let pos: { x: number; y: number } | null = null
-  if (entityType === 'node') {
-    const node = nodes.value.find(n => n.id === issue.relatedEntityId)
-    if (node) pos = node.position
-  } else if (entityType === 'junction') {
-    const junc = junctions.value.find(j => j.id === issue.relatedEntityId)
-    if (junc) pos = getNodePos(junc.nodeId)
-  }
-  if (pos) {
-    panX.value = pos.x - mapWidth / scale.value / 2
-    panY.value = pos.y - mapHeight / scale.value / 2
-    updateViewBox()
-  }
-  topologyVisible.value = false
-}
-
-// ─── 属性面板三态 ───
-function enterPropertyEdit() {
-  propertyEditing.value = true
-}
-
-function savePropertyEdit() {
-  if (selectedEntity.value) saveSelectedEntity()
-  propertyEditing.value = false
-  hasUnsavedChanges.value = true
-  message.success('属性已应用，点击「保存路网」持久化到系统')
-}
-
-function cancelPropertyEdit() {
-  // 重新加载选中实体的原始数据
-  if (selectedEntity.value) {
-    selectEntity(selectedEntity.value.type, selectedEntity.value.id)
-  }
-  propertyEditing.value = false
-}
-
-function discardAllChanges() {
-  clearDrawing()
-  selectedEntity.value = null
-  editingSegment.value = null
-  editingJunction.value = null
-  editingNavPoint.value = null
-  editingNoGoZone.value = null
-  editingNode.value = null
-  editingNodeJunction.value = null
-  loadData()
-  hasUnsavedChanges.value = false
-  message.info('已放弃所有修改')
-  setTimeout(() => fitContent(), 150)
-}
-
-// ─── 选择实体 ───
-function selectEntity(type: string, id: string) {
-  // 再次点击已选中的实体则取消选中
-  if (selectedEntity.value?.type === type && selectedEntity.value?.id === id) {
-    selectedEntity.value = null
-    editingSegment.value = null
-    editingJunction.value = null
-    editingNavPoint.value = null
-    editingNoGoZone.value = null
-    editingNode.value = null
-    editingNodeJunction.value = null
-    return
-  }
-  selectedEntity.value = { type, id }
-  editingSegment.value = type === 'segment' ? { ...segments.value.find(s => s.id === id)! } : null
-  editingJunction.value = type === 'junction' ? { ...junctions.value.find(j => j.id === id)! } : null
-  editingNavPoint.value = type === 'navpoint' ? { ...navPoints.value.find(p => p.id === id)! } : null
-  editingNoGoZone.value = type === 'nogozone' ? { ...noGoZones.value.find(z => z.id === id)! } : null
-  editingNode.value = type === 'node' ? { ...nodes.value.find(n => n.id === id)! } : null
-  // 选中路口节点时，自动关联路口数据
-  if (type === 'node' && editingNode.value?.nodeType === 'junction') {
-    const found = junctions.value.find(j => j.nodeId === id)
-    editingNodeJunction.value = found ? { ...found } : null
-  } else {
-    editingNodeJunction.value = null
-  }
-  // 列表联动：选中时地图定位到该实体
-  centerOnEntity(type, id)
-}
-
-// ─── 列表联动：地图定位 ───
-function centerOnEntity(type: string, id: string) {
-  let x = 0, y = 0, found = false
-  if (type === 'node' || type === 'junction') {
-    const node = nodes.value.find(n => n.id === id)
-    if (node) { x = node.position.x; y = node.position.y; found = true }
-  } else if (type === 'navpoint') {
-    const np = navPoints.value.find(p => p.id === id)
-    if (np) {
-      const node = nodes.value.find(n => n.id === np.nodeId)
-      if (node) { x = node.position.x; y = node.position.y; found = true }
-    }
-  } else if (type === 'segment') {
-    const seg = segments.value.find(s => s.id === id)
-    if (seg && seg.edgeIds.length > 0) {
-      const edge = edges.value.find(e => e.id === seg.edgeIds[0])
-      if (edge) {
-        const from = nodes.value.find(n => n.id === edge.fromNodeId)
-        const to = nodes.value.find(n => n.id === edge.toNodeId)
-        if (from && to) { x = (from.position.x + to.position.x) / 2; y = (from.position.y + to.position.y) / 2; found = true }
-      }
-    }
-  } else if (type === 'nogozone') {
-    const zone = noGoZones.value.find(z => z.id === id)
-    if (zone && zone.polygonPoints.length > 0) {
-      const pts = zone.polygonPoints
-      x = pts.reduce((s, p) => s + p.x, 0) / pts.length
-      y = pts.reduce((s, p) => s + p.y, 0) / pts.length
-      found = true
-    }
-  }
-  if (found) {
-    panX.value = x - mapWidth / scale.value / 2
-    panY.value = y - mapHeight / scale.value / 2
-    updateViewBox()
-  }
-}
-
-// ─── 节点类型切换 ───
-function onNodeTypeChange(newType: RoadNodeType) {
-  if (!editingNode.value) return
-  if (newType === 'junction') {
-    // 切换到路口：自动创建路口实体（如果不存在）
-    let junc = junctions.value.find(j => j.nodeId === editingNode.value!.id)
-    if (!junc) {
-      const jId = `junc-${Date.now()}`
-      const jCode = `J${String(junctions.value.length + 1).padStart(3, '0')}`
-      junc = {
-        id: jId, name: editingNode.value!.name || jCode, code: jCode,
-        mapId: selectedMapId.value, nodeId: editingNode.value!.id,
-        connectedSegmentIds: [], junctionType: 'normal',
-        priority: 'main_road', conflictMode: 'mutex',
-        allowLeftTurn: true, allowRightTurn: true, allowStraight: true, allowUTurn: false,
-        createdAt: new Date(), updatedAt: new Date()
-      }
-      junctions.value.push(junc)
-    }
-    editingNodeJunction.value = { ...junc }
-  } else {
-    // 切换到非路口：清除路口关联
-    editingNodeJunction.value = null
-  }
-}
-
-// ─── 保存/删除实体（仅更新本地，不持久化） ───
-function saveSelectedEntity() {
-  if (!selectedEntity.value) return
-  const now = new Date()
-  const { type, id } = selectedEntity.value
-
-  if (type === 'segment' && editingSegment.value) {
-    editingSegment.value.edgeIds.forEach(eid => {
-      const edge = edges.value.find(e => e.id === eid)
-      if (edge) {
-        edge.bidirectional = editingSegment.value!.bidirectional
-        edge.speedLimit = editingSegment.value!.speedLimit
-        edge.width = editingSegment.value!.width
-      }
-    })
-    editingSegment.value.updatedAt = now
-    const idx = segments.value.findIndex(s => s.id === id)
-    if (idx >= 0) segments.value[idx] = { ...editingSegment.value }
-    message.success('路段属性已更新（未持久化）')
-  } else if (type === 'junction' && editingJunction.value) {
-    editingJunction.value.updatedAt = now
-    const idx = junctions.value.findIndex(j => j.id === id)
-    if (idx >= 0) junctions.value[idx] = { ...editingJunction.value }
-    message.success('路口属性已更新（未持久化）')
-  } else if (type === 'navpoint' && editingNavPoint.value) {
-    editingNavPoint.value.updatedAt = now
-    const idx = navPoints.value.findIndex(p => p.id === id)
-    if (idx >= 0) navPoints.value[idx] = { ...editingNavPoint.value }
-    message.success('点位属性已更新（未持久化）')
-  } else if (type === 'nogozone' && editingNoGoZone.value) {
-    editingNoGoZone.value.updatedAt = now
-    const idx = noGoZones.value.findIndex(z => z.id === id)
-    if (idx >= 0) noGoZones.value[idx] = { ...editingNoGoZone.value }
-    message.success('区域属性已更新（未持久化）')
-  } else if (type === 'node' && editingNode.value) {
-    editingNode.value.updatedAt = now
-    const idx = nodes.value.findIndex(n => n.id === id)
-    if (idx >= 0) nodes.value[idx] = { ...editingNode.value }
-    // 保存路口数据
-    if (editingNode.value.nodeType === 'junction' && editingNodeJunction.value) {
-      editingNodeJunction.value.name = editingNode.value.name || editingNodeJunction.value.name
-      editingNodeJunction.value.updatedAt = now
-      const jIdx = junctions.value.findIndex(j => j.id === editingNodeJunction.value!.id)
-      if (jIdx >= 0) junctions.value[jIdx] = { ...editingNodeJunction.value }
-    }
-    message.success('节点属性已更新（未持久化）')
-  }
-  hasUnsavedChanges.value = true
-}
-
-function deleteSelectedEntity() {
-  if (!selectedEntity.value) return
-  const { type, id } = selectedEntity.value
-  Modal.confirm({
-    title: '确认删除',
-    content: `确定要删除该${propertyTitle.value}吗？保存后才会持久化。`,
-    onOk() {
-      deleteEntityLocally(type, id)
-      message.success('已删除（未持久化）')
-    }
-  })
-}
-
-/** 本地删除实体（不持久化） */
-function deleteEntityLocally(type: string, id: string) {
-  if (type === 'segment') {
-    const seg = segments.value.find(s => s.id === id)
-    if (seg) {
-      // 删除关联边
-      const edgeIdsToRemove = new Set(seg.edgeIds)
-      edges.value = edges.value.filter(e => !edgeIdsToRemove.has(e.id))
-      // 清理节点的 edgeIds
-      nodes.value.forEach(n => {
-        n.edgeIds = n.edgeIds.filter(eid => !edgeIdsToRemove.has(eid))
-      })
-      segments.value = segments.value.filter(s => s.id !== id)
-    }
-  } else if (type === 'junction') {
-    junctions.value = junctions.value.filter(j => j.id !== id)
-  } else if (type === 'navpoint') {
-    navPoints.value = navPoints.value.filter(p => p.id !== id)
-  } else if (type === 'nogozone') {
-    noGoZones.value = noGoZones.value.filter(z => z.id !== id)
-  } else if (type === 'node') {
-    const node = nodes.value.find(n => n.id === id)
-    if (node) {
-      // 删除关联边
-      const edgeIdsToRemove = new Set(node.edgeIds)
-      edges.value = edges.value.filter(e => !edgeIdsToRemove.has(e.id))
-      // 从其他节点的 edgeIds 中清理
-      nodes.value.forEach(n => {
-        if (n.id !== id) n.edgeIds = n.edgeIds.filter(eid => !edgeIdsToRemove.has(eid))
-      })
-      // 删除关联路段中的引用
-      segments.value.forEach(s => {
-        s.nodeIds = s.nodeIds.filter(nid => nid !== id)
-        s.edgeIds = s.edgeIds.filter(eid => !edgeIdsToRemove.has(eid))
-      })
-      nodes.value = nodes.value.filter(n => n.id !== id)
-    }
-  }
-  if (selectedEntity.value?.id === id) selectedEntity.value = null
-  hasUnsavedChanges.value = true
-}
-
-// ─── 点位放置模式切换（连续放置，无弹窗） ───
-function toggleNavPointPlacement() {
-  if (navPointPlacementMode.value) {
-    navPointPlacementMode.value = false
-    return
-  }
-  if (!selectedMapId.value) { message.warning('请先选择地图'); return }
-  navPointPlacementMode.value = true
-  clearDrawing()
-  selectedEntity.value = null
-  message.info(`点击地图放置${navPointPlacementType.value === 'inspection' ? '巡检点' : navPointPlacementType.value === 'parking' ? '停车点' : '充电点'}，支持连续放置`)
-}
-
-// ─── 由于删除模式已移除，删除统一通过选中 → 属性面板「删除」/ Delete 键 ───
-function onEdgeClick(edge: RoadEdge) {
-  // 选中该边所在的路段
-  if (edge.segmentId) {
-    selectEntity('segment', edge.segmentId)
-  }
-}
-
-// ─── 批量保存（持久化到 localStorage） ───
-function saveAll() {
-  if (!selectedMapId.value) { message.warning('请先选择地图'); return }
-  // 先保存当前正在编辑的实体到本地 refs
-  if (selectedEntity.value) saveSelectedEntity()
-
-  // 持久化所有数据
-  nodes.value.forEach(n => MockService.saveRoadNode(n))
-  edges.value.forEach(e => MockService.saveRoadEdge(e))
-  segments.value.forEach(s => MockService.saveRoadSegment(s))
-  junctions.value.forEach(j => MockService.saveJunction(j))
-  navPoints.value.forEach(p => MockService.saveNavigationPoint(p))
-  noGoZones.value.forEach(z => MockService.saveNoGoZone(z))
-
-  // 清理 localStorage 中已被删除的条目
-  const nodeIds = new Set(nodes.value.map(n => n.id))
-  const edgeIds = new Set(edges.value.map(e => e.id))
-  const segIds = new Set(segments.value.map(s => s.id))
-  const juncIds = new Set(junctions.value.map(j => j.id))
-  const navIds = new Set(navPoints.value.map(p => p.id))
-  const zoneIds = new Set(noGoZones.value.map(z => z.id))
-
-  MockService.getRoadNodes().forEach(n => { if (!nodeIds.has(n.id)) MockService.deleteRoadNode(n.id) })
-  MockService.getRoadEdges().forEach(e => { if (!edgeIds.has(e.id)) MockService.deleteRoadEdge(e.id) })
-  MockService.getRoadSegments().forEach(s => { if (!segIds.has(s.id)) MockService.deleteRoadSegment(s.id) })
-  MockService.getJunctions().forEach(j => { if (!juncIds.has(j.id)) MockService.deleteJunction(j.id) })
-  MockService.getNavigationPoints().forEach(p => { if (!navIds.has(p.id)) MockService.deleteNavigationPoint(p.id) })
-  MockService.getNoGoZones().forEach(z => { if (!zoneIds.has(z.id)) MockService.deleteNoGoZone(z.id) })
-
-  hasUnsavedChanges.value = false
-  message.success('路网已保存')
-}
-
-// ─── 连续点位创建（无弹窗，直接在地图点击创建） ───
-function createNavPointAtPosition(x: number, y: number, navType: 'inspection' | 'parking' | 'charging'): NavigationPoint | null {
-  const now = new Date()
-  const id = `nav-${Date.now()}`
-  const code = `P${String(navPoints.value.length + 1).padStart(3, '0')}`
-
-  // 自动创建一个拓扑节点
-  const nodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-  const newNode: RoadNode = {
-    id: nodeId, nodeType: 'waypoint', position: { x, y },
-    edgeIds: [], mapId: selectedMapId.value,
-    createdAt: now, updatedAt: now
-  }
-  nodes.value.push(newNode)
-
-  const name = `${navType === 'inspection' ? '巡检点' : navType === 'parking' ? '停车点' : '充电点'} ${code}`
-
-  const p: NavigationPoint = {
-    id, name, code,
-    mapId: selectedMapId.value, area: '', navType,
-    position: { x, y }, nodeId,
-    // 类型专属默认值
-    ...(navType === 'inspection' ? {
-      stayDurationSec: 30,
-      photoStrategy: 'auto',
-      isRequiredInspection: true
-    } : {}),
-    ...(navType === 'charging' ? {
-      chargingMethod: 'auto',
-      chargingPower: 5,
-      estimatedChargingTime: 60
-    } : {}),
-    ...(navType === 'parking' ? {
-      parkingPriority: 5,
-      maxWaitingTime: 300
-    } : {}),
-    createdAt: now, updatedAt: now
-  }
-  navPoints.value.push(p)
-  hasUnsavedChanges.value = true
-  return p
-}
-
-// ─── 绘制模式 ───
-/** 进入路段绘制前 showWaypointNodes 的值，退出时恢复 */
-let prevShowWaypointNodes = false
-
-function toggleDrawMode(mode: 'segment' | 'polygon') {
-  if (drawMode.value === mode) {
-    clearDrawing()
-  } else {
-    drawMode.value = mode
-    drawingNodes.value = []
-    polygonDrawingPoints.value = []
-    selectedEntity.value = null
-    // 路段绘制时自动显示途经点节点，让用户看到正在画什么
-    if (mode === 'segment') {
-      prevShowWaypointNodes = showWaypointNodes.value
-      showWaypointNodes.value = true
-    }
-  }
-}
-
-function clearDrawing() {
-  drawMode.value = null
-  drawingNodes.value = []
-  polygonDrawingPoints.value = []
-  navPointPlacementMode.value = false
-  // 恢复途经点可见性
-  if (showWaypointNodes.value !== prevShowWaypointNodes) {
-    showWaypointNodes.value = prevShowWaypointNodes
-  }
-}
-
-// ─── 核心绘制：路段（自动创建 Node + Edge + Segment） ───
-function addDrawNode(x: number, y: number) {
-  const nodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-  const newNode: RoadNode = {
-    id: nodeId, nodeType: 'waypoint', position: { x, y },
-    edgeIds: [], mapId: selectedMapId.value,
-    createdAt: new Date(), updatedAt: new Date()
-  }
-
-  if (drawingNodes.value.length === 0) {
-    // 第一个节点：创建节点 + 路段
-    nodes.value.push(newNode)
-    drawingNodes.value.push(nodeId)
-
-    const segId = `seg-${Date.now()}`
-    const segCode = `S${String(segments.value.length + 1).padStart(4, '0')}`
-    const newSeg: RoadSegment = {
-      id: segId, name: `路段 ${segCode}`, code: segCode,
-      mapId: selectedMapId.value, area: '', segmentType: 'trunk', status: 'active',
-      nodeIds: [nodeId], edgeIds: [], length: 0, width: 3,
-      startPoint: { x, y }, endPoint: { x, y },
-      bidirectional: true, speedLimit: 30, safetyLevel: 'normal' as const,
-      allowReverse: false, allowUTurn: false, allowSpin: false,
-      color: '#1677ff', createdAt: new Date(), updatedAt: new Date()
-    }
-    segments.value.push(newSeg)
-  } else {
-    // 后续节点：创建节点 + 边，更新路段
-    const lastId = drawingNodes.value[drawingNodes.value.length - 1]
-    const lastPos = getNodePos(lastId)
-    const distance = Math.hypot(x - lastPos.x, y - lastPos.y)
-
-    // 获取当前正在绘制的路段（最后一个）
-    const currentSeg = segments.value[segments.value.length - 1]
-
-    const edgeId = `edge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    const newEdge: RoadEdge = {
-      id: edgeId, fromNodeId: lastId, toNodeId: nodeId,
-      segmentId: currentSeg.id, distance, bidirectional: currentSeg.bidirectional,
-      speedLimit: currentSeg.speedLimit, width: currentSeg.width,
-      mapId: selectedMapId.value, createdAt: new Date(), updatedAt: new Date()
-    }
-
-    // 更新节点的 edgeIds
-    newNode.edgeIds.push(edgeId)
-    const lastNode = nodes.value.find(n => n.id === lastId)
-    if (lastNode) {
-      lastNode.edgeIds.push(edgeId)
-    }
-
-    nodes.value.push(newNode)
-    edges.value.push(newEdge)
-    drawingNodes.value.push(nodeId)
-
-    // 更新路段
-    currentSeg.nodeIds.push(nodeId)
-    currentSeg.edgeIds.push(edgeId)
-    currentSeg.endPoint = { x, y }
-    currentSeg.length += distance
-    currentSeg.updatedAt = new Date()
-
-    // 自动路口检测
-    autoDetectJunction(lastId)
-  }
-  hasUnsavedChanges.value = true
-}
-
-function finishSegmentDrawing() {
-  if (drawingNodes.value.length < 2) {
-    message.warning('路段至少需要 2 个节点')
-    clearDrawing()
-    return
-  }
-  const seg = segments.value[segments.value.length - 1]
-  message.success(`路段 "${seg.name}" 绘制完成，${seg.nodeIds.length} 个节点，${Math.round(seg.length)}m`)
-  // 自动选中新路段，属性面板进入编辑态
-  selectEntity('segment', seg.id)
-  propertyEditing.value = true
-  drawMode.value = null
-  drawingNodes.value = []
-}
-
-// ─── 自动路口检测 ───
-function autoDetectJunction(nodeId: string) {
-  const node = nodes.value.find(n => n.id === nodeId)
-  if (!node) return
-  // 如果节点有 3 条及以上连接边，且不是已标记的路口/业务类型
-  if (node.edgeIds.length >= 3 && node.nodeType === 'waypoint') {
-    // 检查是否已存在路口
-    const existing = junctions.value.find(j => j.nodeId === nodeId)
-    if (existing) {
-      // 更新关联路段
-      const segIds = new Set<string>()
-      node.edgeIds.forEach(eid => {
-        const edge = edges.value.find(e => e.id === eid)
-        if (edge?.segmentId) segIds.add(edge.segmentId)
-      })
-      existing.connectedSegmentIds = [...segIds]
-      return
-    }
-
-    // 收集关联路段 ID
-    const segIds = new Set<string>()
-    node.edgeIds.forEach(eid => {
-      const edge = edges.value.find(e => e.id === eid)
-      if (edge?.segmentId) segIds.add(edge.segmentId)
-    })
-
-    // 弹出路口类型选择（使用 Vue 模态框替代 Modal.confirm）
-    junctionPendingNodeId.value = nodeId
-    junctionTypeForPending.value = 'normal'
-    junctionSegIds.value = [...segIds]
-    junctionModalVisible.value = true
-  }
-}
-
-/** 确认路口类型并创建路口实体 */
-function confirmJunctionType() {
-  const nodeId = junctionPendingNodeId.value
-  if (!nodeId) return
-  const node = nodes.value.find(n => n.id === nodeId)
-  if (!node) return
-
-  const jId = `junc-${Date.now()}`
-  const jCode = `J${String(junctions.value.length + 1).padStart(3, '0')}`
-  const jt = junctionTypeForPending.value
-
-  const j: Junction = {
-    id: jId, name: jCode, code: jCode, mapId: selectedMapId.value,
-    nodeId, connectedSegmentIds: [...junctionSegIds.value], junctionType: jt,
-    priority: 'main_road', conflictMode: 'mutex',
-    allowLeftTurn: true, allowRightTurn: true, allowStraight: true, allowUTurn: false,
-    createdAt: new Date(), updatedAt: new Date()
-  }
-  junctions.value.push(j)
-  hasUnsavedChanges.value = true
-  message.success(`已创建路口 ${jCode}（${jt === 't_junction' ? 'T字形' : jt === 'cross' ? '十字形' : '其他'}）`)
-  junctionModalVisible.value = false
-  junctionPendingNodeId.value = ''
-}
-
-/** 取消路口创建，恢复为途经点 */
-function cancelJunctionType() {
-  const nodeId = junctionPendingNodeId.value
-  if (nodeId) {
-    const node = nodes.value.find(n => n.id === nodeId)
-    if (node) node.nodeType = 'waypoint'
-  }
-  message.info('已忽略路口检测')
-  junctionModalVisible.value = false
-  junctionPendingNodeId.value = ''
-}
-
-// ─── Polygon 区域绘制 ───
-function addPolygonPoint(x: number, y: number) {
-  // 如果点击靠近起点(距离<20px)，自动闭合
-  if (polygonDrawingPoints.value.length >= 2) {
-    const first = polygonDrawingPoints.value[0]
-    const dist = Math.hypot(x - first.x, y - first.y)
-    if (dist < 20) {
-      finishPolygonDrawing()
-      return
-    }
-  }
-  polygonDrawingPoints.value.push({ x, y })
-}
-
-function finishPolygonDrawing() {
-  if (polygonDrawingPoints.value.length < 3) {
-    message.warning('区域至少需要 3 个顶点')
-    clearDrawing()
-    return
-  }
-  // 不再弹窗：直接在右侧属性面板编辑
-  const now = new Date()
-  const id = `nogo-${Date.now()}`
-  const zone: NoGoZone = {
-    id, name: `区域 ${noGoZones.value.length + 1}`,
-    code: `NG${String(noGoZones.value.length + 1).padStart(3, '0')}`,
-    mapId: selectedMapId.value, zoneType: 'normal', level: 'permanent',
-    polygonPoints: [...polygonDrawingPoints.value],
-    reason: '', createdAt: now, updatedAt: now
-  }
-  noGoZones.value.push(zone)
-  hasUnsavedChanges.value = true
-  message.success(`区域 "${zone.name}" 已创建（未持久化），请在右侧面板编辑属性`)
-  selectEntity('nogozone', id)
-  propertyEditing.value = true
-  drawMode.value = null
-  polygonDrawingPoints.value = []
-}
-
-// ─── 地图事件 ───
-function onMapClick(e: MouseEvent) {
-  if (!selectedMapId.value) return
-
-  // 点位放置模式：连续创建，无弹窗，创建后右侧面板自动切换到新点位编辑
-  if (navPointPlacementMode.value) {
-    const svg = e.currentTarget as SVGSVGElement
-    const rect = svg.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * mapWidth / scale.value + panX.value
-    const y = ((e.clientY - rect.top) / rect.height) * mapHeight / scale.value + panY.value
-    // 直接创建点位，不弹窗
-    const navPoint = createNavPointAtPosition(x, y, navPointPlacementType.value)
-    if (navPoint) {
-      selectEntity('navpoint', navPoint.id)
-      propertyEditing.value = true // 自动进入编辑态，方便改名字
-      message.success(`已放置${navPointPlacementType.value === 'inspection' ? '巡检点' : navPointPlacementType.value === 'parking' ? '停车点' : '充电点'}，继续点击放置下一个`)
-    }
-    return
-  }
-
-  if (isPanning.value) return
-  const svg = e.currentTarget as SVGSVGElement
-  const rect = svg.getBoundingClientRect()
-  const x = ((e.clientX - rect.left) / rect.width) * mapWidth / scale.value + panX.value
-  const y = ((e.clientY - rect.top) / rect.height) * mapHeight / scale.value + panY.value
-
-  // 绘制模式下才允许绘制
-  if (drawMode.value === 'segment') addDrawNode(x, y)
-  else if (drawMode.value === 'polygon') addPolygonPoint(x, y)
-}
-
-function onNodeClick(node: RoadNode) {
-  if (drawMode.value === 'segment') {
-    const lastId = drawingNodes.value[drawingNodes.value.length - 1]
-    // 避免重复点击同一个节点
-    if (lastId === node.id) return
-
-    // 第一个点：直接以已有节点作为起点
-    if (!lastId) {
-      const segId = `seg-${Date.now()}`
-      const segCode = `S${String(segments.value.length + 1).padStart(4, '0')}`
-      const newSeg: RoadSegment = {
-        id: segId, name: `路段 ${segCode}`, code: segCode,
-        mapId: selectedMapId.value, area: '', segmentType: 'trunk', status: 'active',
-        nodeIds: [node.id], edgeIds: [], length: 0, width: 3,
-        startPoint: { x: node.position.x, y: node.position.y },
-        endPoint: { x: node.position.x, y: node.position.y },
-        bidirectional: true, speedLimit: 30, safetyLevel: 'normal' as const,
-        allowReverse: false, allowUTurn: false, allowSpin: false,
-        color: '#1677ff', createdAt: new Date(), updatedAt: new Date()
-      }
-      segments.value.push(newSeg)
-      drawingNodes.value.push(node.id)
-      hasUnsavedChanges.value = true
-      return
-    }
-
-    // 后续点：创建边连接到已有节点
-    const lastPos = getNodePos(lastId)
-    const distance = Math.hypot(node.position.x - lastPos.x, node.position.y - lastPos.y)
-    const currentSeg = segments.value[segments.value.length - 1]
-    if (!currentSeg) return
-
-    const edgeId = `edge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    const newEdge: RoadEdge = {
-      id: edgeId, fromNodeId: lastId, toNodeId: node.id,
-      segmentId: currentSeg.id, distance, bidirectional: currentSeg.bidirectional,
-      speedLimit: currentSeg.speedLimit, width: currentSeg.width,
-      mapId: selectedMapId.value, createdAt: new Date(), updatedAt: new Date()
-    }
-    edges.value.push(newEdge)
-
-    // 更新两端节点的 edgeIds
-    const lastNode = nodes.value.find(n => n.id === lastId)
-    if (lastNode) lastNode.edgeIds.push(edgeId)
-    node.edgeIds.push(edgeId)
-
-    // 更新路段
-    currentSeg.nodeIds.push(node.id)
-    currentSeg.edgeIds.push(edgeId)
-    currentSeg.endPoint = { x: node.position.x, y: node.position.y }
-    currentSeg.length += distance
-    currentSeg.updatedAt = new Date()
-
-    drawingNodes.value.push(node.id)
-    hasUnsavedChanges.value = true
-
-    // 自动路口检测
-    autoDetectJunction(lastId)
-    autoDetectJunction(node.id)
-    return
-  }
-  selectEntity('node', node.id)
-}
-
-function onMapMouseDown(e: MouseEvent) {
-  if (e.button === 1 || (e.button === 0 && !drawMode.value)) {
-    isPanning.value = true; panStart.x = e.clientX; panStart.y = e.clientY; mouseMovedDuringDrag.value = false
-  }
-}
-
-function onMapMouseMove(e: MouseEvent) {
-  const svg = (e.currentTarget as SVGSVGElement) || mapContainerRef.value?.querySelector('svg')
-  if (!svg) return
-  const rect = svg.getBoundingClientRect()
-  mousePos.x = ((e.clientX - rect.left) / rect.width) * mapWidth / scale.value + panX.value
-  mousePos.y = ((e.clientY - rect.top) / rect.height) * mapHeight / scale.value + panY.value
-  if (isPanning.value) {
-    const moved = Math.hypot(e.clientX - panStart.x, e.clientY - panStart.y)
-    if (moved > 5) mouseMovedDuringDrag.value = true
-    if (!mouseMovedDuringDrag.value) return
-    const dx = (e.clientX - panStart.x) / rect.width * mapWidth / scale.value
-    const dy = (e.clientY - panStart.y) / rect.height * mapHeight / scale.value
-    panX.value -= dx; panY.value -= dy; panStart.x = e.clientX; panStart.y = e.clientY
-    updateViewBox()
-  }
-}
-
-function onMapMouseUp() {
-  isPanning.value = false
-  mouseMovedDuringDrag.value = false
-}
-
-/** 窗口级 mouseup 防止拖拽超出 SVG 后 isPanning 卡死 */
-function onWindowMouseUp() {
-  if (isPanning.value) {
-    isPanning.value = false
-    mouseMovedDuringDrag.value = false
-  }
-}
-
-function onRightClick() {
-  // 路段绘制禁止右键完成（改为工具栏「完成绘制」按钮或点击起点闭合）
-  if (drawMode.value === 'polygon') finishPolygonDrawing()
-}
-
-function onMapChange() {
-  selectedEntity.value = null; drawMode.value = null; drawingNodes.value = []
-  polygonDrawingPoints.value = []; simulationPath.value = null; simResult.value = null
-  navPointPlacementMode.value = false
-  rnClearUndoRedo()
-  // 切换地图后自动居中
-  setTimeout(() => fitContent(), 100)
-}
-
-// ─── 撤销/重做处理 ───
-function getRnSnapshot(): string {
-  return JSON.stringify({ nodes: nodes.value, edges: edges.value, segments: segments.value, junctions: junctions.value, navPoints: navPoints.value, noGoZones: noGoZones.value })
-}
-
-function restoreRnSnapshot(json: string) {
-  try {
-    const data = JSON.parse(json)
-    if (data.nodes) nodes.value = data.nodes
-    if (data.edges) edges.value = data.edges
-    if (data.segments) segments.value = data.segments
-    if (data.junctions) junctions.value = data.junctions
-    if (data.navPoints) navPoints.value = data.navPoints
-    if (data.noGoZones) noGoZones.value = data.noGoZones
-    hasUnsavedChanges.value = true
-  } catch { /* ignore corrupt snapshot */ }
-}
-
-function handleRnUndo() {
-  const prev = rnUndo(getRnSnapshot())
-  if (prev) { restoreRnSnapshot(prev); message.info('已撤销') }
-}
-
-function handleRnRedo() {
-  const next = rnRedo(getRnSnapshot())
-  if (next) { restoreRnSnapshot(next); message.info('已重做') }
-}
-
-function rnPushBeforeChange() {
-  rnPushSnapshot(getRnSnapshot())
-}
-
-// ─── 地图控制 ───
-function zoomIn() { scale.value = Math.min(scale.value * 1.2, 5); updateViewBox() }
-function zoomOut() { scale.value = Math.max(scale.value / 1.2, 0.3); updateViewBox() }
-function resetView() { scale.value = 1; panX.value = 0; panY.value = 0; updateViewBox() }
-function updateViewBox() {
-  const w = mapWidth / scale.value; const h = mapHeight / scale.value
-  viewBox.value = `${panX.value} ${panY.value} ${w} ${h}`
-}
-
-/** 自动缩放适配所有节点 */
-function fitContent() {
-  const currentNodes = nodes.value.filter(n => n.mapId === selectedMapId.value && n.position)
-  if (currentNodes.length === 0) {
-    resetView()
-    return
-  }
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  currentNodes.forEach(n => {
-    if (n.position.x < minX) minX = n.position.x
-    if (n.position.y < minY) minY = n.position.y
-    if (n.position.x > maxX) maxX = n.position.x
-    if (n.position.y > maxY) maxY = n.position.y
-  })
-  // 同时检查区域顶点
-  noGoZones.value.filter(z => z.mapId === selectedMapId.value).forEach(z => {
-    z.polygonPoints.forEach(p => {
-      if (p.x < minX) minX = p.x
-      if (p.y < minY) minY = p.y
-      if (p.x > maxX) maxX = p.x
-      if (p.y > maxY) maxY = p.y
-    })
-  })
-  const padding = 60
-  minX = Math.max(0, minX - padding)
-  minY = Math.max(0, minY - padding)
-  maxX = Math.min(mapWidth, maxX + padding)
-  maxY = Math.min(mapHeight, maxY + padding)
-  const contentW = maxX - minX
-  const contentH = maxY - minY
-  if (contentW <= 0 || contentH <= 0) { resetView(); return }
-  const scaleX = mapWidth / contentW
-  const scaleY = mapHeight / contentH
-  scale.value = Math.min(scaleX, scaleY, 2)
-  panX.value = minX - (mapWidth / scale.value - contentW) / 2
-  panY.value = minY - (mapHeight / scale.value - contentH) / 2
-  updateViewBox()
-}
-
-function filterNodeOption(input: string, option: any) {
-  const item = allNavNodes.value.find(n => n.id === option.value)
-  return (item?.label || '').toLowerCase().includes(input.toLowerCase())
-}
-
-// ─── Dijkstra 路径规划 ───
+// ─── 路径模拟 ───
 function runPathSimulation() {
   if (!simStartId.value || !simEndId.value) { message.warning('请选择起点和终点'); return }
   simResult.value = null; simulationPath.value = null
-
   const result = dijkstra(simStartId.value, simEndId.value, simAlgorithm.value)
   simResult.value = result
-
   if (result.found) {
-    // 构建可视化路径
     const segs: { x1: number; y1: number; x2: number; y2: number }[] = []
     for (let i = 0; i < result.pathNodeIds.length - 1; i++) {
-      const p1 = getNodePos(result.pathNodeIds[i])
-      const p2 = getNodePos(result.pathNodeIds[i + 1])
+      const p1 = getNode(result.pathNodeIds[i])?.position || { x: 0, y: 0 }
+      const p2 = getNode(result.pathNodeIds[i + 1])?.position || { x: 0, y: 0 }
       segs.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y })
     }
     simulationPath.value = segs
     message.success(`路径找到: ${Math.round(result.totalDistance)}m`)
+
+    // 检查路径是否经过 Z2 禁入区
+    hazardPolicy.validatePathNoZ2(result.pathNodeIds, (id) => {
+      const n = nodes.value.find(nn => nn.id === id)
+      return n?.position || { x: 0, y: 0 }
+    })
+    if (hazardPolicy.hazardPolicyErrors.value.length > 0) {
+      message.warning(hazardPolicy.hazardPolicyErrors.value[0])
+    }
   } else {
     message.error('无法找到可达路径')
   }
 }
 
 function dijkstra(startId: string, endId: string, algorithm: PathAlgorithm): PathResult {
-  // 构建带权邻接表
   const adjMap = new Map<string, { edgeId: string; neighborId: string; weight: number }[]>()
-
   mapEdges.value.forEach(edge => {
     const weight = calcEdgeWeight(edge, algorithm)
     if (weight === Infinity) return
-
-    // 正向
     if (!adjMap.has(edge.fromNodeId)) adjMap.set(edge.fromNodeId, [])
     adjMap.get(edge.fromNodeId)!.push({ edgeId: edge.id, neighborId: edge.toNodeId, weight })
-
-    // 反向（如果双向）
     if (edge.bidirectional) {
       if (!adjMap.has(edge.toNodeId)) adjMap.set(edge.toNodeId, [])
       adjMap.get(edge.toNodeId)!.push({ edgeId: edge.id, neighborId: edge.fromNodeId, weight })
     }
   })
-
-  // Dijkstra
   const dist = new Map<string, number>()
   const prev = new Map<string, { nodeId: string; edgeId: string }>()
   const visited = new Set<string>()
   const pq: { nodeId: string; dist: number }[] = [{ nodeId: startId, dist: 0 }]
   dist.set(startId, 0)
-
   while (pq.length > 0) {
     pq.sort((a, b) => a.dist - b.dist)
     const { nodeId: current } = pq.shift()!
     if (visited.has(current)) continue
     visited.add(current)
-
     if (current === endId) break
-
     const neighbors = adjMap.get(current) || []
     for (const { edgeId, neighborId, weight } of neighbors) {
       if (visited.has(neighborId)) continue
-      const newDist = (dist.get(current) || Infinity) + weight
+      const newDist = (dist.get(current) || 0) + weight
       if (newDist < (dist.get(neighborId) || Infinity)) {
         dist.set(neighborId, newDist)
         prev.set(neighborId, { nodeId: current, edgeId })
@@ -1897,83 +1015,47 @@ function dijkstra(startId: string, endId: string, algorithm: PathAlgorithm): Pat
       }
     }
   }
-
-  // 回溯路径
   if (!prev.has(endId) && startId !== endId) {
     return { found: false, pathNodeIds: [], pathEdgeIds: [], totalDistance: 0, estimatedTime: 0, algorithm }
   }
-
-  const pathNodeIds: string[] = []
-  const pathEdgeIds: string[] = []
+  const pathNodeIds: string[] = []; const pathEdgeIds: string[] = []
   let cursor: string | undefined = endId
   while (cursor) {
     pathNodeIds.unshift(cursor)
     const p = prev.get(cursor)
-    if (p) {
-      pathEdgeIds.unshift(p.edgeId)
-      cursor = p.nodeId
-    } else {
-      break
-    }
+    if (p) { pathEdgeIds.unshift(p.edgeId); cursor = p.nodeId } else break
   }
-
   const totalDistance = dist.get(endId) || 0
-  // 估算时间：基于限速
   let estimatedTime = 0
   for (const eid of pathEdgeIds) {
     const edge = edges.value.find(e => e.id === eid)
-    if (edge) {
-      const speed = edge.speedLimit || 30 // km/h
-      estimatedTime += (edge.distance / 1000) / speed * 3600 // 秒
-    }
+    if (edge) estimatedTime += (edge.distance / 1000) / (edge.speedLimit || 30) * 3600
   }
-
   return { found: true, pathNodeIds, pathEdgeIds, totalDistance, estimatedTime, algorithm }
 }
 
 function calcEdgeWeight(edge: RoadEdge, algorithm: PathAlgorithm): number {
-  // 检查禁止通行区域
   for (const zone of mapNoGoZones.value) {
     if (zone.zoneType === 'forbidden' && (zone.level === 'permanent' || zone.level === 'high_risk')) {
-      const p1 = getNodePos(edge.fromNodeId)
-      const p2 = getNodePos(edge.toNodeId)
-      if (lineIntersectsPolygon(p1, p2, zone.polygonPoints)) {
-        return Infinity
-      }
+      const p1 = getNode(edge.fromNodeId)?.position || { x: 0, y: 0 }
+      const p2 = getNode(edge.toNodeId)?.position || { x: 0, y: 0 }
+      if (lineIntersectsPolygon(p1, p2, zone.polygonPoints)) return Infinity
     }
   }
-
   switch (algorithm) {
-    case 'shortest':
-      return edge.distance
-    case 'fastest':
-      // 时间 = 距离 / 速度
-      return edge.distance / (edge.speedLimit || 30)
-    case 'safest':
-      // 安全权重：距离 * 宽度惩罚 * 限速惩罚
-      const widthPenalty = edge.width < 2 ? 3 : edge.width < 3 ? 1.5 : 1
-      const speedPenalty = edge.speedLimit > 20 ? 1.5 : 1
-      return edge.distance * widthPenalty * speedPenalty
-    default:
-      return edge.distance
+    case 'shortest': return edge.distance
+    case 'fastest': return edge.distance / (edge.speedLimit || 30)
+    case 'safest': return edge.distance * (edge.width < 2 ? 3 : edge.width < 3 ? 1.5 : 1) * (edge.speedLimit > 20 ? 1.5 : 1)
+    default: return edge.distance
   }
 }
 
 function lineIntersectsPolygon(p1: { x: number; y: number }, p2: { x: number; y: number }, polygon: { x: number; y: number }[]): boolean {
-  // 简化检查：线段中点是否在多边形内
-  const mx = (p1.x + p2.x) / 2
-  const my = (p1.y + p2.y) / 2
-  return pointInPolygon(mx, my, polygon)
-}
-
-function pointInPolygon(x: number, y: number, polygon: { x: number; y: number }[]): boolean {
+  const mx = (p1.x + p2.x) / 2; const my = (p1.y + p2.y) / 2
   let inside = false
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x, yi = polygon[i].y
-    const xj = polygon[j].x, yj = polygon[j].y
-    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
-      inside = !inside
-    }
+    const xi = polygon[i].x, yi = polygon[i].y, xj = polygon[j].x, yj = polygon[j].y
+    if ((yi > my) !== (yj > my) && mx < (xj - xi) * (my - yi) / (yj - yi) + xi) inside = !inside
   }
   return inside
 }
@@ -1982,46 +1064,32 @@ function pointInPolygon(x: number, y: number, polygon: { x: number; y: number }[
 function runTopologyCheck() {
   if (!selectedMapId.value) { message.warning('请先选择地图'); return }
   checkingTopology.value = true
-
   setTimeout(() => {
     const issues: TopologyIssue[] = []
-
-    // 1. 孤立节点
     mapNodes.value.forEach(n => {
       if (n.edgeIds.length === 0) {
         issues.push({ id: `iso-node-${n.id}`, type: 'isolated_node', severity: 'warning', message: `节点 ${n.name || n.id} 未连接任何边`, relatedEntityId: n.id, relatedEntityType: 'node' })
       }
     })
-
-    // 2. 死胡同（点位绑定的叶子节点不算死胡同）
     const navNodeIds = new Set(mapNavPoints.value.map(p => p.nodeId))
     mapNodes.value.forEach(n => {
       if (n.edgeIds.length === 1 && !navNodeIds.has(n.id)) {
         issues.push({ id: `dead-${n.id}`, type: 'dead_end', severity: 'info', message: `节点 ${n.name || n.id} 是死胡同`, relatedEntityId: n.id, relatedEntityType: 'node' })
       }
     })
-
-    // 3. 断路检测（连通分量分析）
-    const visited = new Set<string>()
-    const components: string[][] = []
+    const visited = new Set<string>(); const components: string[][] = []
     mapNodes.value.forEach(n => {
       if (visited.has(n.id)) return
-      const component: string[] = []
-      const queue = [n.id]
-      visited.add(n.id)
+      const component: string[] = []; const queue = [n.id]; visited.add(n.id)
       while (queue.length > 0) {
-        const current = queue.shift()!
-        component.push(current)
+        const current = queue.shift()!; component.push(current)
         const node = nodes.value.find(nn => nn.id === current)
         if (node) {
           node.edgeIds.forEach(eid => {
             const edge = edges.value.find(e => e.id === eid)
             if (edge) {
               const neighborId = edge.fromNodeId === current ? edge.toNodeId : edge.fromNodeId
-              if (!visited.has(neighborId) && mapNodes.value.some(nn => nn.id === neighborId)) {
-                visited.add(neighborId)
-                queue.push(neighborId)
-              }
+              if (!visited.has(neighborId) && mapNodes.value.some(nn => nn.id === neighborId)) { visited.add(neighborId); queue.push(neighborId) }
             }
           })
         }
@@ -2031,8 +1099,6 @@ function runTopologyCheck() {
     if (components.length > 1) {
       issues.push({ id: 'disconnected', type: 'disconnected_component', severity: 'critical', message: `路网存在 ${components.length} 个不连通的子图`, relatedEntityType: 'node' })
     }
-
-    // 4. 重叠边检测
     const edgeKeySet = new Set<string>()
     mapEdges.value.forEach(e => {
       const key = [e.fromNodeId, e.toNodeId].sort().join('-')
@@ -2041,23 +1107,6 @@ function runTopologyCheck() {
       }
       edgeKeySet.add(key)
     })
-
-    // 5. 充电点不可达检测
-    const chargingPoints = mapNavPoints.value.filter(p => p.navType === 'charging')
-    if (components.length > 0 && chargingPoints.length > 0) {
-      const mainComponent = components.reduce((a, b) => a.length > b.length ? a : b)
-      const mainSet = new Set(mainComponent)
-      chargingPoints.forEach(cp => {
-        if (!mainSet.has(cp.nodeId)) {
-          issues.push({
-            id: `charge-unreach-${cp.id}`, type: 'charging_unreachable', severity: 'critical',
-            message: `充电点 "${cp.name}" 无法从主网络到达`,
-            relatedEntityId: cp.id, relatedEntityType: 'node'
-          })
-        }
-      })
-    }
-
     const critical = issues.filter(i => i.severity === 'critical').length
     const warning = issues.filter(i => i.severity === 'warning').length
     const info = issues.filter(i => i.severity === 'info').length
@@ -2074,17 +1123,21 @@ function runTopologyCheck() {
   }, 500)
 }
 
-// ─── 数据加载 ───
-function loadData() {
+// ─── 初始化 ───
+function onWindowMouseUp() {
+  if (isPanning.value) {
+    isPanning.value = false
+    mouseMovedDuringDrag.value = false
+  }
+}
+
+function beforeUnloadHandler(e: BeforeUnloadEvent) {
+  if (hasUnsavedChanges.value) { e.preventDefault(); e.returnValue = '' }
+}
+
+onMounted(() => {
   inspectionStore.initialize()
-  nodes.value = MockService.getRoadNodes()
-  edges.value = MockService.getRoadEdges()
-  segments.value = MockService.getRoadSegments()
-  junctions.value = MockService.getJunctions()
-  navPoints.value = MockService.getNavigationPoints()
-  noGoZones.value = MockService.getNoGoZones()
-  const checks = MockService.getTopologyChecks()
-  if (checks.length > 0) lastTopologyCheck.value = checks[checks.length - 1]
+  data.loadData()
 
   const queryMapId = typeof route.query.mapId === 'string' ? route.query.mapId : ''
   if (queryMapId && inspectionStore.inspectionMaps.some(m => m.id === queryMapId)) {
@@ -2092,65 +1145,13 @@ function loadData() {
   } else if (!selectedMapId.value && inspectionStore.inspectionMaps.length > 0) {
     selectedMapId.value = inspectionStore.inspectionMaps[0].id
   }
-  // 数据加载后自动居中显示
   setTimeout(() => fitContent(), 200)
-}
-
-// ─── 离开页面前提醒未保存 ───
-function beforeUnloadHandler(e: BeforeUnloadEvent) {
-  if (hasUnsavedChanges.value) {
-    e.preventDefault()
-    e.returnValue = ''
-  }
-}
-
-function onKeyDown(e: KeyboardEvent) {
-  // Ctrl+Z 撤销
-  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-    e.preventDefault()
-    handleRnUndo()
-    return
-  }
-  // Ctrl+Y / Ctrl+Shift+Z 重做
-  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-    e.preventDefault()
-    handleRnRedo()
-    return
-  }
-  if (e.key === 'Escape') {
-    if (navPointPlacementMode.value) {
-      navPointPlacementMode.value = false
-      message.info('已取消点位放置')
-    }
-  }
-  if (e.key === 'Delete' && selectedEntity.value) {
-    Modal.confirm({
-      title: '确认删除',
-      content: `确定删除该${propertyTitle.value}吗？`,
-      okText: '确认删除',
-      cancelText: '取消',
-      okButtonProps: { danger: true },
-      onOk: () => {
-        rnPushBeforeChange()
-        deleteEntityLocally(selectedEntity.value!.type, selectedEntity.value!.id)
-        selectedEntity.value = null
-        hasUnsavedChanges.value = true
-        message.success('已删除')
-      }
-    })
-  }
-}
-
-onMounted(() => {
-  loadData()
   window.addEventListener('beforeunload', beforeUnloadHandler)
-  window.addEventListener('keydown', onKeyDown)
   window.addEventListener('mouseup', onWindowMouseUp)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnloadHandler)
-  window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('mouseup', onWindowMouseUp)
 })
 </script>
@@ -2163,136 +1164,39 @@ onBeforeUnmount(() => {
   background: #f5f7fa;
 }
 
-.rn-toolbar {
+.rn-layer-bar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px;
-  background: #fff;
+  justify-content: flex-end;
+  padding: 4px 12px;
+  background: #fafafa;
   border-bottom: 1px solid #f0f0f0;
   flex-shrink: 0;
-  .rn-toolbar-left, .rn-toolbar-right { display: flex; align-items: center; gap: 8px; }
-  .rn-title { margin: 0; font-size: 16px; font-weight: 600; color: #1d2129; white-space: nowrap; }
 }
 
 .rn-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 
-.rn-mode-bar {
-  display: flex; align-items: center; gap: 16px;
-  padding: 6px 16px; background: #fafafa; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
-  .mode-hint { font-size: 12px; color: #86909c; }
+.rn-status-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
 }
 
-.layer-popover-content {
-  display: flex; flex-direction: column; gap: 8px;
+.draw-hint {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(22, 119, 255, 0.9);
+  color: #fff;
+  padding: 4px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 30;
 }
-
-.nav-type-selector {
-  :deep(.ant-radio-button-wrapper) { min-width: 72px; text-align: center; }
-}
-
-.rn-sidebar {
-  width: 20%; min-width: 220px; max-width: 300px;
-  background: #fff; border-right: 1px solid #f0f0f0;
-  display: flex; flex-direction: column; overflow: hidden;
-  position: relative;
-  transition: width 0.3s ease, min-width 0.3s ease;
-  .panel-collapse-btn {
-    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
-    width: 20px; height: 48px; background: #fff;
-    border: 1px solid #e8e8e8; border-right: none;
-    border-radius: 4px 0 0 4px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; z-index: 10; font-size: 12px; color: #86909c;
-    transition: background 0.2s;
-    &:hover { background: #f0f5ff; color: #1677ff; }
-  }
-  .rn-sidebar-search { padding: 8px 8px 4px; flex-shrink: 0; }
-  .rn-sidebar-tabs { height: 100%; display: flex; flex-direction: column;
-    :deep(.ant-tabs-content) { flex: 1; overflow: hidden; }
-    :deep(.ant-tabs-tabpane) { height: 100%; overflow-y: auto; }
-  }
-  .sidebar-list { padding: 4px 8px; }
-  .sidebar-item {
-    padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: background 0.15s; margin-bottom: 2px;
-    &:hover { background: #f0f5ff; }
-    &.active { background: #e6f4ff; border-left: 3px solid #1677ff; }
-    .sidebar-item-name { font-size: 13px; font-weight: 500; color: #1d2129; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sidebar-item-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; .meta-text { color: #86909c; } }
-  }
-  &.collapsed {
-    width: 36px; min-width: 36px; max-width: 36px;
-    .panel-collapse-btn { right: 0; }
-  }
-}
-
-.rn-map-area {
-  flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fff;
-  .rn-map-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
-    .rn-layer-toggles { display: flex; gap: 12px; align-items: flex-start;
-      .layer-tree { position: relative; }
-      .layer-tree-header { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-      .layer-tree-arrow { font-size: 10px; color: #86909c; margin-left: 2px; }
-      .layer-tree-body { position: absolute; top: 100%; left: 0; background: #fff; border: 1px solid #e8e8e8; border-radius: 6px; padding: 8px 12px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.1); min-width: 180px; display: flex; flex-direction: column; gap: 6px; }
-      .layer-tree-group { margin-top: 2px; }
-      .layer-tree-group-header { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-      .layer-tree-items { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
-    }
-  }
-  .rn-map-container {
-    position: relative; flex: 1; overflow: hidden; background: #f0f2f5; cursor: crosshair;
-    .rn-map-svg { width: 100%; height: 100%; }
-    .draw-overlay-hint { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(22, 119, 255, 0.9); color: #fff; padding: 4px 16px; border-radius: 4px; font-size: 12px; pointer-events: none; }
-  }
-}
-
-.rn-property-panel {
-  width: 25%; min-width: 260px; max-width: 360px;
-  background: #fff; border-left: 1px solid #f0f0f0;
-  display: flex; flex-direction: column; overflow-y: auto;
-  position: relative;
-  transition: width 0.3s ease, min-width 0.3s ease;
-  .panel-collapse-btn {
-    position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-    width: 20px; height: 48px; background: #fff;
-    border: 1px solid #e8e8e8; border-left: none;
-    border-radius: 0 4px 4px 0;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; z-index: 10; font-size: 12px; color: #86909c;
-    transition: background 0.2s;
-    &:hover { background: #f0f5ff; color: #1677ff; }
-  }
-  .prop-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
-    .prop-title { font-size: 14px; font-weight: 600; color: #1d2129; }
-  }
-  .prop-form { padding: 8px 12px; flex: 1; overflow-y: auto; }
-  .form-readonly {
-    pointer-events: none;
-    opacity: 0.65;
-    :deep(.ant-input),
-    :deep(.ant-select-selector),
-    :deep(.ant-input-number),
-    :deep(.ant-input-textarea textarea),
-    :deep(.ant-btn) {
-      background: #f5f5f5 !important;
-      border-color: #d9d9d9 !important;
-      color: #00000040 !important;
-      cursor: not-allowed !important;
-    }
-  }
-  .prop-empty { display: flex; align-items: center; justify-content: center; height: 100%; }
-  &.collapsed {
-    width: 36px; min-width: 36px; max-width: 36px;
-    overflow: hidden;
-  }
-}
-
-.rn-statusbar {
-  display: flex; align-items: center; gap: 20px; padding: 4px 16px;
-  background: #fff; border-top: 1px solid #f0f0f0; font-size: 12px; color: #86909c; flex-shrink: 0;
-  b { color: #1d2129; }
-  .status-error b { color: #ff4d4f; }
-  .status-coord { font-family: monospace; }
+.draw-hint.placement-hint {
+  background: rgba(82, 196, 26, 0.9) !important;
 }
 
 .clickable { cursor: pointer; }
@@ -2312,32 +1216,12 @@ onBeforeUnmount(() => {
 .zone-label { font-size: 11px; fill: #333; pointer-events: none; font-weight: 600; }
 .junction-icon { font-size: 11px; fill: #fff; pointer-events: none; font-weight: 700; }
 .nav-icon { font-size: 9px; fill: #fff; pointer-events: none; font-weight: 700; }
-
-:deep(.ant-tabs-nav) { margin-bottom: 4px; }
-:deep(.ant-form-item) { margin-bottom: 12px; }
-:deep(.ant-divider) { margin: 12px 0 8px; }
-:deep(.ant-statistic-title) { font-size: 12px; }
-
-/* 图层按钮样式 */
-.rn-layer-toggles {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  .layer-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    padding: 2px 8px;
-    .layer-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
-  }
+.close-pulse { animation: close-pulse 0.6s ease-in-out infinite; }
+@keyframes close-pulse {
+  0%, 100% { r: 6; opacity: 1; }
+  50% { r: 10; opacity: 0.5; }
 }
-.placement-hint { background: rgba(82, 196, 26, 0.9) !important; }
+
 .save-btn-unsaved { animation: save-btn-pulse 1.5s ease-in-out infinite; }
 @keyframes save-btn-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(22, 119, 255, 0.4); }
