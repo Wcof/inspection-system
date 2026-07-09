@@ -202,6 +202,8 @@ export interface NavigationPoint {
   position: { x: number; y: number }
   /** 必须关联到拓扑节点，保证可达性 */
   nodeId: string
+  /** 关联的业务巡检点 ID（打通 NavigationPoint ↔ InspectionPoint） */
+  inspectionPointId?: string
   /** 描述 */
   description?: string
   relatedFacilityId?: string

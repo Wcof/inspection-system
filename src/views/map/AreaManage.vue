@@ -343,6 +343,7 @@ import { message, Modal, Empty } from 'ant-design-vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
+import { MockService } from '@/mock/mockService'
 import { useUndoRedo } from '@/utils/undo-redo'
 import type { InspectionMap } from '@/types/inspection'
 
@@ -578,6 +579,10 @@ function loadRegions() {
       contactPhone: region.contactPhone || ''
     }
   })
+  // 同步区域数据到路网的 NoGoZone，让路网管理页面可看到同一批区域
+  if (selectedMapId.value) {
+    MockService.syncRegionsToNoGoZones(selectedMapId.value)
+  }
   // 初始化 snapshot 用于属性编辑取消还原
   regionsSnapshot = JSON.parse(JSON.stringify(regions.value))
   hasUnsavedChanges.value = false
@@ -612,6 +617,10 @@ function saveRegions() {
     updatedAt: new Date()
   }
   inspectionStore.saveInspectionMap(nextMap)
+  // 同步到路网 NoGoZone 存储
+  if (selectedMapId.value) {
+    MockService.syncRegionsToNoGoZones(selectedMapId.value)
+  }
 }
 
 function goToMapScopedPage(mapId: string, action?: 'create') {

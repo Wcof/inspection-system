@@ -592,9 +592,11 @@ import { message, Modal } from 'ant-design-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useInspectionStore } from '@/stores/inspection'
 import { useRobotStore } from '@/stores/robot'
+import { MockService } from '@/mock/mockService'
 import { CalibrationStatus, InspectionPointType, PositionSource } from '@/types/inspection'
 import { ExceptionStrategy } from '@/types'
 import type { InspectionPoint, MapRegion } from '@/types/inspection'
+import type { NavigationPoint } from '@/types/road-network'
 import { getDetectionItemConfigs } from '@/views/implementation/detection-item-config/model'
 
 type BizPointType = 'inspection' | 'parking' | 'charging'
@@ -614,6 +616,8 @@ interface PointRow {
   bizType: BizPointType
   raw: InspectionPoint
   previewImageUrl?: string
+  /** 关联的导航点 ID（打通 InspectionPoint ↔ NavigationPoint） */
+  navPointId?: string
 }
 
 const workshopImage = new URL('../../车间.png', import.meta.url).href
@@ -919,6 +923,8 @@ function getShortType(type: BizPointType) {
 function buildPointRow(point: InspectionPoint): PointRow {
   const map = inspectionStore.inspectionMaps.find(item => item.id === point.mapId)
   const bizType = getBizTypeFromPoint(point)
+  // 查找关联的导航点
+  const navPoint = MockService.getNavPointByInspectionPoint(point.id)
   return {
     id: point.id,
     name: point.name,
@@ -931,7 +937,8 @@ function buildPointRow(point: InspectionPoint): PointRow {
     areaName: resolveAreaName(point),
     bizType,
     raw: point,
-    previewImageUrl: point.previewImageUrl || workshopImage
+    previewImageUrl: point.previewImageUrl || workshopImage,
+    navPointId: navPoint?.id
   }
 }
 
@@ -1188,7 +1195,12 @@ function deletePoint(record: PointRow) {
     cancelText: '取消',
     onOk() {
       inspectionStore.deleteInspectionPoint(record.id)
-      message.success('已删除点位')
+      // 同步清理关联的导航点
+      const navPoint = MockService.getNavPointByInspectionPoint(record.id)
+      if (navPoint) {
+        MockService.deleteNavigationPoint(navPoint.id)
+      }
+      message.success('已删除点位及关联导航点')
       loadPoints()
     }
   })
@@ -1286,8 +1298,12 @@ function createPoint() {
     return
   }
   const area = areaOptions.value.find(item => item.id === addForm.areaId)
+  const pointId = `point-${Date.now()}`
+  const mapX = addForm.mapX
+  const mapY = addForm.mapY
+  const now = new Date()
   const newPoint: InspectionPoint = {
-    id: `point-${Date.now()}`,
+    id: pointId,
     name,
     code: `IP-${Math.floor(Math.random() * 900 + 100)}`,
     pointType: InspectionPointType.FIXED,
@@ -1296,11 +1312,11 @@ function createPoint() {
     areaId: addForm.areaId || undefined,
     areaName: area?.name || '',
     location: {
-      longitude: Number((120 + addForm.mapX / 1000).toFixed(6)),
-      latitude: Number((30 + addForm.mapY / 1000).toFixed(6)),
+      longitude: Number((120 + mapX / 1000).toFixed(6)),
+      latitude: Number((30 + mapY / 1000).toFixed(6)),
       altitude: 0
     },
-    mapPosition: { x: addForm.mapX, y: addForm.mapY, yaw: 0 },
+    mapPosition: { x: mapX, y: mapY, yaw: 0 },
     sequence: points.value.length + 1,
     calibrationStatus: CalibrationStatus.PENDING,
     stayDurationSec: 0,
@@ -1312,14 +1328,38 @@ function createPoint() {
       skipToNext: true
     },
     positionSource: PositionSource.MAP_PICK,
-    createdAt: new Date(),
-    updatedAt: new Date()
+    createdAt: now,
+    updatedAt: now
   }
 
   inspectionStore.saveInspectionPoint(newPoint)
+
+  // 同步创建 NavigationPoint，打通业务点位与路网导航点位
+  const navPointId = `navlink-${Date.now()}`
+  const navPoint: NavigationPoint = {
+    id: navPointId,
+    name,
+    code: newPoint.code,
+    mapId: selectedMapId.value,
+    area: area?.name || '',
+    navType: addForm.type,
+    position: { x: mapX, y: mapY },
+    nodeId: '', // 暂时没有路网节点，用户后续在路网管理页面关联
+    inspectionPointId: pointId,
+    stayDurationSec: addForm.type === 'inspection' ? 30 : undefined,
+    chargingMethod: addForm.type === 'charging' ? addForm.chargingMethod : undefined,
+    chargingPower: addForm.type === 'charging' ? addForm.chargingPower : undefined,
+    estimatedChargingTime: addForm.type === 'charging' ? addForm.estimatedChargingTime : undefined,
+    parkingPriority: addForm.type === 'parking' ? addForm.parkingPriority : undefined,
+    maxWaitingTime: addForm.type === 'parking' ? addForm.maxWaitingTime : undefined,
+    createdAt: now,
+    updatedAt: now
+  }
+  MockService.saveNavigationPoint(navPoint)
+
   addModalVisible.value = false
   pendingAddPreview.value = null
-  message.success('点位新增成功，可继续点击地图新增下一个点位')
+  message.success('点位新增成功，已同步创建导航点，可继续点击地图新增')
   loadPoints()
 }
 

@@ -334,6 +334,7 @@ export interface MapSettings {
   rotation: number
 }
 
+/** @deprecated 使用 road-network.ts 中的 RoadNode + NavigationPoint 替代 */
 export interface Waypoint {
   id: string
   mapId: string
@@ -344,6 +345,7 @@ export interface Waypoint {
   updatedAt: Date
 }
 
+/** @deprecated 使用 road-network.ts 中的 RoadEdge 替代 */
 export interface WaypointEdge {
   id: string
   fromWaypointId: string
@@ -354,6 +356,7 @@ export interface WaypointEdge {
   updatedAt: Date
 }
 
+/** @deprecated 使用 road-network.ts 中的 PathResult + RoadSegment 替代 */
 export interface InspectionRoute {
   id: string
   name: string

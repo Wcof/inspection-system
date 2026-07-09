@@ -785,6 +785,98 @@ export class MockService {
   }
 
   /** 从快照恢复全部路网数据 */
+  static restoreRoadNetworkFromSnapshot(snapshot: import('@/types/road-network').RoadNetworkSnapshot): void {
+    storage.set(STORAGE_KEYS.ROAD_NODES, snapshot.nodes)
+    storage.set(STORAGE_KEYS.ROAD_EDGES, snapshot.edges)
+    storage.set(STORAGE_KEYS.ROAD_SEGMENTS, snapshot.segments)
+    storage.set(STORAGE_KEYS.JUNCTIONS, snapshot.junctions || [])
+    storage.set(STORAGE_KEYS.NAV_POINTS, snapshot.navPoints || [])
+    storage.set(STORAGE_KEYS.NO_GO_ZONES, snapshot.noGoZones || [])
+  }
+
+  /** 获取当前路网的所有数据快照（用于版本管理/撤销） */
+  static captureRoadNetworkSnapshot(): import('@/types/road-network').RoadNetworkSnapshot {
+    return {
+      nodes: this.getRoadNodes(),
+      edges: this.getRoadEdges(),
+      segments: this.getRoadSegments(),
+      junctions: this.getJunctions(),
+      navPoints: this.getNavigationPoints(),
+      noGoZones: this.getNoGoZones()
+    }
+  }
+
+  /**
+   * 将 InspectionMap 中的 MapRegion 数据同步到 NoGoZone 存储
+   * （用于区域管理页面与路网管理页面的数据打通）
+   */
+  static syncRegionsToNoGoZones(mapId: string): void {
+    const maps = this.getInspectionMaps()
+    const map = maps.find(m => m.id === mapId)
+    if (!map?.regions) return
+
+    const existingZones = this.getNoGoZonesByMapId(mapId)
+    const existingIds = new Set(existingZones.map(z => z.id))
+
+    map.regions.forEach(region => {
+      if (!existingIds.has(region.id)) {
+        const polygonPoints = region.polygonPoints
+          ? region.polygonPoints.split(' ').filter(Boolean).map(p => {
+              const [x, y] = p.split(',').map(Number)
+              return { x, y }
+            })
+          : [
+              { x: region.x, y: region.y },
+              { x: region.x + region.width, y: region.y },
+              { x: region.x + region.width, y: region.y + region.height },
+              { x: region.x, y: region.y + region.height }
+            ]
+        const noGo: NoGoZone = {
+          id: region.id,
+          name: region.name,
+          code: region.code || `RG${String(existingZones.length + 1).padStart(3, '0')}`,
+          mapId,
+          zoneType: region.zoneType || 'normal',
+          level: 'permanent',
+          polygonPoints,
+          description: region.description,
+          responsiblePerson: region.responsiblePerson,
+          contactPhone: region.contactPhone,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+        this.saveNoGoZone(noGo)
+      }
+    })
+  }
+
+  /**
+   * 通过 NavigationPoint 查找关联的 InspectionPoint
+   */
+  static getInspectionPointByNavPoint(navPointId: string): InspectionPoint | undefined {
+    const navPoint = this.getNavigationPoints().find(p => p.id === navPointId)
+    if (!navPoint?.inspectionPointId) return undefined
+    return this.getInspectionPoints().find(p => p.id === navPoint.inspectionPointId)
+  }
+
+  /**
+   * 通过 InspectionPoint 查找关联的 NavigationPoint
+   */
+  static getNavPointByInspectionPoint(inspectionPointId: string): NavigationPoint | undefined {
+    return this.getNavigationPoints().find(p => p.inspectionPointId === inspectionPointId)
+  }
+
+  /**
+   * 创建或更新 NavigationPoint 与 InspectionPoint 的关联
+   */
+  static linkNavPointToInspectionPoint(navPointId: string, inspectionPointId: string): void {
+    const navPoint = this.getNavigationPoints().find(p => p.id === navPointId)
+    if (navPoint) {
+      navPoint.inspectionPointId = inspectionPointId
+      this.saveNavigationPoint(navPoint)
+    }
+  }
+
   // ── Dispatch Resource Pools ──
   static getDispatchResourcePools() {
     return storage.get<any[]>(STORAGE_KEYS.DISPATCH_RESOURCE_POOLS) || []
