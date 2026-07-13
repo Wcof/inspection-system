@@ -10,19 +10,7 @@
       @topology-check="runTopologyCheck"
       @path-sim="pathSimVisible = true"
       @split-change="splitLayout.setLayout($event as any)"
-    >
-      <template #tools>
-        <!-- 工具调色板集成在中间 -->
-      </template>
-      <template #saveBtn>
-        <a-button v-if="data.hasUnsavedChanges.value" size="small" type="primary" ghost @click="saveAll" class="save-btn-unsaved">
-          <SaveOutlined /> 保存路网
-        </a-button>
-        <a-button v-else size="small" type="primary" @click="saveAll">
-          <SaveOutlined /> 保存
-        </a-button>
-      </template>
-    </RoadNetworkToolbar>
+    />
 
     <!-- 工具调色板 -->
     <RoadToolPalette
@@ -216,7 +204,7 @@
         @save="savePropertyEdit"
         @cancel="selection.cancelPropertyEdit()"
         @delete="deleteSelectedEntity"
-        @color-change="() => {}"
+        @color-change="handleSegmentColorChange"
       />
     </div>
 
@@ -355,7 +343,6 @@ import { useRoadDragging } from './composables/useRoadDragging'
 import { useRoadKeyboardShortcuts } from './composables/useRoadKeyboardShortcuts'
 import { useRoadSplitLayout } from './composables/useRoadSplitLayout'
 import { useRoadCalibration } from './composables/useRoadCalibration'
-import { useRoadHazardPolicy } from './composables/useRoadHazardPolicy'
 
 const route = useRoute()
 const inspectionStore = useInspectionStore()
@@ -385,9 +372,6 @@ const dragging = useRoadDragging(nodes, navPoints, noGoZones, editorTool.activeT
 
 // ─── 分屏 ───
 const splitLayout = useRoadSplitLayout()
-
-// ─── 危区策略 ───
-const hazardPolicy = useRoadHazardPolicy(noGoZones, navPoints)
 
 // ─── 快捷键 ───
 useRoadKeyboardShortcuts(
@@ -494,8 +478,12 @@ const placeNodeLabel = computed(() => {
 async function switchTool(nextTool: EditorTool) {
   if (editorTool.activeTool.value === nextTool) return
 
+  // 从 select 切到 select — 保留选中状态
+  if (editorTool.isTool('select') && nextTool === 'select') return
+
   // 检查是否有未完成草稿
-  if (segmentDrawing.hasDraft() || areaDrawing.hasDraft()) {
+  const hasDraft = segmentDrawing.hasDraft() || areaDrawing.hasDraft()
+  if (hasDraft) {
     const ok = await new Promise<boolean>(resolve => {
       Modal.confirm({
         title: '确认切换',
@@ -509,13 +497,29 @@ async function switchTool(nextTool: EditorTool) {
     areaDrawing.discardDraft()
   }
 
-  // 退出编辑态
+  // 检查是否有未保存的属性编辑
   if (selection.propertyEditing.value) {
+    const ok = await new Promise<boolean>(resolve => {
+      Modal.confirm({
+        title: '确认切换',
+        content: '当前属性有未保存的修改，切换工具将放弃修改，确认？',
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false)
+      })
+    })
+    if (!ok) return
     selection.cancelPropertyEdit()
   }
 
+  // 从 select 切到绘制类工具，清空选择
+  if (editorTool.isTool('select') && (nextTool === 'drawSegment' || nextTool === 'drawArea' || nextTool === 'placeNode')) {
+    selection.clearSelection()
+  }
+
+  // 从 placeNode 切换到其他 — 直接退出放置模式
+  // 从 drawSegment/drawArea 切换到其他 — 以上已处理草稿确认
+
   editorTool.setActiveTool(nextTool)
-  selection.clearSelection()
 
   if (nextTool === 'drawSegment') {
     segmentDrawing.startDrawing()
@@ -531,12 +535,14 @@ function finishCurrentDraw() {
     if (result) {
       selection.selectEntity('segment', result.segmentId)
       selection.enterPropertyEdit()
+      persistAll()
     }
   } else if (editorTool.isTool('drawArea')) {
     const result = areaDrawing.finishDrawing()
     if (result) {
       selection.selectEntity('nogozone', result.zoneId)
       selection.enterPropertyEdit()
+      persistAll()
     }
   }
   editorTool.setActiveTool('select')
@@ -581,14 +587,7 @@ function savePropertyEdit() {
     const idx = navPoints.value.findIndex(p => p.id === id)
     if (idx >= 0) navPoints.value[idx] = { ...selection.editingNavPoint.value }
   } else if (type === 'nogozone' && selection.editingNoGoZone.value) {
-    // 危区策略校验
     const ez = selection.editingNoGoZone.value
-    hazardPolicy.clearErrors()
-    hazardPolicy.validateZ1SafeExit(ez)
-    if (hazardPolicy.hazardPolicyErrors.value.length > 0) {
-      message.warning(hazardPolicy.hazardPolicyErrors.value[0])
-      return
-    }
     ez.updatedAt = now
     const idx = noGoZones.value.findIndex(z => z.id === id)
     if (idx >= 0) noGoZones.value[idx] = { ...ez }
@@ -596,6 +595,8 @@ function savePropertyEdit() {
 
   hasUnsavedChanges.value = true
   selection.propertyEditing.value = false
+  // 属性保存后自动持久化
+  persistAll()
   message.success('属性已保存')
 }
 
@@ -611,7 +612,8 @@ function deleteSelectedEntity() {
       pushSnapshotBeforeChange()
       deleteEntityLocally(type, id)
       hasUnsavedChanges.value = true
-      message.success('已删除（未持久化）')
+      persistAll()
+      message.success('已删除')
     }
   })
 }
@@ -633,6 +635,13 @@ function deleteEntityLocally(type: string, id: string) {
     noGoZones.value = noGoZones.value.filter(z => z.id !== id)
   }
   selection.clearSelection()
+}
+
+// ─── 颜色实时预览 ───
+function handleSegmentColorChange(color: string) {
+  if (!selection.editingSegment.value) return
+  // 颜色更新到编辑副本，getEdgeColor 会读取它实时变色
+  selection.editingSegment.value.color = color
 }
 
 // ─── 地图事件 ───
@@ -664,7 +673,11 @@ function onNodeClick(node: RoadNode) {
     return
   }
   selection.selectEntity('node', node.id)
-  calibration.checkSelectionForCalibration('navpoint', node.id)
+  // 通过 nodeId 查找关联的 navpoint，再进行校准检查
+  const np = navPoints.value.find(p => p.nodeId === node.id)
+  if (np) {
+    calibration.checkSelectionForCalibration('navpoint', np.id)
+  }
 }
 
 function onNodeMouseDown(node: RoadNode, e: MouseEvent) {
@@ -680,6 +693,7 @@ function onNodeMouseDown(node: RoadNode, e: MouseEvent) {
 
 function onNavPointMouseDown(p: NavigationPoint, e: MouseEvent) {
   selection.selectEntity('navpoint', p.id)
+  calibration.checkSelectionForCalibration('navpoint', p.id)
   const svg = (e.currentTarget as HTMLElement).closest('svg')
   const rect = svg?.getBoundingClientRect()
   if (!rect) return
@@ -753,7 +767,16 @@ function onRightClick() {
 function createNavPointAtPosition(x: number, y: number) {
   const now = new Date()
   const id = `nav-${Date.now()}`
-  const code = `P${String(navPoints.value.length + 1).padStart(3, '0')}`
+
+  // 按类型自增编号
+  const typePrefixMap: Record<string, string> = { inspection: 'P', parking: 'PK', charging: 'C' }
+  const prefix = typePrefixMap[placeNodeType.value] || 'P'
+  const sameTypePoints = navPoints.value.filter(p =>
+    p.mapId === selectedMapId.value && p.navType === placeNodeType.value
+  )
+  const nextNum = sameTypePoints.length + 1
+  const code = `${prefix}${String(nextNum).padStart(3, '0')}`
+
   const nodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 
   const newNode: RoadNode = {
@@ -768,12 +791,14 @@ function createNavPointAtPosition(x: number, y: number) {
     id, name, code, mapId: selectedMapId.value, area: '',
     navType: placeNodeType.value as NavigationPointType,
     position: { x, y }, nodeId,
+    calibrationStatus: 'pending', // 新点位默认待校准
     createdAt: now, updatedAt: now
   }
   navPoints.value.push(p)
   hasUnsavedChanges.value = true
   selection.selectEntity('navpoint', id)
   selection.enterPropertyEdit()
+  persistAll()
   message.success(`已放置${placeNodeLabel.value}，继续点击放置下一个`)
 }
 
@@ -967,15 +992,6 @@ function runPathSimulation() {
     }
     simulationPath.value = segs
     message.success(`路径找到: ${Math.round(result.totalDistance)}m`)
-
-    // 检查路径是否经过 Z2 禁入区
-    hazardPolicy.validatePathNoZ2(result.pathNodeIds, (id) => {
-      const n = nodes.value.find(nn => nn.id === id)
-      return n?.position || { x: 0, y: 0 }
-    })
-    if (hazardPolicy.hazardPolicyErrors.value.length > 0) {
-      message.warning(hazardPolicy.hazardPolicyErrors.value[0])
-    }
   } else {
     message.error('无法找到可达路径')
   }
@@ -1124,6 +1140,11 @@ function runTopologyCheck() {
 }
 
 // ─── 初始化 ───
+function nudgePosition(pos: { x: number; y: number }, _start: { x: number; y: number }, step: number) {
+  // 方向由 useRoadKeyboardShortcuts 通过 CustomEvent 传入
+  // 实际由 onKeyDown 在 arrow 事件时调用
+}
+
 function onWindowMouseUp() {
   if (isPanning.value) {
     isPanning.value = false
@@ -1146,6 +1167,24 @@ onMounted(() => {
     selectedMapId.value = inspectionStore.inspectionMaps[0].id
   }
   setTimeout(() => fitContent(), 200)
+  window.addEventListener('beforeunload', beforeUnloadHandler)
+  window.addEventListener('mouseup', onWindowMouseUp)
+  // 方向键微调事件
+  window.addEventListener('road-nudge', ((e: CustomEvent) => {
+    if (editorTool.activeTool.value !== 'select' || !selection.selectedEntity.value) return
+    const step = e.detail?.step || 1
+    const s = selection.selectedEntity.value
+    if (s.type === 'node') {
+      const node = nodes.value.find(n => n.id === s.id)
+      if (node) nudgePosition(node.position, { x: 0, y: 0 }, step)
+    } else if (s.type === 'navpoint') {
+      const np = navPoints.value.find(p => p.id === s.id)
+      if (np) nudgePosition(np.position, { x: 0, y: 0 }, step)
+    } else if (s.type === 'nogozone') {
+      const zone = noGoZones.value.find(z => z.id === s.id)
+      if (zone) zone.polygonPoints.forEach(p => nudgePosition(p, { x: 0, y: 0 }, step))
+    }
+  }) as EventListener)
   window.addEventListener('beforeunload', beforeUnloadHandler)
   window.addEventListener('mouseup', onWindowMouseUp)
 })

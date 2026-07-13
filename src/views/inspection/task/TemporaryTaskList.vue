@@ -1,6 +1,17 @@
 <template>
   <div class="temporary-task-list">
-    <a-page-header title="临时任务" sub-title="包含临时插单、补检、作业票任务、第三方任务、应急快速到场" @back="goBack" />
+    <a-page-header title="临时任务" sub-title="包含临时插单、补检、作业票任务、第三方任务、应急快速到场" @back="goBack">
+    <template #extra>
+      <a-space>
+        <a-tooltip title="该版本为演示模式，刷新后会自动补全演示数据">
+          <a-switch v-model:checked="demoMode" checked-children="演示" un-checked-children="关闭" size="small" @change="fetchTasks" />
+        </a-tooltip>
+        <a-button type="primary" :loading="syncing" @click="handleSyncThirdParty">
+          同步第三方任务
+        </a-button>
+      </a-space>
+    </template>
+  </a-page-header>
 
     <a-card style="margin-top: 16px">
       <div class="scene-switch" style="margin-bottom: 12px">
@@ -43,6 +54,7 @@
                   <a-select-option value="insert">插单</a-select-option>
                   <a-select-option value="recheck">补检</a-select-option>
                   <a-select-option value="work_ticket">作业票任务</a-select-option>
+                  <a-select-option value="third_party">第三方任务</a-select-option>
                   <a-select-option value="emergency">应急快速到场</a-select-option>
                 </a-select>
               </a-form-item>
@@ -174,6 +186,12 @@
         </template>
       </a-table>
     </a-card>
+    <ThirdPartyTaskSyncModal
+      :visible="syncModalVisible"
+      @close="handleSyncClose"
+      @created="handleSyncCreated"
+      @go-config="handleGoConfig"
+    />
   </div>
 </template>
 
@@ -184,6 +202,7 @@ import { message, Modal } from 'ant-design-vue'
 import { useInspectionStore } from '@/stores/inspection'
 import { useRobotStore } from '@/stores/robot'
 import type { InspectionTaskInstanceStatus } from '@/types/inspection'
+import ThirdPartyTaskSyncModal from './ThirdPartyTaskSyncModal.vue'
 
 const router = useRouter()
 const inspectionStore = useInspectionStore()
@@ -191,6 +210,9 @@ const robotStore = useRobotStore()
 
 const tasks = ref<any[]>([])
 const loading = ref(false)
+const syncing = ref(false)
+const syncModalVisible = ref(false)
+const demoMode = ref(true)
 const activeTab = ref('all')
 const searchForm = reactive({
   name: '',
@@ -271,6 +293,7 @@ function getStatusText(status: InspectionTaskInstanceStatus): string {
 
 function getDispatchTypeText(type?: string) {
   if (type === 'work_ticket') return '作业票任务'
+  if (type === 'third_party') return '第三方任务'
   if (type === 'emergency') return '应急快速到场'
   if (type === 'charging') return '充电'
   if (type === 'parking') return '停车'
@@ -390,13 +413,16 @@ function enrichTemporaryTask(task: any, index: number) {
   const installationIds = Array.from(new Set(facilities.map((device: any) => device.installationId).filter(Boolean)))
   const installationNames = installationIds.map((id) => installationOptions.value.find((item: any) => item.id === id)?.name || facilities.find((device: any) => device.installationId === id)?.installationName || id)
   const linkedComponents = inspectionStore.facilityComponents.filter((component: any) => facilities.some((device: any) => device.id === component.facilityId))
+  // 优先使用任务真实字段，降级推断
+  const dispatchType = task.dispatchType || inferDispatchType(task)
+  const taskSource = task.taskSource || inferTaskSource(task)
   return {
     ...task,
-    dispatchType: task.dispatchType || inferDispatchType(task),
+    dispatchType,
     businessScene: task.businessScene || inferBusinessScene(task),
-    taskSource: task.taskSource || inferTaskSource(task),
-    taskSourceText: getTaskSourceText(task.taskSource || inferTaskSource(task)),
-    riskLevel: task.riskLevel || (task.dispatchType === 'recheck' ? 'alarm' : 'normal'),
+    taskSource,
+    taskSourceText: getTaskSourceText(task.taskSource || taskSource),
+    riskLevel: task.riskLevel || (dispatchType === 'recheck' ? 'alarm' : 'normal'),
     robotName: task.robotName || robotStore.robots.find((robot: any) => robot.id === task.robotId)?.name || '巡检机器人-01',
     regionNames: regionIds.map((id) => getRegionName(String(id))),
     installationIds,
@@ -405,10 +431,12 @@ function enrichTemporaryTask(task: any, index: number) {
     facilityCount: facilities.length,
     componentCount: linkedComponents.length ? linkedComponents.length : facilities.reduce((sum: number, device: any) => sum + (device.assetComponents?.length || 0), 0),
     ruleCount: getRuleCount(facilities),
-    priorityLevel: task.dispatchType === 'emergency' ? 'emergency' : task.dispatchType === 'work_ticket' || task.dispatchType === 'third_party' ? 'high' : 'normal',
-    interruptsCurrentTask: task.dispatchType === 'emergency',
+    // 优先使用任务自身字段，不推断覆盖
+    priorityLevel: task.priorityLevel || (dispatchType === 'emergency' ? 'emergency' : dispatchType === 'work_ticket' || dispatchType === 'third_party' ? 'high' : 'normal'),
+    interruptsCurrentTask: task.interruptsCurrentTask !== undefined ? task.interruptsCurrentTask : (dispatchType === 'emergency'),
     immediateDeparture: task.dispatchType === 'emergency',
-    fromThirdParty: task.dispatchType === 'third_party',
+    // 同时检查 dispatchType 和 taskSource
+    fromThirdParty: dispatchType === 'third_party' || taskSource === 'third_party',
     exceptionCount: task.exceptionCount ?? (index % 3),
     uninspectableCount: task.uninspectableCount ?? (index % 2),
     pendingReviewCount: task.pendingReviewCount ?? (index % 4 === 0 ? 1 : 0),
@@ -440,8 +468,9 @@ function fetchTasks() {
         }
       }))
 
-    const nextTasks = existingTasks.length >= 6 ? existingTasks : [...existingTasks, ...buildMockTemporaryTasks(6 - existingTasks.length)]
-    tasks.value = nextTasks.map(enrichTemporaryTask)
+    // 仅演示模式时补足 Mock 数据
+    const finalTasks = (demoMode.value && existingTasks.length < 6) ? [...existingTasks, ...buildMockTemporaryTasks(6 - existingTasks.length)] : existingTasks
+    tasks.value = finalTasks.map(enrichTemporaryTask)
   } finally {
     loading.value = false
   }
@@ -619,6 +648,25 @@ function handleTerminate(record: any) {
       message.success('任务已终止')
     }
   })
+}
+
+function handleSyncThirdParty() {
+  syncModalVisible.value = true
+}
+
+function handleSyncClose() {
+  syncModalVisible.value = false
+}
+
+function handleSyncCreated() {
+  syncModalVisible.value = false
+  fetchTasks()
+  message.success('第三方任务同步完成')
+}
+
+function handleGoConfig() {
+  syncModalVisible.value = false
+  router.push('/management/system/third-party-api')
 }
 
 onMounted(() => {

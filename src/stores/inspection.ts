@@ -2,12 +2,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { writeAuditLog } from '@/utils/audit'
 import { MockService } from '@/mock/mockService'
-import { 
-  InspectionPoint, 
-  InspectionPointFormData, 
-  MonitorPoint, 
-  MonitorPointFormData, 
-  Metric, 
+import {
+  InspectionPoint,
+  InspectionPointFormData,
+  MonitorPoint,
+  MonitorPointFormData,
+  Metric,
   MetricFormData,
   InspectionTask,
   InspectionTaskFormData,
@@ -22,6 +22,7 @@ import {
   StandardComponent,
   CalibrationStatus,
   InspectionPointType,
+  InspectionTaskType,
   PositionSource,
   DeviceStatus,
   InspectionTaskInstanceStatus,
@@ -216,17 +217,27 @@ export const useInspectionStore = defineStore('inspection', () => {
   
   function saveTask(taskData: InspectionTask | InspectionTaskFormData) {
     const task: InspectionTask = 'id' in taskData ? taskData : {
-      id: `task-${Date.now()}`,
+      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: taskData.name,
       code: taskData.code,
       robotId: taskData.robotId,
-      routeId: 'route-001',
+      routeId: (taskData as any).routeId ?? 'route-001',
       type: taskData.type,
       status: InspectionTaskInstanceStatus.PENDING,
       taskSource: taskData.taskSource ?? 'manual',
+      dispatchType: taskData.dispatchType,
       businessScene: taskData.businessScene,
       priorityLevel: taskData.priorityLevel,
       riskLevel: taskData.riskLevel,
+      thirdPartyTaskNo: taskData.thirdPartyTaskNo,
+      sourceSystemId: taskData.sourceSystemId,
+      sourceSystemCode: taskData.sourceSystemCode,
+      sourceSystemName: taskData.sourceSystemName,
+      syncBatchId: taskData.syncBatchId,
+      syncedAt: taskData.syncedAt,
+      plannedExecuteAt: taskData.plannedExecuteAt,
+      interruptsCurrentTask: taskData.interruptsCurrentTask,
+      feedbackStatus: taskData.feedbackStatus,
       planId: taskData.planId,
       inspectionPointIds: taskData.inspectionPointIds,
       currentInspectionPointIndex: 0,
@@ -338,7 +349,7 @@ export const useInspectionStore = defineStore('inspection', () => {
       id: `snapshot-${task.id}`,
       taskId: task.id,
       route: {
-        id: task.routeId,
+        id: task.routeId || 'route-001',
         name: task.routeId || '任务路线',
         waypointIds: [],
         inspectionPointIds: task.inspectionPointIds
@@ -723,6 +734,107 @@ export const useInspectionStore = defineStore('inspection', () => {
     MockService.deleteInspectionPlan(id)
     fetchAllInspectionPlans()
   }
+
+  // 批量创建第三方临时任务
+  function createThirdPartyTemporaryTasks(input: {
+    candidates: Array<{
+      sourceSystemId: string
+      sourceSystemCode: string
+      sourceSystemName: string
+      externalTaskId: string
+      taskName: string
+      pointCode: string
+      inspectionPointId?: string
+      inspectionPointName?: string
+      plannedExecuteAt?: string
+      priorityLevel?: 'normal' | 'high' | 'emergency'
+      riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+      businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard' | 'work_ticket_guard' | 'emergency_arrival'
+      robotId?: string
+    }>
+    syncBatchId: string
+    sourceSystemId: string
+    sourceSystemCode: string
+    sourceSystemName: string
+    defaultRobotId: string
+    defaultBusinessScene: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard' | 'work_ticket_guard' | 'emergency_arrival'
+    defaultPriorityLevel: 'normal' | 'high' | 'emergency'
+    defaultRiskLevel: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+  }): { created: InspectionTask[]; duplicated: { externalTaskId: string; taskId: string }[]; failed: { externalTaskId: string; reason: string }[] } {
+    const created: InspectionTask[] = []
+    const duplicated: { externalTaskId: string; taskId: string }[] = []
+    const failed: { externalTaskId: string; reason: string }[] = []
+
+    // 二次幂等校验：检查所有已存在的任务
+    const existingTasks = MockService.getTasks()
+
+    for (const candidate of input.candidates) {
+      try {
+        // 幂等校验
+        const existing = existingTasks.find(
+          t => t.sourceSystemId === input.sourceSystemId && t.thirdPartyTaskNo === candidate.externalTaskId
+        )
+        if (existing) {
+          duplicated.push({ externalTaskId: candidate.externalTaskId, taskId: existing.id })
+          continue
+        }
+
+        const taskCode = `TP-${input.sourceSystemCode}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(created.length + duplicated.length + failed.length + 1).padStart(3, '0')}`
+
+        const task: InspectionTask = {
+          id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: candidate.taskName,
+          code: taskCode,
+          robotId: candidate.robotId || input.defaultRobotId,
+          routeId: 'route-001',
+          type: InspectionTaskType.POINT,
+          status: InspectionTaskInstanceStatus.PENDING,
+          taskSource: 'third_party',
+          dispatchType: 'third_party',
+          businessScene: candidate.businessScene || input.defaultBusinessScene,
+          priorityLevel: candidate.priorityLevel || input.defaultPriorityLevel,
+          riskLevel: candidate.riskLevel || input.defaultRiskLevel,
+          thirdPartyTaskNo: candidate.externalTaskId,
+          sourceSystemId: input.sourceSystemId,
+          sourceSystemCode: input.sourceSystemCode,
+          sourceSystemName: input.sourceSystemName,
+          syncBatchId: input.syncBatchId,
+          syncedAt: new Date().toISOString(),
+          plannedExecuteAt: candidate.plannedExecuteAt,
+          interruptsCurrentTask: false,
+          feedbackStatus: 'pending',
+          inspectionPointIds: candidate.inspectionPointId ? [candidate.inspectionPointId] : [],
+          currentInspectionPointIndex: 0,
+          config: {
+            autoStart: false,
+            notifyOnComplete: false,
+            notifyOnError: false,
+            autoResumeAfterInterrupt: false
+          },
+          exceptionStrategy: {
+            inspectionPointFailure: 'skip' as any,
+            robotFailure: 'skip' as any,
+            lowBattery: 'return_to_base' as any,
+            signalLost: 'skip' as any,
+            timeout: 'skip' as any,
+            maxRetryCount: 0,
+            retryInterval: 0
+          },
+          exceptionLog: [],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+
+        MockService.saveTask(task)
+        created.push(task)
+      } catch (e: any) {
+        failed.push({ externalTaskId: candidate.externalTaskId, reason: e.message || '保存失败' })
+      }
+    }
+
+    fetchAllTasks()
+    return { created, duplicated, failed }
+  }
   
   return {
     inspectionPoints,
@@ -800,6 +912,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     fetchAllInspectionPlans,
     getInspectionPlanById,
     saveInspectionPlan,
-    deleteInspectionPlan
+    deleteInspectionPlan,
+    createThirdPartyTemporaryTasks
   }
 })

@@ -182,6 +182,9 @@
           <a-menu-item key="config-algorithm">
             <router-link to="/management/system/algorithm">算法管理</router-link>
           </a-menu-item>
+          <a-menu-item key="third-party-api-config">
+            <router-link to="/management/system/third-party-api">第三方接口配置</router-link>
+          </a-menu-item>
           <a-menu-item key="config-notify">
             <router-link to="/implementation/dispatch/notify-config">通知配置</router-link>
           </a-menu-item>
@@ -314,6 +317,7 @@ const currentKey = computed(() => {
   if (path.startsWith('/implementation/device/iot-list')) return 'config-iot-list'
   if (path.startsWith('/implementation/device/component-types')) return 'config-component-types'
   if (path.startsWith('/management/system/algorithm')) return 'config-algorithm'
+  if (path.startsWith('/management/system/third-party-api')) return 'third-party-api-config'
   if (path.startsWith('/management/system/third-party-simulator')) return 'third-party-simulator'
   if (path.startsWith('/implementation/dispatch/rule-config')) return 'config-dispatch-rule'
   if (path.startsWith('/implementation/dispatch/resource-config')) return 'config-resource'

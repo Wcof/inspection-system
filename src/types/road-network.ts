@@ -30,6 +30,9 @@ export type ZoneClass = 'Z0' | 'Z1' | 'Z2'
 /** 区域通行类型 */
 export type ZoneType = 'normal' | 'forbidden'
 
+/** 区域类型（业务分类） */
+export type AreaCategory = 'installation_area' | 'tank_area' | 'loading_unloading_area' | 'equipment_area' | 'cabinet_room' | 'other_indoor'
+
 /** 禁行区等级（仅 forbidden 类型使用） */
 export type NoGoZoneLevel = 'permanent' | 'temporary' | 'high_risk' | 'maintenance'
 
@@ -287,7 +290,11 @@ export interface NoGoZone {
   code: string
   mapId: string
   zoneType: ZoneType
+  /** 区域类型（业务分类：装置区/罐区/装卸区/设施设备区/机柜间/其他室内区） */
+  areaCategory?: AreaCategory
   level: NoGoZoneLevel
+  /** 状态 */
+  status?: 'active' | 'inactive'
   /** 危区分类: Z0 普通区 / Z1 危区 / Z2 禁止自主Nav2 */
   zoneClass?: ZoneClass
   /** 危区策略配置 */

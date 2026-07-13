@@ -38,10 +38,22 @@
               </a-form-item>
             </a-col>
             <a-col :xs="24" :sm="12" :md="8" :lg="6">
+              <a-form-item label="状态" class="search-item">
+                <a-select v-model:value="regionSearchForm.status" placeholder="全部状态" allow-clear>
+                  <a-select-option value="active">启用</a-select-option>
+                  <a-select-option value="inactive">停用</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :xs="24" :sm="12" :md="8" :lg="6">
               <a-form-item label="区域类型" class="search-item">
-                <a-select v-model:value="regionSearchForm.zoneType" placeholder="全部类型" allow-clear>
-                  <a-select-option value="normal">正常通行</a-select-option>
-                  <a-select-option value="forbidden">禁止通行</a-select-option>
+                <a-select v-model:value="regionSearchForm.areaCategory" placeholder="全部类型" allow-clear>
+                  <a-select-option value="installation_area">装置区</a-select-option>
+                  <a-select-option value="tank_area">罐区</a-select-option>
+                  <a-select-option value="loading_unloading_area">装卸区</a-select-option>
+                  <a-select-option value="equipment_area">设施设备区</a-select-option>
+                  <a-select-option value="cabinet_room">机柜间</a-select-option>
+                  <a-select-option value="other_indoor">其他室内区</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -64,9 +76,12 @@
 
       <a-table :columns="listColumns" :data-source="filteredRegionListRows" row-key="id">
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'zoneType'">
-            <a-tag :color="record.zoneType === 'forbidden' ? 'red' : 'green'" size="small">
-              {{ record.zoneType === 'forbidden' ? '禁止通行' : '正常通行' }}
+          <template v-if="column.key === 'areaCategory'">
+            <span>{{ areaCategoryLabel(record.areaCategory) }}</span>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <a-tag :color="record.status === 'active' ? 'green' : 'default'" size="small">
+              {{ record.status === 'active' ? '启用' : record.status === 'inactive' ? '停用' : '-' }}
             </a-tag>
           </template>
           <template v-else-if="column.key === 'shapePreview'">
@@ -247,9 +262,19 @@
             </a-col>
           </a-row>
           <a-form-item label="区域类型">
-            <a-select v-model:value="selectedRegionData.zoneType">
-              <a-select-option value="normal">正常通行</a-select-option>
-              <a-select-option value="forbidden">禁止通行</a-select-option>
+            <a-select v-model:value="selectedRegionData.areaCategory" placeholder="请选择区域类型" allow-clear>
+              <a-select-option value="installation_area">装置区</a-select-option>
+              <a-select-option value="tank_area">罐区</a-select-option>
+              <a-select-option value="loading_unloading_area">装卸区</a-select-option>
+              <a-select-option value="equipment_area">设施设备区</a-select-option>
+              <a-select-option value="cabinet_room">机柜间</a-select-option>
+              <a-select-option value="other_indoor">其他室内区</a-select-option>
+            </a-select>
+          </a-form-item>
+          <a-form-item label="状态">
+            <a-select v-model:value="selectedRegionData.status" allow-clear>
+              <a-select-option value="active">启用</a-select-option>
+              <a-select-option value="inactive">停用</a-select-option>
             </a-select>
           </a-form-item>
           <a-form-item label="描述">
@@ -310,9 +335,23 @@
           </a-col>
           <a-col :span="12">
             <a-form-item label="区域类型">
-              <a-select v-model:value="newRegionForm.zoneType">
-                <a-select-option value="normal">正常通行</a-select-option>
-                <a-select-option value="forbidden">禁止通行</a-select-option>
+              <a-select v-model:value="newRegionForm.areaCategory" placeholder="请选择区域类型" allow-clear>
+                <a-select-option value="installation_area">装置区</a-select-option>
+                <a-select-option value="tank_area">罐区</a-select-option>
+                <a-select-option value="loading_unloading_area">装卸区</a-select-option>
+                <a-select-option value="equipment_area">设施设备区</a-select-option>
+                <a-select-option value="cabinet_room">机柜间</a-select-option>
+                <a-select-option value="other_indoor">其他室内区</a-select-option>
+              </a-select>
+            </a-form-item>
+          </a-col>
+        </a-row>
+        <a-row :gutter="12">
+          <a-col :span="12">
+            <a-form-item label="状态">
+              <a-select v-model:value="newRegionForm.status" allow-clear>
+                <a-select-option value="active">启用</a-select-option>
+                <a-select-option value="inactive">停用</a-select-option>
               </a-select>
             </a-form-item>
           </a-col>
@@ -356,6 +395,8 @@ interface EditableRegionRow {
   showName: boolean
   code: string
   zoneType: 'normal' | 'forbidden'
+  areaCategory?: string
+  status?: string
   description: string
   responsiblePerson: string
   contactPhone: string
@@ -368,6 +409,8 @@ interface RegionListRow {
   name: string
   code: string
   zoneType: 'normal' | 'forbidden'
+  areaCategory?: string
+  status?: string
   description: string
   responsiblePerson: string
   contactPhone: string
@@ -407,7 +450,8 @@ const regionSearchForm = ref({
   name: '',
   code: '',
   mapId: '',
-  zoneType: '' as '' | 'normal' | 'forbidden',
+  status: '' as '' | 'active' | 'inactive',
+  areaCategory: '' as string,
   responsiblePerson: ''
 })
 const newRegionModalVisible = ref(false)
@@ -415,6 +459,8 @@ const newRegionForm = reactive({
   name: '',
   code: '',
   zoneType: 'normal' as 'normal' | 'forbidden',
+  areaCategory: undefined as string | undefined,
+  status: undefined as string | undefined,
   description: '',
   responsiblePerson: '',
   contactPhone: ''
@@ -428,12 +474,26 @@ const selectedRegionData = computed(() => regions.value.find(item => item.id ===
 const listColumns = [
   { title: '区域名称', dataIndex: 'name', key: 'name' },
   { title: '区域编码', dataIndex: 'code', key: 'code', width: 100 },
-  { title: '区域类型', key: 'zoneType', width: 100 },
+  { title: '区域类型', key: 'areaCategory', width: 110 },
+  { title: '状态', key: 'status', width: 80 },
   { title: '所属地图', dataIndex: 'mapName', key: 'mapName', width: 160 },
   { title: '责任人', dataIndex: 'responsiblePerson', key: 'responsiblePerson', width: 100 },
   { title: '地图形状', key: 'shapePreview', width: 180 },
   { title: '操作', key: 'actions', width: 180 }
 ]
+
+const areaCategoryLabelMap: Record<string, string> = {
+  installation_area: '装置区',
+  tank_area: '罐区',
+  loading_unloading_area: '装卸区',
+  equipment_area: '设施设备区',
+  cabinet_room: '机柜间',
+  other_indoor: '其他室内区'
+}
+
+function areaCategoryLabel(val?: string): string {
+  return val ? areaCategoryLabelMap[val] || val : '-'
+}
 
 const filteredRegions = computed(() => {
   const kw = regionKeyword.value.trim().toLowerCase()
@@ -459,6 +519,8 @@ const regionListRows = computed<RegionListRow[]>(() => {
     name: region.name,
     code: region.code || '',
     zoneType: region.zoneType || 'normal',
+    areaCategory: region.areaCategory || undefined,
+    status: region.status || undefined,
     description: region.description || '',
     responsiblePerson: region.responsiblePerson || '',
     contactPhone: region.contactPhone || '',
@@ -472,15 +534,17 @@ const filteredRegionListRows = computed(() => {
   const name = regionSearchForm.value.name.trim().toLowerCase()
   const code = regionSearchForm.value.code.trim().toLowerCase()
   const mapId = regionSearchForm.value.mapId
-  const zoneType = regionSearchForm.value.zoneType
+  const status = regionSearchForm.value.status
+  const areaCategory = regionSearchForm.value.areaCategory
   const responsiblePerson = regionSearchForm.value.responsiblePerson.trim().toLowerCase()
   return regionListRows.value.filter((region) => {
     const matchesName = !name || region.name.toLowerCase().includes(name)
     const matchesCode = !code || region.code.toLowerCase().includes(code)
     const matchesMap = !mapId || region.mapId === mapId
-    const matchesType = !zoneType || region.zoneType === zoneType
+    const matchesStatus = !status || region.status === status
+    const matchesCategory = !areaCategory || region.areaCategory === areaCategory
     const matchesPerson = !responsiblePerson || (region.responsiblePerson || '').toLowerCase().includes(responsiblePerson)
-    return matchesName && matchesCode && matchesMap && matchesType && matchesPerson
+    return matchesName && matchesCode && matchesMap && matchesStatus && matchesCategory && matchesPerson
   })
 })
 
@@ -574,6 +638,8 @@ function loadRegions() {
       showName: region.showName ?? true,
       code: region.code || '',
       zoneType: region.zoneType || 'normal',
+      areaCategory: region.areaCategory || undefined,
+      status: region.status || undefined,
       description: region.description || '',
       responsiblePerson: region.responsiblePerson || '',
       contactPhone: region.contactPhone || ''
@@ -609,6 +675,8 @@ function saveRegions() {
         showName: region.showName,
         code: region.code || undefined,
         zoneType: region.zoneType,
+        areaCategory: region.areaCategory || undefined,
+        status: region.status || undefined,
         description: region.description || undefined,
         responsiblePerson: region.responsiblePerson || undefined,
         contactPhone: region.contactPhone || undefined
@@ -660,7 +728,8 @@ function resetRegionSearch() {
   regionSearchForm.value.name = ''
   regionSearchForm.value.code = ''
   regionSearchForm.value.mapId = ''
-  regionSearchForm.value.zoneType = ''
+  regionSearchForm.value.status = ''
+  regionSearchForm.value.areaCategory = ''
   regionSearchForm.value.responsiblePerson = ''
 }
 
@@ -808,6 +877,8 @@ function finishPolygon() {
     showName: true,
     code: '',
     zoneType: 'normal',
+    areaCategory: undefined,
+    status: undefined,
     description: '',
     responsiblePerson: '',
     contactPhone: ''
@@ -837,7 +908,9 @@ function confirmCreateRegion() {
     previewPoints: buildPreviewPolygon(points),
     showName: true,
     code: newRegionForm.code.trim(),
-    zoneType: newRegionForm.zoneType,
+    zoneType: 'normal',
+    areaCategory: newRegionForm.areaCategory || undefined,
+    status: newRegionForm.status || undefined,
     description: newRegionForm.description.trim(),
     responsiblePerson: newRegionForm.responsiblePerson.trim(),
     contactPhone: newRegionForm.contactPhone.trim()

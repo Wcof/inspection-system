@@ -37,7 +37,9 @@ const STORAGE_KEYS = {
   AI_CHAT_MESSAGES: 'ai_chat_messages',
   WORK_TICKETS: 'work_tickets',
   ALGORITHMS: 'inspection_algorithms',
-  DETECTION_ALGORITHM_CONFIGS: 'detection_algorithm_configs_v1'
+  DETECTION_ALGORITHM_CONFIGS: 'detection_algorithm_configs_v1',
+  THIRD_PARTY_API_CONFIGS: 'third_party_api_configs',
+  THIRD_PARTY_SYNC_BATCHES: 'third_party_sync_batches'
 }
 
 export const storage = {

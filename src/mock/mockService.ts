@@ -1004,4 +1004,46 @@ export class MockService {
     storage.set(STORAGE_KEYS.NAV_POINTS, snapshot.navPoints)
     storage.set(STORAGE_KEYS.NO_GO_ZONES, snapshot.noGoZones)
   }
+
+  // ===== 第三方 API 配置 =====
+  static getThirdPartyApiConfigs(): any[] {
+    return storage.get<any[]>(STORAGE_KEYS.THIRD_PARTY_API_CONFIGS) || []
+  }
+
+  static getThirdPartyApiConfigById(id: string): any | undefined {
+    const configs = this.getThirdPartyApiConfigs()
+    return configs.find(c => c.id === id)
+  }
+
+  static saveThirdPartyApiConfig(config: any): void {
+    const configs = this.getThirdPartyApiConfigs()
+    const index = configs.findIndex(c => c.id === config.id)
+    if (index >= 0) {
+      configs[index] = config
+    } else {
+      configs.push(config)
+    }
+    storage.set(STORAGE_KEYS.THIRD_PARTY_API_CONFIGS, configs)
+  }
+
+  static deleteThirdPartyApiConfig(id: string): void {
+    const configs = this.getThirdPartyApiConfigs().filter(c => c.id !== id)
+    storage.set(STORAGE_KEYS.THIRD_PARTY_API_CONFIGS, configs)
+  }
+
+  // ===== 第三方同步批次 =====
+  static getThirdPartySyncBatches(): any[] {
+    return storage.get<any[]>(STORAGE_KEYS.THIRD_PARTY_SYNC_BATCHES) || []
+  }
+
+  static saveThirdPartySyncBatch(batch: any): void {
+    const batches = this.getThirdPartySyncBatches()
+    const index = batches.findIndex(b => b.id === batch.id)
+    if (index >= 0) {
+      batches[index] = batch
+    } else {
+      batches.push(batch)
+    }
+    storage.set(STORAGE_KEYS.THIRD_PARTY_SYNC_BATCHES, batches)
+  }
 }

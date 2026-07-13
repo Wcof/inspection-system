@@ -279,9 +279,12 @@ export interface MapRegion {
   showName?: boolean
   code?: string
   zoneType?: 'normal' | 'forbidden'
+  /** 区域类型（业务分类） */
+  areaCategory?: string
   description?: string
   responsiblePerson?: string
   contactPhone?: string
+  status?: string
 }
 
 export interface InspectionMap {
@@ -831,12 +834,19 @@ export interface InspectionTask {
   name: string
   code: string
   robotId: string
-  routeId: string
+  routeId?: string
   snapshotId?: string
   businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard' | 'work_ticket_guard' | 'emergency_arrival'
   taskSource?: 'execution_plan' | 'dispatch_insert' | 'auto_recheck' | 'work_ticket' | 'third_party' | 'emergency' | 'manual'
+  dispatchType?: 'insert' | 'recheck' | 'work_ticket' | 'third_party' | 'emergency' | 'charging' | 'parking' | 'replace_robot'
   priorityLevel?: 'normal' | 'high' | 'emergency'
   thirdPartyTaskNo?: string
+  sourceSystemId?: string
+  sourceSystemCode?: string
+  sourceSystemName?: string
+  syncBatchId?: string
+  syncedAt?: string
+  sourcePayloadDigest?: string
   interruptsCurrentTask?: boolean
   feedbackStatus?: 'pending' | 'success' | 'failed'
   riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
@@ -875,9 +885,19 @@ export interface InspectionTaskFormData {
   type: InspectionTaskType
   inspectionPointIds: string[]
   taskSource?: 'execution_plan' | 'dispatch_insert' | 'auto_recheck' | 'work_ticket' | 'third_party' | 'emergency' | 'manual'
+  dispatchType?: 'insert' | 'recheck' | 'work_ticket' | 'third_party' | 'emergency' | 'charging' | 'parking' | 'replace_robot'
   businessScene?: 'daily_inspection' | 'hazard_screening' | 'environment_check' | 'operation_guard' | 'work_ticket_guard' | 'emergency_arrival'
   priorityLevel?: 'normal' | 'high' | 'emergency'
   riskLevel?: 'normal' | 'warning' | 'alarm' | 'critical_alarm' | 'hazard' | 'major_hazard'
+  thirdPartyTaskNo?: string
+  sourceSystemId?: string
+  sourceSystemCode?: string
+  sourceSystemName?: string
+  syncBatchId?: string
+  syncedAt?: string
+  plannedExecuteAt?: string
+  interruptsCurrentTask?: boolean
+  feedbackStatus?: 'pending' | 'success' | 'failed'
   planId?: string
   schedule?: {
     startTime: Date

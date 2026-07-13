@@ -108,44 +108,30 @@
           <a-form-item label="区域名称"><a-input v-model:value="editNoGoZone.name" /></a-form-item>
           <a-form-item label="区域编码"><a-input v-model:value="editNoGoZone.code" /></a-form-item>
           <a-form-item label="区域类型">
-            <a-select v-model:value="editNoGoZone.zoneType">
-              <a-select-option value="normal">正常通行</a-select-option>
-              <a-select-option value="forbidden">禁止通行</a-select-option>
+            <a-select v-model:value="editNoGoZone.areaCategory" placeholder="请选择区域类型" allow-clear>
+              <a-select-option value="installation_area">装置区</a-select-option>
+              <a-select-option value="tank_area">罐区</a-select-option>
+              <a-select-option value="loading_unloading_area">装卸区</a-select-option>
+              <a-select-option value="equipment_area">设施设备区</a-select-option>
+              <a-select-option value="cabinet_room">机柜间</a-select-option>
+              <a-select-option value="other_indoor">其他室内区</a-select-option>
             </a-select>
           </a-form-item>
-          <a-divider orientation="left">危区策略</a-divider>
-          <a-form-item label="危区分类">
-            <a-select v-model:value="editNoGoZone.zoneClass">
-              <a-select-option value="Z0">普通区 Z0</a-select-option>
-              <a-select-option value="Z1">危区 Z1</a-select-option>
-              <a-select-option value="Z2">禁入区 Z2</a-select-option>
+          <a-form-item label="状态">
+            <a-select v-model:value="editNoGoZone.status">
+              <a-select-option value="active">启用</a-select-option>
+              <a-select-option value="inactive">停用</a-select-option>
             </a-select>
           </a-form-item>
-          <template v-if="editNoGoZone.zoneClass === 'Z1'">
-            <a-collapse ghost size="small">
-              <a-collapse-panel key="hazard" header="高级策略">
-                <a-form-item label="高温等待阈值(°C)">
-                  <a-input-number :value="editNoGoZone.hazardPolicy?.waitThreshold ?? null" :min="0" style="width:100%" @update:value="(v: any) => { if (editNoGoZone) { editNoGoZone.hazardPolicy = editNoGoZone.hazardPolicy || {}; editNoGoZone.hazardPolicy.waitThreshold = v } }" />
-                </a-form-item>
-                <a-form-item label="禁入阈值(°C)">
-                  <a-input-number :value="editNoGoZone.hazardPolicy?.blockThreshold ?? null" :min="0" style="width:100%" @update:value="(v: any) => { if (editNoGoZone) { editNoGoZone.hazardPolicy = editNoGoZone.hazardPolicy || {}; editNoGoZone.hazardPolicy.blockThreshold = v } }" />
-                </a-form-item>
-                <a-form-item label="撤离阈值(°C)">
-                  <a-input-number :value="editNoGoZone.hazardPolicy?.evacuateThreshold ?? null" :min="0" style="width:100%" @update:value="(v: any) => { if (editNoGoZone) { editNoGoZone.hazardPolicy = editNoGoZone.hazardPolicy || {}; editNoGoZone.hazardPolicy.evacuateThreshold = v } }" />
-                </a-form-item>
-              </a-collapse-panel>
-            </a-collapse>
-          </template>
-          <template v-if="editNoGoZone.zoneType === 'forbidden'">
-            <a-form-item label="禁行等级">
-              <a-select v-model:value="editNoGoZone.level">
-                <a-select-option value="permanent">永久禁行</a-select-option>
-                <a-select-option value="temporary">临时禁行</a-select-option>
-                <a-select-option value="high_risk">高风险区域</a-select-option>
-                <a-select-option value="maintenance">维修区域</a-select-option>
-              </a-select>
-            </a-form-item>
-          </template>
+          <a-form-item label="描述">
+            <a-textarea v-model:value="editNoGoZone.description" :rows="2" />
+          </a-form-item>
+          <a-divider orientation="left">管理信息</a-divider>
+          <a-row :gutter="8">
+            <a-col :span="12"><a-form-item label="责任人"><a-input v-model:value="editNoGoZone.responsiblePerson" /></a-form-item></a-col>
+            <a-col :span="12"><a-form-item label="联系电话"><a-input v-model:value="editNoGoZone.contactPhone" /></a-form-item></a-col>
+          </a-row>
+          <a-form-item label="顶点数">{{ editNoGoZone.polygonPoints.length }} 个</a-form-item>
         </a-form>
       </template>
 

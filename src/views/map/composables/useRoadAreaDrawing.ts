@@ -13,6 +13,8 @@ export function useRoadAreaDrawing(
 ) {
   const areaDraft = ref<AreaDraft | null>(null)
   const AREA_CLOSE_THRESHOLD = 14
+  const areaContextMenuVisible = ref(false)
+  const areaContextMenuPos = ref({ x: 0, y: 0 })
 
   function startDrawing() {
     pushSnapshotBeforeChange()
@@ -31,7 +33,7 @@ export function useRoadAreaDrawing(
     if (draft.points.length >= 2) {
       const first = draft.points[0]
       const dist = Math.hypot(x - first.x, y - first.y)
-      if (dist < 20) {
+      if (dist <= AREA_CLOSE_THRESHOLD) {
         finishDrawing()
         return
       }
@@ -71,27 +73,42 @@ export function useRoadAreaDrawing(
       id, name: `区域 ${noGoZones.value.length + 1}`,
       code: `NG${String(noGoZones.value.length + 1).padStart(3, '0')}`,
       mapId: selectedMapId.value, zoneType: 'normal', level: 'permanent',
+      areaCategory: undefined,
+      status: undefined,
       polygonPoints: [...draft.points],
       reason: '', createdAt: now, updatedAt: now
     }
     noGoZones.value.push(zone)
     hasUnsavedChanges.value = true
     areaDraft.value = null
+    areaContextMenuVisible.value = false
 
     return { zoneId: id }
   }
 
   function discardDraft() {
     areaDraft.value = null
+    areaContextMenuVisible.value = false
   }
 
   function hasDraft(): boolean {
     return areaDraft.value !== null && areaDraft.value.points.length > 0
   }
 
+  function showContextMenu(x: number, y: number) {
+    areaContextMenuVisible.value = true
+    areaContextMenuPos.value = { x, y }
+  }
+
+  function hideContextMenu() {
+    areaContextMenuVisible.value = false
+  }
+
   return {
     areaDraft, AREA_CLOSE_THRESHOLD,
+    areaContextMenuVisible, areaContextMenuPos,
     startDrawing, addPoint, setPreviewPoint,
-    finishDrawing, discardDraft, hasDraft
+    finishDrawing, discardDraft, hasDraft,
+    showContextMenu, hideContextMenu
   }
 }

@@ -6,6 +6,7 @@ on:
       - main
       - master
       - codex/inspection-business-logic-refactor
+      - feature/third-party-task-sync
   workflow_dispatch:
 
 permissions:

@@ -2,6 +2,16 @@ import { ref, type Ref } from 'vue'
 import type { SegmentDraft, MapPoint } from '@/types/road-editor'
 import type { RoadNode, RoadEdge, RoadSegment, Junction } from '@/types/road-network'
 
+export interface SegmentDraft {
+  id: string
+  nodeIds: string[]
+  tempNodes: import('./road-network').RoadNode[]
+  tempEdges: import('./road-network').RoadEdge[]
+  previewPoint?: MapPoint | null
+  /** 草稿阶段暂存的对正式节点 edgeIds 的修改，commit 后才应用 */
+  pendingExistingNodeEdgeIds?: Record<string, string[]>
+}
+
 /**
  * 绘制路网工具 — 草稿态管理
  * 绘制过程中只写草稿，完成时 commit，取消时 discard
@@ -73,7 +83,7 @@ export function useRoadSegmentDrawing(
     draft.nodeIds.push(nodeId)
   }
 
-  /** 连接到已有节点（点击已有节点时调用） */
+  /** 连接到已有节点（点击已有节点时调用） — 草稿阶段不修改正式节点 edgeIds */
   function connectToExistingNode(nodeId: string) {
     if (!segmentDraft.value) return
     const draft = segmentDraft.value
@@ -106,10 +116,18 @@ export function useRoadSegmentDrawing(
     }
     draft.tempEdges.push(newEdge)
 
-    // 更新节点 edgeIds
+    // 草稿阶段暂存对正式节点 edgeIds 的修改，不直接改正式节点
     const lastNodeRef = draft.tempNodes.find(n => n.id === lastId)
     if (lastNodeRef) lastNodeRef.edgeIds.push(edgeId)
-    existingNode.edgeIds.push(edgeId)
+
+    // 记录对正式节点 edgeIds 的待应用修改
+    if (!draft.pendingExistingNodeEdgeIds) {
+      draft.pendingExistingNodeEdgeIds = {}
+    }
+    if (!draft.pendingExistingNodeEdgeIds[nodeId]) {
+      draft.pendingExistingNodeEdgeIds[nodeId] = [...(existingNode.edgeIds || [])]
+    }
+    draft.pendingExistingNodeEdgeIds[nodeId].push(edgeId)
 
     draft.nodeIds.push(nodeId)
   }
@@ -129,12 +147,22 @@ export function useRoadSegmentDrawing(
       }
     })
 
-    // 2) 添加临时边
+    // 2) 添加临时边到正式 edges
     draft.tempEdges.forEach(e => {
       if (!edges.value.find(ee => ee.id === e.id)) {
         edges.value.push(e)
       }
     })
+
+    // 3) 应用草稿阶段对正式节点 edgeIds 的挂起修改
+    if (draft.pendingExistingNodeEdgeIds) {
+      Object.entries(draft.pendingExistingNodeEdgeIds).forEach(([nodeId, newEdgeIds]) => {
+        const node = nodes.value.find(n => n.id === nodeId)
+        if (node) {
+          node.edgeIds = newEdgeIds
+        }
+      })
+    }
 
     // 3) 创建路段
     const segCode = `S${String(segments.value.length + 1).padStart(4, '0')}`

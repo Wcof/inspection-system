@@ -242,6 +242,12 @@ const routes: RouteRecordRaw[] = [
             meta: { title: '算法管理' }
           },
           {
+            path: 'third-party-api',
+            name: 'ManagementThirdPartyApiConfig',
+            component: () => import('../views/management/system/ThirdPartyApiConfigList.vue'),
+            meta: { title: '第三方接口配置' }
+          },
+          {
             path: 'third-party-simulator',
             name: 'ManagementThirdPartySimulator',
             component: () => import('../views/management/system/ThirdPartySimulator.vue'),
